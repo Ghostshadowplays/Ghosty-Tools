@@ -84,7 +84,7 @@ chkdsk /f /r
 
 cleanmgr.exe
 
-defrag c: /a /u
+defrag c: /u
 
 echo]
 echo]
