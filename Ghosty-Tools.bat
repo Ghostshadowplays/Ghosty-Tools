@@ -82,6 +82,10 @@ gpupdate
 
 chkdsk /f /r
 
+cleanmgr.exe
+
+defrag c: /a /u
+
 echo]
 echo]
 echo [97mDo you want Malwarebytes to be installed...
@@ -130,19 +134,6 @@ IF /I '%selection%'=='2' GOTO Convert
 IF /I '%selection%'=='3' GOTO Menu
 
 pause
-
-:Check
-
-diskmgmt.msc
-
-echo.  Now Goto Edit Config file!
-pause
-GOTO MBR2GPT
-
-:Edit
-notepad.exe MBR2GPT-Conf.txt
-GOTO MBR2GPT
-
 
 :Validate
 
