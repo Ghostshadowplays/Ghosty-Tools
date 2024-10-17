@@ -402,7 +402,6 @@ select_all_checkbox.grid(row=8, column=2, padx=20, pady=10, sticky="w")
 
 def toggle_all_checkboxes(select_all):
     # Set the state of all checkboxes based on "Select All"
-    dark_mode_var.set(select_all)
     delete_temp_files_var.set(select_all)
     disable_telemetry_var.set(select_all)
     disable_activity_history_var.set(select_all)
@@ -419,6 +418,7 @@ def toggle_all_checkboxes(select_all):
     set_services_manual_var.set(select_all)
     # Add any other checkbox variables here if you have more
 
+
 # Create a variable for the checkbox to set services to manual
 set_services_manual_var = ctk.BooleanVar()
 
@@ -432,7 +432,7 @@ set_services_manual_checkbox = ctk.CTkCheckBox(
     border_width=2,
     variable=set_services_manual_var
 )
-set_services_manual_checkbox.grid(row=5, column=4, padx=20, pady=10, sticky="w")
+set_services_manual_checkbox.grid(row=2, column=3, padx=20, pady=10, sticky="w")
 
 def set_services_to_manual(service_names):
     # Set specified services to manual startup
@@ -495,7 +495,6 @@ def enable_end_task():
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Policies\Explorer", 0, winreg.KEY_SET_VALUE)
         winreg.SetValueEx(key, "NoViewContextMenu", 0, winreg.REG_DWORD, 0)  # Set to 0 to enable context menu
         winreg.CloseKey(key)
-        messagebox.showinfo("Success", "End Task with Right Click has been enabled.")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to enable End Task with Right Click: {e}")
 
@@ -521,7 +520,6 @@ def disable_wifi_sense():
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\WiFi", 0, winreg.KEY_SET_VALUE)
         winreg.SetValueEx(key, "WifiSense", 0, winreg.REG_DWORD, 0)  # Set to 0 to disable Wi-Fi Sense
         winreg.CloseKey(key)
-        messagebox.showinfo("Success", "Wi-Fi Sense has been disabled.")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to disable Wi-Fi Sense: {e}")
 
@@ -546,7 +544,6 @@ def disable_storage_sense():
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\StorageSense\State", 0, winreg.KEY_SET_VALUE)
         winreg.SetValueEx(key, "Image", 0, winreg.REG_DWORD, 0)  # Set to 0 to disable Storage Sense
         winreg.CloseKey(key)
-        messagebox.showinfo("Success", "Storage Sense has been disabled.")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to disable Storage Sense: {e}")
 
@@ -622,35 +619,6 @@ def disable_homegroup():
         messagebox.showerror("Error", f"Failed to disable HomeGroup: {e}")
 
 
-
-# Create a variable for the checkbox for Dark Mode
-dark_mode_var = ctk.BooleanVar(value=False)  # Default is unchecked
-
-# Add a checkbox for Dark Mode
-dark_mode_checkbox = ctk.CTkCheckBox(
-    master=app,
-    text="Enable Dark Mode",
-    fg_color="#4158D0",
-    hover_color="#993cda",
-    border_color="#e7e7e7",
-    border_width=2,
-    variable=dark_mode_var
-)
-dark_mode_checkbox.grid(row=2, column=3, padx=20, pady=15, sticky="w")
-
-# Function to enable Dark Mode
-def enable_dark_mode():
-    ctk.set_appearance_mode("dark")  # Set to dark mode
-    app.configure(bg='black')  # Change app background to black for better visibility
-
-    # Update Windows settings for dark mode
-    try:
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", 0, winreg.KEY_SET_VALUE)
-        winreg.SetValueEx(key, "AppsUseLightTheme", 0, winreg.REG_DWORD, 0)  # Set to 0 for dark mode
-        winreg.SetValueEx(key, "SystemUsesLightTheme", 0, winreg.REG_DWORD, 0)  # Set to 0 for dark mode
-        winreg.CloseKey(key)
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to change dark mode settings: {e}")
 
 # Create a variable for the checkbox to delete temp files
 delete_temp_files_var = ctk.BooleanVar()
@@ -830,9 +798,6 @@ def confirm_changes():
     if create_restore_point_var.get():
         create_restore_point()
 
-    # Handle dark mode change
-    if dark_mode_var.get():
-        enable_dark_mode()
 
     # Handle deleting temporary files
     if delete_temp_files_var.get():
