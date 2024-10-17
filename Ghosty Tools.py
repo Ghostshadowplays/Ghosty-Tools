@@ -65,7 +65,7 @@ app.grid_rowconfigure(0, weight=1)
 app.grid_columnconfigure(0, weight=1)
 app.resizable(True, True)
 
-# Create a subheader label for "Tweaks"
+# subheader label for "Tweaks"
 def create_tweaks_subheader():
     tweaks_label = ctk.CTkLabel(app, text="Tweaks", font=("Helvetica", 20, "bold"), text_color="#993cda")
     tweaks_label.grid(row=0, column=2, padx=50, pady=(50, 0), sticky="nw")
@@ -88,7 +88,7 @@ def load_image(image_name, size):
         return None
     return ctk.CTkImage(Image.open(image_path), size=size)
 
-# Create label with image
+# label with image
 def create_label_with_image(text, image_name, row, column, text_color="#993cda"):
     loaded_image = load_image(image_name, size=(40, 40))
     if loaded_image:
@@ -172,7 +172,7 @@ mbr2gpt_options = [
     "mbr2gpt /convert /disk:3 /allowFullOS"
 ]
 
-# ComboBox and Button for MBR2GPT options
+# Button for MBR2GPT options
 mbr2gpt_combo = ctk.CTkComboBox(app, values=mbr2gpt_options, width=300, height=30)
 mbr2gpt_combo.set("Select MBR2GPT Command")
 mbr2gpt_combo.grid(row=2, column=0, padx=20, pady=15, sticky="w")
@@ -190,7 +190,7 @@ run_button.grid(row=3, column=0, padx=20, pady=15, sticky="w")
 
 create_label_with_image("Ghosty Tools", "image_1.png", 0, 0)
 
-# Create Button with Image
+# Button with Image
 def create_button_with_image(image_name, text, command, row, column):
     loaded_image = load_image(image_name, size=(20, 20))
     if loaded_image:
@@ -220,7 +220,7 @@ def create_button(text, command, row, column):
     )
     button.grid(row=row, column=column, padx=20, pady=15, sticky="w")
 
-# Mini-game: Click the Target
+# Click the Target
 def play_mini_game():
     # Start a separate Pygame instance for the mini-game
     pygame.display.set_mode((400, 300))
@@ -231,12 +231,12 @@ def play_mini_game():
     target_radius = 20
     target_pos = (random.randint(target_radius, 380), random.randint(target_radius, 280))
 
-    # Set up game variables
+    # game variables
     score = 0
     game_duration = 15  # Game time limit in seconds
     start_time = time.time()
 
-# Mini-game: Click the Target
+# Click the Target
 def play_mini_game():
     # Initialize the Pygame font module
     pygame.font.init()
@@ -250,7 +250,7 @@ def play_mini_game():
     target_radius = 20
     target_pos = (random.randint(target_radius, 380), random.randint(target_radius, 280))
 
-    # Set up game variables
+    # game variables
     score = 0
     game_duration = 15  # Game time limit in seconds
     start_time = time.time()
@@ -289,81 +289,72 @@ def play_mini_game():
     # Return to main app window after game
     pygame.display.quit()
     pygame.font.quit()
-    messagebox.showinfo("Mini-Game Over", f"Your score: {score}")
+    messagebox.showinfo("Click the Target Over", f"Your score: {score}")
 
 # Mini-game: Tic-Tac-Toe
+
 def play_tic_tac_toe():
-    pygame.display.set_mode((400, 400))
+    pygame.init()
+    screen = pygame.display.set_mode((400, 400))
     pygame.display.set_caption("Tic-Tac-Toe")
 
-    # Color definitions
     WHITE = (255, 255, 255)
     RED = (255, 0, 0)
     BLUE = (0, 0, 255)
 
-    # Initialize game variables
     grid = [['' for _ in range(3)] for _ in range(3)]
     current_player = 'X'
     game_over = False
 
     def draw_grid():
-        # Draw grid lines
         for i in range(1, 3):
-            pygame.draw.line(pygame.display.get_surface(), WHITE, (0, i * 133), (400, i * 133), 2)
-            pygame.draw.line(pygame.display.get_surface(), WHITE, (i * 133, 0), (i * 133, 400), 2)
+            pygame.draw.line(screen, WHITE, (0, i * 133), (400, i * 133), 2)
+            pygame.draw.line(screen, WHITE, (i * 133, 0), (i * 133, 400), 2)
 
     def draw_marks():
-        # Draw the marks on the grid
         for row in range(3):
             for col in range(3):
                 mark = grid[row][col]
                 if mark == 'X':
-                    pygame.draw.line(pygame.display.get_surface(), RED, (col * 133 + 20, row * 133 + 20), (col * 133 + 113, row * 133 + 113), 2)
-                    pygame.draw.line(pygame.display.get_surface(), RED, (col * 133 + 20, row * 133 + 113), (col * 133 + 113, row * 133 + 20), 2)
+                    pygame.draw.line(screen, RED, (col * 133 + 20, row * 133 + 20), (col * 133 + 113, row * 133 + 113), 2)
+                    pygame.draw.line(screen, RED, (col * 133 + 20, row * 133 + 113), (col * 133 + 113, row * 133 + 20), 2)
                 elif mark == 'O':
-                    pygame.draw.circle(pygame.display.get_surface(), BLUE, (col * 133 + 67, row * 133 + 67), 50, 2)
+                    pygame.draw.circle(screen, BLUE, (col * 133 + 67, row * 133 + 67), 50, 2)
 
     def check_winner():
-        # Check rows, columns, and diagonals for a winner
         for row in range(3):
             if grid[row][0] == grid[row][1] == grid[row][2] != '':
                 return grid[row][0]
-        
         for col in range(3):
             if grid[0][col] == grid[1][col] == grid[2][col] != '':
                 return grid[0][col]
-
         if grid[0][0] == grid[1][1] == grid[2][2] != '':
             return grid[0][0]
-        
         if grid[0][2] == grid[1][1] == grid[2][0] != '':
             return grid[0][2]
-
         return None
 
     def check_draw():
         return all(cell != '' for row in grid for cell in row)
 
-    # Game loop
     running = True
     while running:
-        pygame.display.get_surface().fill((30, 30, 30))  # Dark background
+        screen.fill((30, 30, 30))
         draw_grid()
         draw_marks()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-                break
             elif event.type == pygame.MOUSEBUTTONDOWN and not game_over:
                 mouseX, mouseY = event.pos
                 col = mouseX // 133
                 row = mouseY // 133
-                
+
                 if grid[row][col] == '':
                     grid[row][col] = current_player
                     winner = check_winner()
-                    
+
                     if winner:
                         messagebox.showinfo("Game Over", f"{winner} wins!")
                         game_over = True
@@ -373,17 +364,24 @@ def play_tic_tac_toe():
                     else:
                         current_player = 'O' if current_player == 'X' else 'X'
 
-            # Reset game on 'R' key press
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 grid = [['' for _ in range(3)] for _ in range(3)]
                 current_player = 'X'
                 game_over = False
 
-        # Update the display
         pygame.display.flip()
 
-    # Clean up
-    pygame.display.quit()
+    pygame.display.quit()  # Closes the game window but keeps Pygame initialized
+
+# Define the button function to start the Tic-Tac-Toe game in a new thread
+def start_game():
+    game_thread = threading.Thread(target=play_tic_tac_toe)
+    game_thread.start()
+
+
+# Run the CustomTkinter main loop
+
+
 
 select_all_var = ctk.BooleanVar()
 
@@ -861,7 +859,15 @@ def confirm_changes():
 create_button_with_image("repairlogo.png", "Run System Maintenance", run_system_maintenance, 1, 0)
 # Add a button to the app window to play the mini-game
 create_button("Play Click The Target", play_mini_game, 4, 1)
-create_button("Play Tic-Tac-Toe", play_tic_tac_toe, 5, 1)
+# Create a button in CustomTkinter to start the Tic-Tac-Toe game
+start_button = ctk.CTkButton(app, text="Play Tic-Tac-Toe", corner_radius=32,
+    fg_color="#4158D0",
+    hover_color="#993cda",
+    border_color="#e7e7e7",
+    border_width=2, command=start_game)
+start_button.grid(pady=20, row = 5, column = 1,)
+
+
 
 # Start app loop
 app.mainloop()
