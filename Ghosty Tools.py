@@ -42,7 +42,7 @@ def toggle_music():
 
 play_background_music()
 
-# Load button click sound
+# button click sound
 click_sound_path = os.path.join(current_dir, "button_click.mp3")
 click_sound = pygame.mixer.Sound(click_sound_path)
 
@@ -75,24 +75,25 @@ ctk.set_default_color_theme("blue")
 # Initialize App
 app = ctk.CTk()
 app.title("Ghosty Tool")
-app.geometry("1110x420")
+app.geometry("1170x420")
 app.grid_rowconfigure(0, weight=1)
 app.grid_columnconfigure(0, weight=1)
 app.resizable(True, True)
+
 
 # subheader label for "Tweaks"
 def create_tweaks_subheader():
     tweaks_label = ctk.CTkLabel(app, text="Tweaks", font=("Helvetica", 20, "bold"), text_color="#993cda")
     tweaks_label.grid(row=0, column=2, padx=50, pady=(50, 0), sticky="nw")
 
-# Call the function to create the subheader
+
 create_tweaks_subheader()
 
 def create_tweaks_subheader():
     tweaks_label = ctk.CTkLabel(app, text="Mini Games", font=("Helvetica", 20, "bold"), text_color="#993cda")
     tweaks_label.grid(row=3, column=1, padx=37, pady=(15, 0), sticky="nw")
 
-# Call the function to create the subheader
+
 create_tweaks_subheader()
 
 # Load images
@@ -145,7 +146,6 @@ def execute_maintenance_tasks():
             "sfc /scannow; "
             "gpupdate /force; "
             "chkdsk /f /r; "
-            "cleanmgr; "
             "defrag C: /u"
         )
         subprocess.run(
@@ -156,6 +156,8 @@ def execute_maintenance_tasks():
     except Exception as e:
         print(f"Error executing maintenance tasks: {e}")
         messagebox.showerror("Error", f"Error executing maintenance tasks: {e}")
+
+        messagebox.showinfo("Repair Tool", "System maintenance has finished.")
 
 def christitus():
     try:
@@ -231,46 +233,46 @@ def create_button(text, command, row, column):
         hover_color="#993cda",
         border_color="#e7e7e7",
         border_width=2,
-        command=lambda: [play_click_sound(), command()]  # Play sound when clicked
+        command=lambda: [play_click_sound(), command()]  
     )
     button.grid(row=row, column=column, padx=20, pady=15, sticky="w")
 
 # Click the Target
 def play_mini_game():
-    # Start a separate Pygame instance for the mini-game
+    
     pygame.display.set_mode((400, 300))
     pygame.display.set_caption("Click the Target")
     
     # Define target properties
-    target_color = (255, 0, 0)  # Red color
+    target_color = (255, 0, 0)  
     target_radius = 20
     target_pos = (random.randint(target_radius, 380), random.randint(target_radius, 280))
 
     # game variables
     score = 0
-    game_duration = 15  # Game time limit in seconds
+    game_duration = 15  
     start_time = time.time()
 
 # Click the Target
 def play_mini_game():
-    # Initialize the Pygame font module
+   
     pygame.font.init()
     
-    # Start a separate Pygame instance for the mini-game
+    
     pygame.display.set_mode((400, 300))
     pygame.display.set_caption("Click the Target")
     
-    # Define target properties
-    target_color = "#993cda"  # Red color
+    
+    target_color = "#993cda" 
     target_radius = 20
     target_pos = (random.randint(target_radius, 380), random.randint(target_radius, 280))
 
     # game variables
     score = 0
-    game_duration = 15  # Game time limit in seconds
+    game_duration = 15 
     start_time = time.time()
 
-    # Game loop
+  
     running = True
     while running:
         pygame.display.get_surface().fill((30, 30, 30))  # White background
@@ -282,12 +284,12 @@ def play_mini_game():
                 break
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
-                # Check if mouse click is within the target
+                
                 distance = ((mouse_pos[0] - target_pos[0]) ** 2 + (mouse_pos[1] - target_pos[1]) ** 2) ** 0.5
                 if distance <= target_radius:
-                    click_sound.play()  # Play the click sound
+                    click_sound.play()  
                     score += 1
-                    # Move target to a new random location
+                    
                     target_pos = (random.randint(target_radius, 380), random.randint(target_radius, 280))
 
         # Check if game time is over
@@ -306,7 +308,7 @@ def play_mini_game():
     pygame.font.quit()
     messagebox.showinfo("Click the Target Over", f"Your score: {score}")
 
-# Mini-game: Tic-Tac-Toe
+# Tic-Tac-Toe
 
 def play_tic_tac_toe():
     pygame.init()
@@ -386,21 +388,21 @@ def play_tic_tac_toe():
 
         pygame.display.flip()
 
-    pygame.display.quit()  # Closes the game window but keeps Pygame initialized
+    pygame.display.quit()  
 
-# Define the button function to start the Tic-Tac-Toe game in a new thread
+
 def start_game():
     game_thread = threading.Thread(target=play_tic_tac_toe)
     game_thread.start()
 
 
-# Run the CustomTkinter main loop
+
 
 
 
 select_all_var = ctk.BooleanVar()
 
-# Create a checkbox for "Select All"
+# checkbox for "Select All"
 select_all_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Select All Tweaks",
@@ -415,7 +417,7 @@ select_all_checkbox = ctk.CTkCheckBox(
 select_all_checkbox.grid(row=8, column=2, padx=20, pady=10, sticky="w")
 
 def toggle_all_checkboxes(select_all):
-    # Set the state of all checkboxes based on "Select All"
+    
     delete_temp_files_var.set(select_all)
     disable_telemetry_var.set(select_all)
     disable_activity_history_var.set(select_all)
@@ -430,13 +432,13 @@ def toggle_all_checkboxes(select_all):
     enable_end_task_var.set(select_all)
     run_disk_cleanup_var.set(select_all)
     set_services_manual_var.set(select_all)
-    # Add any other checkbox variables here if you have more
+    
 
 
-# Create a variable for the checkbox to set services to manual
+# variable for the checkbox to set services to manual
 set_services_manual_var = ctk.BooleanVar()
 
-# Create a checkbox for setting services to manual
+#  checkbox for setting services to manual
 set_services_manual_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Set Services to Manual",
@@ -461,17 +463,17 @@ def set_services_to_manual(service_names):
             else:
                 messagebox.showerror("Error", f"Failed to set service '{service}' to manual: {e.stderr}")
 
-# Update your services list to skip or handle this service differently
+
 services_to_set_manual = [
-    "wuauserv",  # Windows Update
-    "BITS",      # Background Intelligent Transfer Service
-    # Add more services as needed
+    "wuauserv",
+    "BITS",
+    
 ]
 
 
 run_disk_cleanup_var = ctk.BooleanVar()
 
-# Create a checkbox for running Disk Cleanup
+# checkbox for running Disk Cleanup
 run_disk_cleanup_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Run Disk Cleanup",
@@ -491,10 +493,10 @@ def run_disk_cleanup():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to run Disk Cleanup: {e}")
 
-# Create a variable for the checkbox to enable End Task with Right Click
+# variable for the checkbox to enable End Task with Right Click
 enable_end_task_var = ctk.BooleanVar()
 
-# Create a checkbox for enabling End Task with Right Click
+# checkbox for enabling End Task with Right Click
 enable_end_task_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Enable End Task With Right Click",
@@ -517,10 +519,10 @@ def enable_end_task():
         messagebox.showerror("Error", f"Failed to enable End Task with Right Click: {e}")
 
 
-# Create a variable for the checkbox to disable Wi-Fi Sense
+# variable for the checkbox to disable Wi-Fi Sense
 disable_wifi_sense_var = ctk.BooleanVar()
 
-# Create a checkbox for disabling Wi-Fi Sense
+# checkbox for disabling Wi-Fi Sense
 disable_wifi_sense_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Wi-Fi Sense",
@@ -535,12 +537,12 @@ disable_wifi_sense_checkbox.grid(row=4, column=4, padx=20, pady=10, sticky="w")
 
 def disable_wifi_sense():
     try:
-        # Attempt to open the key in HKEY_LOCAL_MACHINE instead of HKEY_CURRENT_USER
+        
         key_path = r"SOFTWARE\Microsoft\WcmSvc\wifinetworkmanager\config"
         try:
             key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_SET_VALUE)
         except FileNotFoundError:
-            # Create the key if it does not exist
+            
             key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, key_path)
 
         winreg.SetValueEx(key, "AutoConnectAllowedOEM", 0, winreg.REG_DWORD, 0)  # Set to 0 to disable
@@ -549,10 +551,10 @@ def disable_wifi_sense():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to disable Wi-Fi Sense: {e}")
 
-# Create a variable for the checkbox to disable Storage Sense
+# variable for the checkbox to disable Storage Sense
 disable_storage_sense_var = ctk.BooleanVar()
 
-# Create a checkbox for disabling Storage Sense
+# checkbox for disabling Storage Sense
 disable_storage_sense_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Storage Sense",
@@ -567,25 +569,25 @@ disable_storage_sense_checkbox.grid(row=3, column=4, padx=20, pady=10, sticky="w
 
 def disable_storage_sense():
     try:
-        # Path might be under HKEY_LOCAL_MACHINE instead of HKEY_CURRENT_USER
+        
         key_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy"
         
         try:
             key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_SET_VALUE)
         except FileNotFoundError:
-            # Create the key if it doesn't exist
+            
             key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, key_path)
 
-        winreg.SetValueEx(key, "01", 0, winreg.REG_DWORD, 0)  # Disable Storage Sense by setting it to 0
+        winreg.SetValueEx(key, "01", 0, winreg.REG_DWORD, 0) 
         winreg.CloseKey(key)
         print("Storage Sense disabled.")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to disable Storage Sense: {e}")
 
-# Create a variable for the checkbox to disable location tracking
+# variable for the checkbox to disable location tracking
 disable_location_tracking_var = ctk.BooleanVar()
 
-# Create a checkbox for disabling location tracking
+# checkbox for disabling location tracking
 disable_location_tracking_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Location Tracking",
@@ -607,10 +609,10 @@ def disable_location_tracking():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to disable location tracking: {e}")
 
-# Create a variable for the checkbox to prefer IPv4 over IPv6
+# variable for the checkbox to prefer IPv4 over IPv6
 prefer_ipv4_var = ctk.BooleanVar()
 
-# Create a checkbox for preferring IPv4 over IPv6
+# checkbox for preferring IPv4 over IPv6
 prefer_ipv4_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Prefer IPv4 over IPv6",
@@ -632,7 +634,7 @@ def prefer_ipv4():
         try:
             tcpip_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_SET_VALUE)
         except FileNotFoundError:
-            # Create the TCPIP key if it doesn't exist
+            
             tcpip_key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, key_path)
         
         # Now create the Parameters key
@@ -651,7 +653,7 @@ def prefer_ipv4():
 
 disable_homegroup_var = ctk.BooleanVar()
 
-# Create a checkbox for disabling HomeGroup
+
 disable_homegroup_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable HomeGroup",
@@ -665,7 +667,7 @@ disable_homegroup_checkbox = ctk.CTkCheckBox(
 disable_homegroup_checkbox.grid(row=4, column=3, padx=20, pady=10, sticky="w")
 
 def disable_homegroup():
-    # Modify the registry to disable HomeGroup
+    
     try:
         key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System", 0, winreg.KEY_SET_VALUE)
         winreg.SetValueEx(key, "HomeGroupDisabled", 1, winreg.REG_DWORD, 1)  # Set to 1 to disable HomeGroup
@@ -675,10 +677,10 @@ def disable_homegroup():
 
 
 
-# Create a variable for the checkbox to delete temp files
+
 delete_temp_files_var = ctk.BooleanVar()
 
-# Create a checkbox for deleting temporary files
+
 delete_temp_files_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Delete Temporary Files",
@@ -692,35 +694,35 @@ delete_temp_files_checkbox = ctk.CTkCheckBox(
 delete_temp_files_checkbox.grid(row=2, column=2, padx=20, pady=10, sticky="w")
 
 def delete_temp_files():
-    # Get the path to the temporary files directory
+    
     temp_folder = os.path.join(os.getenv('TEMP'))
 
-    # Check if the temporary files folder exists
+    
     if not os.path.exists(temp_folder):
         messagebox.showerror("Error", "Temporary files folder not found.")
         return
 
     try:
-        # List files in the temp directory
+        
         for filename in os.listdir(temp_folder):
             file_path = os.path.join(temp_folder, filename)
-            # Check if it's a file (skip directories)
+            
             if os.path.isfile(file_path):
                 try:
-                    os.remove(file_path)  # Attempt to delete the file
-                    print(f"Deleted: {file_path}")  # Debug output
+                    os.remove(file_path)  
+                    print(f"Deleted: {file_path}")  
                 except PermissionError:
                     print(f"Permission denied: {file_path} is in use or locked.")
                 except Exception as e:
-                    print(f"Error deleting {file_path}: {e}")  # Debug output
+                    print(f"Error deleting {file_path}: {e}")  
 
     except Exception as e:
-        print(f"Error deleting temporary files: {e}")  # Debug output
+        print(f"Error deleting temporary files: {e}")  
         messagebox.showerror("Error", f"Error deleting temporary files: {e}")
 
 disable_hibernation_var = ctk.BooleanVar()
 
-# Create a checkbox for disabling hibernation
+
 disable_hibernation_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Hibernation",
@@ -735,16 +737,16 @@ disable_hibernation_checkbox.grid(row=3, column=3, padx=20, pady=10, sticky="w")
 
 
 def disable_hibernation():
-    # Disable hibernation using the command line
+    
     try:
         subprocess.run('powercfg -h off', shell=True, check=True)
     except Exception as e:
         messagebox.showerror("Error", f"Failed to disable hibernation: {e}")
 
-# Create a variable for the checkbox to disable telemetry
+
 disable_telemetry_var = ctk.BooleanVar()
 
-# Create a checkbox for disabling telemetry
+
 disable_telemetry_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Telemetry",
@@ -758,7 +760,7 @@ disable_telemetry_checkbox = ctk.CTkCheckBox(
 disable_telemetry_checkbox.grid(row=3, column=2, padx=20, pady=10, sticky="w")
 
 def disable_telemetry():
-    # Modify the registry to disable telemetry
+    
     try:
         key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\Microsoft\Windows\DataCollection", 0, winreg.KEY_SET_VALUE)
         winreg.SetValueEx(key, "AllowTelemetry", 0, winreg.REG_DWORD, 0)  # Set to 0 to disable telemetry
@@ -766,10 +768,10 @@ def disable_telemetry():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to disable telemetry: {e}")
 
-# Create a variable for the checkbox to disable activity history
+
 disable_activity_history_var = ctk.BooleanVar()
 
-# Create a checkbox for disabling activity history
+
 disable_activity_history_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Activity History",
@@ -783,7 +785,7 @@ disable_activity_history_checkbox = ctk.CTkCheckBox(
 disable_activity_history_checkbox.grid(row=4, column=2, padx=20, pady=10, sticky="w")
 
 def disable_activity_history():
-    # Modify the registry to disable activity history
+    
     try:
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Privacy", 0, winreg.KEY_SET_VALUE)
         winreg.SetValueEx(key, "ActivityHistoryEnabled", 0, winreg.REG_DWORD, 0)  # Set to 0 to disable activity history
@@ -791,10 +793,10 @@ def disable_activity_history():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to disable activity history: {e}")
 
-# Create a variable for the checkbox to disable GameDVR
+
 disable_gamedvr_var = ctk.BooleanVar()
 
-# Create a checkbox for disabling GameDVR
+
 disable_gamedvr_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable GameDVR",
@@ -808,13 +810,13 @@ disable_gamedvr_checkbox = ctk.CTkCheckBox(
 disable_gamedvr_checkbox.grid(row=1, column=3, padx=20, pady=10, sticky="w")
 
 def disable_gamedvr():
-    # Modify the registry to disable GameDVR
+    
     try:
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\GameDVR", 0, winreg.KEY_SET_VALUE)
         winreg.SetValueEx(key, "AppCaptureEnabled", 0, winreg.REG_DWORD, 0)  # Set to 0 to disable GameDVR
         winreg.CloseKey(key)
 
-        # Also, disable Game Bar if desired
+        
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\GameDVR", 0, winreg.KEY_SET_VALUE)
         winreg.SetValueEx(key, "GameDVR_Enabled", 0, winreg.REG_DWORD, 0)  # Set to 0 to disable Game Bar
         winreg.CloseKey(key)
@@ -824,7 +826,7 @@ def disable_gamedvr():
 
 create_restore_point_var = ctk.BooleanVar()
 
-# Create a checkbox for creating a restore point
+
 create_restore_point_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Create Restore Point",
@@ -846,7 +848,7 @@ def create_restore_point():
             print(f"Error creating restore point: {e}")
             messagebox.showerror("Error", f"Error creating restore point: {e}")
 
-# Confirm button
+
 confirm_button = ctk.CTkButton(
     master=app,
     corner_radius=32,
@@ -861,16 +863,16 @@ confirm_button = ctk.CTkButton(
 confirm_button.grid(row=8, column=4, padx=20, pady=10, sticky="w")
 
 def toggle_dark_mode():
-    # Get the current value of the system's theme setting
+    
     try:
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", 0, winreg.KEY_READ)
         current_value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
         winreg.CloseKey(key)
 
         # Toggle the value
-        new_value = 0 if current_value == 1 else 1  # 0 for dark mode, 1 for light mode
+        new_value = 0 if current_value == 1 else 1  
 
-        # Set the new value
+        
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", 0, winreg.KEY_SET_VALUE)
         winreg.SetValueEx(key, "AppsUseLightTheme", 0, winreg.REG_DWORD, new_value)
         winreg.SetValueEx(key, "SystemUsesLightTheme", 0, winreg.REG_DWORD, new_value)
@@ -881,13 +883,13 @@ def toggle_dark_mode():
         messagebox.showerror("Error", f"Failed to toggle Dark Mode: {e}")
 
 def toggle_background_color():
-    current_bg_color = app.cget("fg_color")  # Get the current background color
+    current_bg_color = app.cget("fg_color") 
     
-    # Check and toggle between two colors
-    if current_bg_color == "#1c1c1c":  # Dark background color
-        app.configure(fg_color="#f0f0f0")  # Change to light background
+
+    if current_bg_color == "#1c1c1c": 
+        app.configure(fg_color="#f0f0f0")  
     else:
-        app.configure(fg_color="#1c1c1c")  # Change to dark background
+        app.configure(fg_color="#1c1c1c")  
 
 
 # Default background color (dark)
@@ -954,11 +956,8 @@ def confirm_changes():
 
     messagebox.showinfo("Settings Applied", "Your changes have been applied.")
 
-# Initialize Buttons
 create_button_with_image("repairlogo.png", "Run System Maintenance", run_system_maintenance, 1, 0)
-# Add a button to the app window to play the mini-game
 create_button("Play Click The Target", play_mini_game, 4, 1)
-# Create a button in CustomTkinter to start the Tic-Tac-Toe game
 start_button = ctk.CTkButton(app, text="Play Tic-Tac-Toe", corner_radius=32,
     fg_color="#4158D0",
     hover_color="#993cda",
@@ -967,11 +966,9 @@ start_button = ctk.CTkButton(app, text="Play Tic-Tac-Toe", corner_radius=32,
 start_button.grid(pady=20, row = 5, column = 1,)
 music_switch = ctk.CTkSwitch(app, text="Music, On-Off", border_color="#e7e7e7", fg_color="#4158D0", border_width=2,  button_hover_color="#993cda", text_color="#FFFFFF", command=toggle_music)
 music_switch.grid(row=4, column=0, padx=1, pady=15)
-# Create the dark mode switch
-dark_mode_switch = ctk.CTkSwitch(app, text="Windows Dark Mode", border_color="#e7e7e7", fg_color="#4158D0", border_width=2,  button_hover_color="#993cda", text_color="#FFFFFF", command=toggle_dark_mode)
+dark_mode_switch = ctk.CTkSwitch(app, text="Windows Dark Or Light Mode", border_color="#e7e7e7", fg_color="#4158D0", border_width=2,  button_hover_color="#993cda", text_color="#FFFFFF", command=toggle_dark_mode)
 dark_mode_switch.grid(row=1, column=1, padx=20, pady=20)
-# Create the background color toggle switch
 bg_color_switch = ctk.CTkSwitch(app, text="Toggle Background Color", border_color="#e7e7e7", fg_color="#4158D0", border_width=2,  button_hover_color="#993cda", text_color="#FFFFFF", command=toggle_background_color)
 bg_color_switch.grid(row=5, column=0, padx=20, pady=20)
-# Start app loop
+
 app.mainloop()
