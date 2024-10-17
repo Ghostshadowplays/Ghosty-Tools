@@ -60,7 +60,7 @@ ctk.set_default_color_theme("blue")
 # Initialize App
 app = ctk.CTk()
 app.title("Ghosty Tool")
-app.geometry("1110x410")
+app.geometry("1110x420")
 app.grid_rowconfigure(0, weight=1)
 app.grid_columnconfigure(0, weight=1)
 app.resizable(True, True)
@@ -433,20 +433,22 @@ set_services_manual_checkbox = ctk.CTkCheckBox(
 set_services_manual_checkbox.grid(row=2, column=3, padx=20, pady=10, sticky="w")
 
 def set_services_to_manual(service_names):
-    # Set specified services to manual startup
     for service in service_names:
         try:
             command = f'Sc config "{service}" start= demand'
-            subprocess.run(command, shell=True, check=True)
-            print(f"Service '{service}' set to manual.")  # Debug output
+            subprocess.run(command, shell=True, check=True, capture_output=True)
+            print(f"Service '{service}' set to manual.")
         except subprocess.CalledProcessError as e:
-            messagebox.showerror("Error", f"Failed to set service '{service}' to manual: {e}")
+            print(f"Failed to set service '{service}' to manual: {e.stderr}")
+            if service == "Dnscache":
+                print(f"Service '{service}' requires special permissions and cannot be modified.")
+            else:
+                messagebox.showerror("Error", f"Failed to set service '{service}' to manual: {e.stderr}")
 
-# List of services to set to manual (Add or remove services as needed)
+# Update your services list to skip or handle this service differently
 services_to_set_manual = [
     "wuauserv",  # Windows Update
     "BITS",      # Background Intelligent Transfer Service
-    "Dnscache",  # DNS Client
     # Add more services as needed
 ]
 
@@ -513,11 +515,18 @@ disable_wifi_sense_checkbox = ctk.CTkCheckBox(
 disable_wifi_sense_checkbox.grid(row=4, column=4, padx=20, pady=10, sticky="w")
 
 def disable_wifi_sense():
-    # Modify the registry to disable Wi-Fi Sense
     try:
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\WiFi", 0, winreg.KEY_SET_VALUE)
-        winreg.SetValueEx(key, "WifiSense", 0, winreg.REG_DWORD, 0)  # Set to 0 to disable Wi-Fi Sense
+        # Attempt to open the key in HKEY_LOCAL_MACHINE instead of HKEY_CURRENT_USER
+        key_path = r"SOFTWARE\Microsoft\WcmSvc\wifinetworkmanager\config"
+        try:
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_SET_VALUE)
+        except FileNotFoundError:
+            # Create the key if it does not exist
+            key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, key_path)
+
+        winreg.SetValueEx(key, "AutoConnectAllowedOEM", 0, winreg.REG_DWORD, 0)  # Set to 0 to disable
         winreg.CloseKey(key)
+        print("Wi-Fi Sense disabled.")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to disable Wi-Fi Sense: {e}")
 
@@ -537,11 +546,19 @@ disable_storage_sense_checkbox = ctk.CTkCheckBox(
 disable_storage_sense_checkbox.grid(row=3, column=4, padx=20, pady=10, sticky="w")
 
 def disable_storage_sense():
-    # Modify the registry to disable Storage Sense
     try:
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\StorageSense\State", 0, winreg.KEY_SET_VALUE)
-        winreg.SetValueEx(key, "Image", 0, winreg.REG_DWORD, 0)  # Set to 0 to disable Storage Sense
+        # Path might be under HKEY_LOCAL_MACHINE instead of HKEY_CURRENT_USER
+        key_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy"
+        
+        try:
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_SET_VALUE)
+        except FileNotFoundError:
+            # Create the key if it doesn't exist
+            key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, key_path)
+
+        winreg.SetValueEx(key, "01", 0, winreg.REG_DWORD, 0)  # Disable Storage Sense by setting it to 0
         winreg.CloseKey(key)
+        print("Storage Sense disabled.")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to disable Storage Sense: {e}")
 
@@ -585,11 +602,28 @@ prefer_ipv4_checkbox = ctk.CTkCheckBox(
 prefer_ipv4_checkbox.grid(row=1, column=4, padx=20, pady=10, sticky="w")
 
 def prefer_ipv4():
-    # Modify the registry to prefer IPv4 over IPv6
     try:
-        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\Microsoft\Windows\TCPIP\Parameters", 0, winreg.KEY_SET_VALUE)
-        winreg.SetValueEx(key, "IPEnableRouter", 0, winreg.REG_DWORD, 1)  # Set to 1 to prefer IPv4
-        winreg.CloseKey(key)
+        # Path to the TCPIP parameters
+        key_path = r"SOFTWARE\Policies\Microsoft\Windows\TCPIP"
+        
+        # Try to open the TCPIP key
+        try:
+            tcpip_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_SET_VALUE)
+        except FileNotFoundError:
+            # Create the TCPIP key if it doesn't exist
+            tcpip_key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, key_path)
+        
+        # Now create the Parameters key
+        parameters_key = winreg.CreateKey(tcpip_key, "Parameters")
+        
+        # Set the value to prefer IPv4
+        winreg.SetValueEx(parameters_key, "IPEnableRouter", 0, winreg.REG_DWORD, 1)  # Set to 1 to prefer IPv4
+        
+        # Clean up
+        winreg.CloseKey(parameters_key)
+        winreg.CloseKey(tcpip_key)
+        
+        print("IP preference configured to prefer IPv4.")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to configure IP preference: {e}")
 
@@ -636,20 +670,26 @@ delete_temp_files_checkbox.grid(row=2, column=2, padx=20, pady=10, sticky="w")
 def delete_temp_files():
     # Get the path to the temporary files directory
     temp_folder = os.path.join(os.getenv('TEMP'))
-    
+
     # Check if the temporary files folder exists
     if not os.path.exists(temp_folder):
         messagebox.showerror("Error", "Temporary files folder not found.")
         return
-    
+
     try:
         # List files in the temp directory
         for filename in os.listdir(temp_folder):
             file_path = os.path.join(temp_folder, filename)
             # Check if it's a file (skip directories)
             if os.path.isfile(file_path):
-                os.remove(file_path)  # Delete the file
-                print(f"Deleted: {file_path}")  # Debug output
+                try:
+                    os.remove(file_path)  # Attempt to delete the file
+                    print(f"Deleted: {file_path}")  # Debug output
+                except PermissionError:
+                    print(f"Permission denied: {file_path} is in use or locked.")
+                except Exception as e:
+                    print(f"Error deleting {file_path}: {e}")  # Debug output
+
     except Exception as e:
         print(f"Error deleting temporary files: {e}")  # Debug output
         messagebox.showerror("Error", f"Error deleting temporary files: {e}")
