@@ -390,7 +390,7 @@ select_all_var = ctk.BooleanVar()
 # Create a checkbox for "Select All"
 select_all_checkbox = ctk.CTkCheckBox(
     master=app,
-    text="Standed Tweak",
+    text="Select All Tweaks",
     fg_color="#4158D0",
     hover_color="#993cda",
     border_color="#e7e7e7",
