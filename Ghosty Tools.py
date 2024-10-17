@@ -60,7 +60,7 @@ ctk.set_default_color_theme("blue")
 # Initialize App
 app = ctk.CTk()
 app.title("Ghosty Tool")
-app.geometry("1100x410")
+app.geometry("1110x410")
 app.grid_rowconfigure(0, weight=1)
 app.grid_columnconfigure(0, weight=1)
 app.resizable(True, True)
