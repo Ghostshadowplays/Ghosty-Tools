@@ -15,15 +15,30 @@ import winreg
 # Initialize Pygame mixer
 pygame.mixer.init()
 
-# Define current directory for relative paths
 current_dir = os.path.dirname(__file__)
 
-# Play background music
+# Define current directory for relative paths
 def play_background_music():
     music_path = os.path.join(current_dir, "stream music.mp3")
     pygame.mixer.music.load(music_path)
     pygame.mixer.music.play(-1)
     pygame.mixer.music.set_volume(0.1)
+
+def stop_background_music():
+    pygame.mixer.music.stop()
+
+# Start playing music by default
+music_playing = True
+play_background_music()
+
+# Function to toggle music
+def toggle_music():
+    global music_playing
+    if music_playing:
+        stop_background_music()
+    else:
+        play_background_music()
+    music_playing = not music_playing
 
 play_background_music()
 
@@ -186,7 +201,7 @@ run_button = ctk.CTkButton(
     border_color="#e7e7e7",
     border_width=2
 )
-run_button.grid(row=3, column=0, padx=20, pady=15, sticky="w")
+run_button.grid(row=3, column=0, padx=47, pady=15, sticky="w")
 
 create_label_with_image("Ghosty Tools", "image_1.png", 0, 0)
 
@@ -390,6 +405,7 @@ select_all_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Select All Tweaks",
     fg_color="#4158D0",
+    text_color="#FFFFFF",
     hover_color="#993cda",
     border_color="#e7e7e7",
     border_width=2,
@@ -460,6 +476,7 @@ run_disk_cleanup_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Run Disk Cleanup",
     fg_color="#4158D0",
+    text_color="#FFFFFF",
     hover_color="#993cda",
     border_color="#e7e7e7",
     border_width=2,
@@ -482,6 +499,7 @@ enable_end_task_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Enable End Task With Right Click",
     fg_color="#4158D0",
+    text_color="#FFFFFF",
     hover_color="#993cda",
     border_color="#e7e7e7",
     border_width=2,
@@ -507,6 +525,7 @@ disable_wifi_sense_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Wi-Fi Sense",
     fg_color="#4158D0",
+    text_color="#FFFFFF",
     hover_color="#993cda",
     border_color="#e7e7e7",
     border_width=2,
@@ -538,6 +557,7 @@ disable_storage_sense_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Storage Sense",
     fg_color="#4158D0",
+    text_color="#FFFFFF",
     hover_color="#993cda",
     border_color="#e7e7e7",
     border_width=2,
@@ -570,6 +590,7 @@ disable_location_tracking_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Location Tracking",
     fg_color="#4158D0",
+    text_color="#FFFFFF",
     hover_color="#993cda",
     border_color="#e7e7e7",
     border_width=2,
@@ -594,6 +615,7 @@ prefer_ipv4_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Prefer IPv4 over IPv6",
     fg_color="#4158D0",
+    text_color="#FFFFFF",
     hover_color="#993cda",
     border_color="#e7e7e7",
     border_width=2,
@@ -634,6 +656,7 @@ disable_homegroup_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable HomeGroup",
     fg_color="#4158D0",
+    text_color="#FFFFFF",
     hover_color="#993cda",
     border_color="#e7e7e7",
     border_width=2,
@@ -660,6 +683,7 @@ delete_temp_files_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Delete Temporary Files",
     fg_color="#4158D0",
+    text_color="#FFFFFF",
     hover_color="#993cda",
     border_color="#e7e7e7",
     border_width=2,
@@ -701,6 +725,7 @@ disable_hibernation_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Hibernation",
     fg_color="#4158D0",
+    text_color="#FFFFFF",
     hover_color="#993cda",
     border_color="#e7e7e7",
     border_width=2,
@@ -724,6 +749,7 @@ disable_telemetry_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Telemetry",
     fg_color="#4158D0",
+    text_color="#FFFFFF",
     hover_color="#993cda",
     border_color="#e7e7e7",
     border_width=2,
@@ -748,6 +774,7 @@ disable_activity_history_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Activity History",
     fg_color="#4158D0",
+    text_color="#FFFFFF",
     hover_color="#993cda",
     border_color="#e7e7e7",
     border_width=2,
@@ -771,6 +798,7 @@ disable_gamedvr_var = ctk.BooleanVar()
 disable_gamedvr_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable GameDVR",
+    text_color="#FFFFFF",
     fg_color="#4158D0",
     hover_color="#993cda",
     border_color="#e7e7e7",
@@ -803,6 +831,7 @@ create_restore_point_checkbox = ctk.CTkCheckBox(
     fg_color="#4158D0",
     hover_color="#993cda",
     border_color="#e7e7e7",
+    text_color="#FFFFFF",
     border_width=2,
     variable=create_restore_point_var
 )
@@ -830,6 +859,40 @@ confirm_button = ctk.CTkButton(
 
 )
 confirm_button.grid(row=8, column=4, padx=20, pady=10, sticky="w")
+
+def toggle_dark_mode():
+    # Get the current value of the system's theme setting
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", 0, winreg.KEY_READ)
+        current_value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
+        winreg.CloseKey(key)
+
+        # Toggle the value
+        new_value = 0 if current_value == 1 else 1  # 0 for dark mode, 1 for light mode
+
+        # Set the new value
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", 0, winreg.KEY_SET_VALUE)
+        winreg.SetValueEx(key, "AppsUseLightTheme", 0, winreg.REG_DWORD, new_value)
+        winreg.SetValueEx(key, "SystemUsesLightTheme", 0, winreg.REG_DWORD, new_value)
+        winreg.CloseKey(key)
+
+        
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to toggle Dark Mode: {e}")
+
+def toggle_background_color():
+    current_bg_color = app.cget("fg_color")  # Get the current background color
+    
+    # Check and toggle between two colors
+    if current_bg_color == "#1c1c1c":  # Dark background color
+        app.configure(fg_color="#f0f0f0")  # Change to light background
+    else:
+        app.configure(fg_color="#1c1c1c")  # Change to dark background
+
+
+# Default background color (dark)
+app.configure(fg_color="#1c1c1c")
+
 
 def confirm_changes():
 
@@ -889,11 +952,7 @@ def confirm_changes():
         set_services_to_manual(services_to_set_manual)
 
 
-
     messagebox.showinfo("Settings Applied", "Your changes have been applied.")
-
-
-
 
 # Initialize Buttons
 create_button_with_image("repairlogo.png", "Run System Maintenance", run_system_maintenance, 1, 0)
@@ -906,8 +965,13 @@ start_button = ctk.CTkButton(app, text="Play Tic-Tac-Toe", corner_radius=32,
     border_color="#e7e7e7",
     border_width=2, command=start_game)
 start_button.grid(pady=20, row = 5, column = 1,)
-
-
-
+music_switch = ctk.CTkSwitch(app, text="Music, On-Off", border_color="#e7e7e7", fg_color="#4158D0", border_width=2,  button_hover_color="#993cda", text_color="#FFFFFF", command=toggle_music)
+music_switch.grid(row=4, column=0, padx=1, pady=15)
+# Create the dark mode switch
+dark_mode_switch = ctk.CTkSwitch(app, text="Windows Dark Mode", border_color="#e7e7e7", fg_color="#4158D0", border_width=2,  button_hover_color="#993cda", text_color="#FFFFFF", command=toggle_dark_mode)
+dark_mode_switch.grid(row=1, column=1, padx=20, pady=20)
+# Create the background color toggle switch
+bg_color_switch = ctk.CTkSwitch(app, text="Toggle Background Color", border_color="#e7e7e7", fg_color="#4158D0", border_width=2,  button_hover_color="#993cda", text_color="#FFFFFF", command=toggle_background_color)
+bg_color_switch.grid(row=5, column=0, padx=20, pady=20)
 # Start app loop
 app.mainloop()
