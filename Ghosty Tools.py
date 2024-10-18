@@ -11,9 +11,14 @@ import pygame
 import random
 import time
 import winreg
+import psutil # type: ignore
+import speedtest # type: ignore
+
+
 
 # Initialize Pygame mixer
 pygame.mixer.init()
+
 
 current_dir = os.path.dirname(__file__)
 
@@ -75,23 +80,179 @@ ctk.set_default_color_theme("blue")
 # Initialize App
 app = ctk.CTk()
 app.title("Ghosty Tool")
-app.geometry("1170x420")
+app.geometry("1330x520")
 app.grid_rowconfigure(0, weight=1)
 app.grid_columnconfigure(0, weight=1)
 app.resizable(True, True)
 
 
-# subheader label for "Tweaks"
-def create_tweaks_subheader():
-    tweaks_label = ctk.CTkLabel(app, text="Tweaks", font=("Helvetica", 20, "bold"), text_color="#993cda")
-    tweaks_label.grid(row=0, column=2, padx=50, pady=(50, 0), sticky="nw")
+def run_speed_test():
+    speed_test_label.configure(text="Testing speed...")  # Update label during test
+    speed_test = speedtest.Speedtest()
+
+    # Run the speed test in a separate thread
+    threading.Thread(target=perform_test, args=(speed_test,)).start()
+
+def perform_test(speed_test):
+    download_speed = speed_test.download() / 1_000_000  # Convert to Mbps
+    upload_speed = speed_test.upload() / 1_000_000  # Convert to Mbps
+    ping = speed_test.results.ping
+
+    # Update the label with results
+    result_text = f"Download Speed: {download_speed:.2f} Mbps\nUpload Speed: {upload_speed:.2f} Mbps\nPing: {ping:.2f} ms"
+    speed_test_label.configure(text=result_text)
+
+# Create the speed test button
+speed_test_button = ctk.CTkButton(app, text="Run Speed Test",
+    fg_color="#4158D0",
+    hover_color="#993cda",
+    border_color="#e7e7e7",
+    border_width=2, command=run_speed_test)
+speed_test_button.grid(row=3, column=1, padx=20, pady=10)
+
+# Create a label to display the speed test results
+speed_test_label = ctk.CTkLabel(app, text="Click the button to test your speed.")
+speed_test_label.grid(row=2, column=1, padx=20, pady=10)
 
 
-create_tweaks_subheader()
+def flush_dns():
+    try:
+        command = 'ipconfig /flushdns'
+        subprocess.run(command, shell=True, check=True)
+        messagebox.showinfo("Success", "DNS cache flushed successfully.")
+    except subprocess.CalledProcessError as e:
+        messagebox.showerror("Error", f"Failed to flush DNS: {e}")
+
+# Create a new frame for DNS Flush
+dns_flush_frame = ctk.CTkFrame(app, width=300, height=150, fg_color="gray20")
+dns_flush_frame.grid(row=0, column=3, padx=20, pady=20, sticky="n")
+
+# Add a button to flush the DNS
+flush_dns_button = ctk.CTkButton(dns_flush_frame, text="Flush DNS Cache", command=flush_dns)
+flush_dns_button.pack(pady=30)
+
+# Optional: You can add a label to provide some information
+dns_info_label = ctk.CTkLabel(dns_flush_frame, text="Click to flush DNS cache", font=("Helvetica", 12), text_color="white")
+dns_info_label.pack(pady=5)
+
+# Function to check disk health using WMIC (Windows Management Instrumentation Command)
+def check_disk_health():
+    try:
+        # Run WMIC command to check disk health via SMART
+        command = 'wmic diskdrive get status'
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        
+        # Process the result
+        if "OK" in result.stdout:
+            disk_status_label.configure(text="Disk Health: Healthy", text_color="green")
+        else:
+            disk_status_label.configure(text="Disk Health: Issues Detected", text_color="red")
+            tips_disk_label.configure(text="Tip: Consider backing up your data and replacing the drive.")
+
+    except Exception as e:
+        print(f"Error checking disk health: {e}")
+        disk_status_label.configure(text="Error: Unable to check disk health")
+        tips_disk_label.configure(text="")
+
+    # Schedule the next check after 60 seconds (60000 milliseconds)
+    app.after(60000, check_disk_health)  # 60 seconds
+
+# Create a new frame for Disk Health Check
+disk_health_frame = ctk.CTkFrame(app, width=300, height=150, fg_color="gray20")
+disk_health_frame.grid(row=0, column=2, padx=20, pady=20, sticky="n")
+
+# Label to display disk health status
+disk_status_label = ctk.CTkLabel(disk_health_frame, text="Disk Health: Checking...", font=("Helvetica", 16), text_color="white")
+disk_status_label.pack(pady=5)
+
+# Label to display disk tips
+tips_disk_label = ctk.CTkLabel(disk_health_frame, text="Disk Tip: --", font=("Helvetica", 12), text_color="white")
+tips_disk_label.pack(pady=5)
+
+# Add a button to manually check disk health
+disk_check_button = ctk.CTkButton(disk_health_frame, text="Check Disk Health", command=check_disk_health)
+disk_check_button.pack(pady=10)
+
+# Check disk health when the app starts and continue checking every 60 seconds
+check_disk_health()
+
+
+def update_battery_health():
+    while True:
+        battery = psutil.sensors_battery()  # Get battery information
+        if battery is not None:
+            battery_percentage = battery.percent  # Battery percentage
+            power_plugged = battery.power_plugged  # True if plugged in, False otherwise
+            time_left = battery.secsleft if not power_plugged else "Charging"
+            
+            if isinstance(time_left, int):
+                hours, remainder = divmod(time_left, 3600)
+                minutes = remainder // 60
+                time_left = f"{hours}h {minutes}m remaining"
+            else:
+                time_left = "Charging" if power_plugged else "N/A"
+            
+            # Update battery label
+            battery_label.configure(text=f"Battery: {battery_percentage}% - {time_left}")
+            
+            # Update tips based on battery status
+            if power_plugged:
+                tips_label.configure(text="Battery Tip: Avoid keeping your laptop plugged in all the time.")
+            else:
+                tips_label.configure(text="Battery Tip: Dim your screen and close unused programs to save battery.")
+        
+        else:
+            battery_label.configure(text="Battery: No battery detected")
+            tips_label.configure(text="Battery Tip: Laptops without a battery should be used with care.")
+
+        time.sleep(60)  # Update every 60 seconds
+
+# Create a new frame for the Battery Health Monitor
+battery_frame = ctk.CTkFrame(app, width=300, height=150, fg_color="gray20")
+battery_frame.grid(row=0, column=4, padx=20, pady=20, sticky="n")
+
+# Create a label for Battery Health
+battery_label = ctk.CTkLabel(battery_frame, text="Battery: --%", font=("Helvetica", 16), text_color="white")
+battery_label.pack(pady=5)
+
+# Create a label for Battery Tips
+tips_label = ctk.CTkLabel(battery_frame, text="Battery Tip: --", font=("Helvetica", 12), text_color="white")
+tips_label.pack(pady=5)
+
+# Start the battery health monitoring in a separate thread
+threading.Thread(target=update_battery_health, daemon=True).start()
+
+
+def update_system_usage():
+    while True:
+        cpu_usage = psutil.cpu_percent(interval=1)  # Get CPU usage in percentage
+        ram_usage = psutil.virtual_memory().percent  # Get RAM usage in percentage
+        
+        # Update labels with current CPU and RAM usage
+        cpu_label.configure(text=f"CPU Usage: {cpu_usage}%")
+        ram_label.configure(text=f"RAM Usage: {ram_usage}%")
+        
+        time.sleep(1)  # Update every second
+
+# Create a new frame for the CPU/RAM Usage Monitor
+monitor_frame = ctk.CTkFrame(app, width=300, height=100, fg_color="gray20")
+monitor_frame.grid(row=0, column=1, padx=20, pady=20, sticky="n")
+
+# Create labels for CPU and RAM usage
+cpu_label = ctk.CTkLabel(monitor_frame, text="CPU Usage: --%", font=("Helvetica", 16), text_color="white")
+cpu_label.pack(pady=5)
+
+ram_label = ctk.CTkLabel(monitor_frame, text="RAM Usage: --%", font=("Helvetica", 16), text_color="white")
+ram_label.pack(pady=5)
+
+# Start the system usage update in a separate thread to prevent blocking the main app
+threading.Thread(target=update_system_usage, daemon=True).start()
+
+
 
 def create_tweaks_subheader():
     tweaks_label = ctk.CTkLabel(app, text="Mini Games", font=("Helvetica", 20, "bold"), text_color="#993cda")
-    tweaks_label.grid(row=3, column=1, padx=37, pady=(15, 0), sticky="nw")
+    tweaks_label.grid(row=3, column=2, padx=37, pady=(15, 0), sticky="nw")
 
 
 create_tweaks_subheader()
@@ -106,7 +267,7 @@ def load_image(image_name, size):
 
 # label with image
 def create_label_with_image(text, image_name, row, column, text_color="#993cda"):
-    loaded_image = load_image(image_name, size=(40, 40))
+    loaded_image = load_image(image_name, size=(85, 85))
     if loaded_image:
         label = ctk.CTkLabel(app, text=text, font=("Helvetica", 25, "bold"),
                              image=loaded_image, text_color=text_color, compound="left")
@@ -988,12 +1149,13 @@ def confirm_changes():
 
 create_button_with_image("repairlogo.png", "Run System Maintenance", run_system_maintenance, 1, 0)
 create_button("Play Click The Target", play_mini_game, 4, 1,)
-start_button = ctk.CTkButton(app, text="Play Tic-Tac-Toe", corner_radius=32,
+start_button = ctk.CTkButton(app, text="Play Tic-Tac-Toe",
+    corner_radius=32,
     fg_color="#4158D0",
     hover_color="#993cda",
     border_color="#e7e7e7",
     border_width=2, command=start_game)
-start_button.grid(pady=20, row = 5, column = 1,)
+start_button.grid(pady=20, padx=20, row = 5, column = 1,)
 music_switch = ctk.CTkSwitch(app, text="Music, On-Off", border_color="#e7e7e7", fg_color="#4158D0", border_width=2,  button_hover_color="#993cda", text_color="#FFFFFF", command=toggle_music)
 music_switch.grid(row=4, column=0, padx=1, pady=15)
 dark_mode_switch = ctk.CTkSwitch(app, text="Windows Dark Or Light Mode", border_color="#e7e7e7", fg_color="#4158D0", border_width=2,  button_hover_color="#993cda", text_color="#FFFFFF", command=toggle_dark_mode)
