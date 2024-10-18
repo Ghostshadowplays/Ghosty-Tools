@@ -157,7 +157,6 @@ def execute_maintenance_tasks():
         print(f"Error executing maintenance tasks: {e}")
         messagebox.showerror("Error", f"Error executing maintenance tasks: {e}")
 
-        messagebox.showinfo("Repair Tool", "System maintenance has finished.")
 
 def christitus():
     try:
@@ -442,6 +441,7 @@ set_services_manual_var = ctk.BooleanVar()
 set_services_manual_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Set Services to Manual",
+    text_color="#FFFFFF",
     fg_color="#4158D0",
     hover_color="#993cda",
     border_color="#e7e7e7",
@@ -512,7 +512,7 @@ enable_end_task_checkbox.grid(row=5, column=2, padx=20, pady=10, sticky="w")
 def enable_end_task():
     # Modify the registry to enable End Task with Right Click
     try:
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Policies\Explorer", 0, winreg.KEY_SET_VALUE)
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", 0, winreg.KEY_SET_VALUE)
         winreg.SetValueEx(key, "NoViewContextMenu", 0, winreg.REG_DWORD, 0)  # Set to 0 to enable context menu
         winreg.CloseKey(key)
     except Exception as e:
@@ -839,11 +839,41 @@ create_restore_point_checkbox = ctk.CTkCheckBox(
 )
 create_restore_point_checkbox.grid(row=1, column=2, padx=20, pady=10, sticky="w")
 
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+
+# Function to enable system protection for C: drive
+def enable_system_protection():
+    try:
+        # Run the PowerShell command to enable system restore protection on C: drive
+        command = ['powershell', '-Command', 'Enable-ComputerRestore -Drive "C:\\"']
+        result = subprocess.run(command, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            return True  # Indicate success
+        else:
+            messagebox.showerror("Error", f"Failed to enable system protection: {result.stderr}")
+            return False  # Indicate failure
+    except Exception as e:
+        messagebox.showerror("Error", f"Error enabling system protection: {e}")
+        return False
+
+# Function to create a restore point
 def create_restore_point():
     if messagebox.askyesno("Create Restore Point", "Proceed to create a restore point?"):
         try:
-            command = "Checkpoint-Computer -Description 'Restore Point created by Ghosty Tool' -RestorePointType 'APPLICATION_INSTALL'"
-            subprocess.run(f'powershell -Command "{command}"', shell=True, check=True)
+            # Enable system protection on C: drive before creating the restore point
+            if enable_system_protection():
+                # Proceed to create the restore point if protection was successfully enabled
+                command = "Checkpoint-Computer -Description 'Restore Point created by Ghosty Tool' -RestorePointType 'APPLICATION_INSTALL'"
+                subprocess.run(f'powershell -Command "{command}"', shell=True, check=True)
+                messagebox.showinfo("Success", "Restore point created successfully.")
+            else:
+                messagebox.showerror("Error", "Failed to enable system protection. Restore point creation aborted.")
         except Exception as e:
             print(f"Error creating restore point: {e}")
             messagebox.showerror("Error", f"Error creating restore point: {e}")
@@ -957,7 +987,7 @@ def confirm_changes():
     messagebox.showinfo("Settings Applied", "Your changes have been applied.")
 
 create_button_with_image("repairlogo.png", "Run System Maintenance", run_system_maintenance, 1, 0)
-create_button("Play Click The Target", play_mini_game, 4, 1)
+create_button("Play Click The Target", play_mini_game, 4, 1,)
 start_button = ctk.CTkButton(app, text="Play Tic-Tac-Toe", corner_radius=32,
     fg_color="#4158D0",
     hover_color="#993cda",
