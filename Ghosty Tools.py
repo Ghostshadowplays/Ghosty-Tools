@@ -16,6 +16,7 @@ import speedtest # type: ignore
 
 
 
+
 # Initialize Pygame mixer
 pygame.mixer.init()
 
@@ -273,10 +274,12 @@ def create_label_with_image(text, image_name, row, column, text_color="#993cda")
                              image=loaded_image, text_color=text_color, compound="left")
         label.grid(row=row, column=column, pady=(30, 0), sticky="nsew")
 
+# Function to check for Windows updates
 def check_for_windows_updates():
     if messagebox.askyesno("Check for Windows Updates", "Would you like to check for available updates?"):
         threading.Thread(target=run_windows_update_check).start()
 
+# Function to run the Windows update check
 def run_windows_update_check():
     try:
         print("Checking for Windows updates...")
@@ -285,20 +288,23 @@ def run_windows_update_check():
             "powershell -Command \"Get-WindowsUpdate\"",
             shell=True, capture_output=True, text=True
         )
-        print(result.stdout)
-        
-        if "No updates" in result.stdout:  # This is a sample check, modify based on actual output
+        print("PowerShell output:\n", result.stdout)  # Print the full output for debugging
+
+        # Check if there are any updates in the output
+        if "No updates available" in result.stdout:  # Adjust this string based on actual output
             messagebox.showinfo("Updates", "Your system is up to date.")
-        else:
-            # Inform the user that updates are available
+        elif "Updates are available" in result.stdout:  # Check for another possible output string
             messagebox.showinfo("Updates", "Updates are available! Proceed to install?")
             # Option to install updates
             if messagebox.askyesno("Install Updates", "Do you want to install the updates now?"):
                 install_windows_updates()
-
+        else:
+            messagebox.showinfo("Updates", "Check completed, but no specific information available.")
+            
     except Exception as e:
         print(f"Error checking for updates: {e}")
         messagebox.showerror("Error", f"Error checking for updates: {e}")
+
 
 # Function to install Windows updates
 def install_windows_updates():
@@ -314,7 +320,7 @@ def install_windows_updates():
         print(f"Error installing updates: {e}")
         messagebox.showerror("Error", f"Error installing updates: {e}")
 
-# Open webpage
+# Function to open a webpage
 def open_webpage(url):
     try:
         webbrowser.open_new_tab(url)
@@ -323,7 +329,7 @@ def open_webpage(url):
 
 # Create footer labels
 def create_footer_label(image_name, command, row, column):
-    footer_image = load_image(image_name, size=(25, 25))
+    footer_image = load_image(image_name, size=(25, 25))  # Assuming load_image is defined elsewhere
     footer_label = ctk.CTkLabel(app, text="", image=footer_image, text_color="#993cda", compound="center")
     footer_label.grid(row=row, column=column, pady=10)
     footer_label.bind("<Button-1>", lambda e: command())
@@ -331,7 +337,11 @@ def create_footer_label(image_name, command, row, column):
 create_footer_label("GithubLogo.png", lambda: open_webpage("https://github.com/Ghostshadowplays"), 8, 0)
 create_footer_label("twitchlogo.png", lambda: open_webpage("https://twitch.tv/ghostshadow_plays"), 8, 1)
 
+# Global variable to hold the main disk
+main_disk = None
+
 def get_main_disk():
+    global main_disk  # Use the global variable
     try:
         powershell_script = '''
         $MainDisk = 0
@@ -353,37 +363,73 @@ def get_main_disk():
         main_disk = result.stdout.strip()
         if main_disk:
             print(f"Main disk detected: {main_disk}")
-            return main_disk
         else:
             print("No suitable disk found.")
-            return None
     except Exception as e:
         print(f"Error getting main disk: {e}")
-        return None
 
-# Example usage
-main_disk = get_main_disk()
-if main_disk:
-    # Pass the main disk to other functions or scripts
-    print(f"Proceeding with disk {main_disk}")
 
-# System Maintenance Functions
-def run_system_maintenance():
-    if messagebox.askyesno("Run Full System Maintenance", "This may take a while. Proceed?"):
-        threading.Thread(target=execute_maintenance_tasks).start()
+# Global variable for "Select All" checkbox
+select_all_var = ctk.BooleanVar()
 
+# Checkbox for "Select All"
+select_all_checkbox = ctk.CTkCheckBox(
+    master=app,
+    text="Select All Tweaks",
+    fg_color="#4158D0",
+    text_color="#FFFFFF",
+    hover_color="#993cda",
+    border_color="#e7e7e7",
+    border_width=2,
+    variable=select_all_var,
+    command=lambda: toggle_all_checkboxes(select_all_var.get())
+)
+select_all_checkbox.grid(row=8, column=2, padx=20, pady=10, sticky="w")
+
+def toggle_all_checkboxes(select_all):
+    # Update all other checkbox variables based on the state of the "Select All" checkbox
+    delete_temp_files_var.set(select_all)
+    disable_telemetry_var.set(select_all)
+    disable_activity_history_var.set(select_all)
+    disable_gamedvr_var.set(select_all)
+    create_restore_point_var.set(select_all)
+    disable_hibernation_var.set(select_all)
+    disable_homegroup_var.set(select_all)
+    prefer_ipv4_var.set(select_all)
+    disable_location_tracking_var.set(select_all)
+    disable_storage_sense_var.set(select_all)
+    disable_wifi_sense_var.set(select_all)
+    enable_end_task_var.set(select_all)
+    run_disk_cleanup_var.set(select_all)
+    set_services_manual_var.set(select_all)
+    check_updates_var.set(select_all)  # Update the Windows Updates checkbox
+
+# Checkbox for checking Windows Updates
+check_updates_var = ctk.IntVar()  # Make sure to define this variable
+
+check_updates_checkbox = ctk.CTkCheckBox(
+    master=app,
+    text="Check for Windows Updates",
+    fg_color="#4158D0",
+    text_color="#FFFFFF",
+    hover_color="#993cda",
+    border_color="#e7e7e7",
+    border_width=2,
+    variable=check_updates_var  # Use the correct variable
+)
+check_updates_checkbox.grid(row=5, column=4, padx=20, pady=10, sticky="w")
+
+# Modify execute_maintenance_tasks to integrate Windows updates
 def execute_maintenance_tasks():
+    global main_disk  # Access the global variable
     try:
         print("Creating restore point...")
         create_restore_point()
 
-        # Get the main disk using the PowerShell command
-        main_disk = get_main_disk()
-
         if main_disk:
-            # Use the main disk in further disk-related maintenance
             print(f"Performing maintenance on main disk: {main_disk}")
-        
+            defrag_command = f"defrag {main_disk} /u"  # Prepare defrag command
+
         # Continue with other maintenance commands
         commands = (
             "DISM.exe /Online /Cleanup-Image /CheckHealth; "
@@ -398,14 +444,58 @@ def execute_maintenance_tasks():
             shell=True
         )
 
-        if check_updates_var.get() == 1:
-            print("Checking for Windows updates...")
-            check_for_windows_updates()
+        # Check for Windows updates based on the checkbox
+        if check_updates_var.get() == 1:  # Only check if checkbox is checked
+            run_windows_update_check()  # Call the function to check and install updates
+
+        # Ask to run defragmentation after other maintenance tasks
+        if main_disk and messagebox.askyesno("Run Defragmentation", f"Do you want to defragment {main_disk}?"):
+            subprocess.run(f'powershell -Command "{defrag_command}"', shell=True)
 
         print("Maintenance tasks completed.")
     except Exception as e:
         print(f"Error executing maintenance tasks: {e}")
         messagebox.showerror("Error", f"Error executing maintenance tasks: {e}")
+
+def run_windows_update_check():
+    try:
+        print("Checking for Windows updates...")
+        # Running Windows Update command to check for available updates
+        result = subprocess.run(
+            "powershell -Command \"Get-WindowsUpdate\"",
+            shell=True, capture_output=True, text=True
+        )
+        print(result.stdout)
+        
+        if "No updates" in result.stdout:  # Sample check, modify based on actual output
+            messagebox.showinfo("Updates", "Your system is up to date.")
+        else:
+            messagebox.showinfo("Updates", "Updates are available! Proceed to install?")
+            if messagebox.askyesno("Install Updates", "Do you want to install the updates now?"):
+                install_windows_updates()
+
+    except Exception as e:
+        print(f"Error checking for updates: {e}")
+        messagebox.showerror("Error", f"Error checking for updates: {e}")
+
+def install_windows_updates():
+    try:
+        print("Installing updates...")
+        subprocess.run(
+            "powershell -Command \"Install-WindowsUpdate -AcceptAll -AutoReboot\"",
+            shell=True
+        )
+        messagebox.showinfo("Updates", "Updates installed successfully! Your system may reboot.")
+    except Exception as e:
+        print(f"Error installing updates: {e}")
+        messagebox.showerror("Error", f"Error installing updates: {e}")
+
+# Updated run_system_maintenance function to get the main disk
+def run_system_maintenance():
+    get_main_disk()  # Get the main disk before starting maintenance
+    if messagebox.askyesno("Run Full System Maintenance", "This may take a while. Proceed?"):
+        threading.Thread(target=execute_maintenance_tasks).start()
+
 
 
 def christitus():
@@ -645,56 +735,6 @@ def start_game():
     game_thread.start()
 
 
-
-check_updates_var = ctk.IntVar()
-
-# Add a checkbox for checking Windows Updates
-check_updates_checkbox = ctk.CTkCheckBox(
-    master=app,
-    text="Check for Windows Updates",
-    fg_color="#4158D0",
-    text_color="#FFFFFF",
-    hover_color="#993cda",
-    border_color="#e7e7e7",
-    border_width=2,
-    variable=check_updates_var
-)
-check_updates_checkbox.grid(row=5, column=4, padx=20, pady=10, sticky="w")
-
-
-select_all_var = ctk.BooleanVar()
-
-# checkbox for "Select All"
-select_all_checkbox = ctk.CTkCheckBox(
-    master=app,
-    text="Select All Tweaks",
-    fg_color="#4158D0",
-    text_color="#FFFFFF",
-    hover_color="#993cda",
-    border_color="#e7e7e7",
-    border_width=2,
-    variable=select_all_var,
-    command=lambda: toggle_all_checkboxes(select_all_var.get())
-)
-select_all_checkbox.grid(row=8, column=2, padx=20, pady=10, sticky="w")
-
-def toggle_all_checkboxes(select_all):
-    
-    delete_temp_files_var.set(select_all)
-    disable_telemetry_var.set(select_all)
-    disable_activity_history_var.set(select_all)
-    disable_gamedvr_var.set(select_all)
-    create_restore_point_var.set(select_all)
-    disable_hibernation_var.set(select_all)
-    disable_homegroup_var.set(select_all)
-    prefer_ipv4_var.set(select_all)
-    disable_location_tracking_var.set(select_all)
-    disable_storage_sense_var.set(select_all)
-    disable_wifi_sense_var.set(select_all)
-    enable_end_task_var.set(select_all)
-    run_disk_cleanup_var.set(select_all)
-    set_services_manual_var.set(select_all)
-    check_updates_var.set(select_all)
     
 
 
@@ -1254,6 +1294,9 @@ def confirm_changes():
        # Handle setting services to manual
     if set_services_manual_var.get():
         set_services_to_manual(services_to_set_manual)
+
+    if check_updates_var.get():
+        run_windows_update_check()
 
 
     messagebox.showinfo("Settings Applied", "Your changes have been applied.")
