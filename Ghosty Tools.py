@@ -498,14 +498,6 @@ def run_system_maintenance():
 
 
 
-def christitus():
-    try:
-        subprocess.run("powershell -Command \"& {iwr -useb https://christitus.com/win | iex}\"", shell=True, check=True)
-    except Exception as e:
-        print(f"Failed to execute Chris Titus script: {e}")
-        messagebox.showerror("Error", f"Failed to execute Chris Titus script: {e}")
-
-
 # MBR2GPT Conversion
 def run_mbr2gpt_command():
     selected_command = mbr2gpt_combo.get()
