@@ -332,38 +332,40 @@ create_footer_label("GithubLogo.png", lambda: open_webpage("https://github.com/G
 create_footer_label("twitchlogo.png", lambda: open_webpage("https://twitch.tv/ghostshadow_plays"), 8, 1)
 
 def get_main_disk():
-    disks = []
-
-    # Loop through all disk partitions
-    for partition in psutil.disk_partitions():
-        usage = psutil.disk_usage(partition.mountpoint)
-        media_type = "SSD" if "nvme" in partition.device or "sd" in partition.device else "HDD"  # Assuming SSD if device is 'nvme' or 'sd'
-        
-        # Gathering disk information (Assume size in GB)
-        disk_info = {
-            "DeviceID": partition.device,
-            "MediaType": media_type,
-            "Size": usage.total / (1024 ** 3)  # Convert size to GB
-        }
-        disks.append(disk_info)
-    
-    # Check if we have more than one disk
-    if len(disks) > 1:
-        main_disk = None
-        for disk in disks:
-            # If disk is SSD and size is greater than 100GB, set it as the main disk
-            if disk["MediaType"] == "SSD" and disk["Size"] > 100:
-                main_disk = disk["DeviceID"]
+    try:
+        powershell_script = '''
+        $MainDisk = 0
+        ForEach ($disk in (Get-PhysicalDisk | Select-Object DeviceID, MediaType, Size)){
+            If ($disk.MediaType -eq 'SSD' -and $disk.Size -gt 100GB){
+                $MainDisk = $disk.DeviceID
                 break
+            }
+        }
+        $MainDisk
+        '''
         
-        # If no suitable SSD found, set the first disk as the main disk
-        if main_disk is None:
-            main_disk = disks[0]["DeviceID"]
-    else:
-        # If only one disk, set it as the main disk
-        main_disk = disks[0]["DeviceID"]
-    
-    return main_disk
+        result = subprocess.run(
+            ["powershell", "-Command", powershell_script],
+            capture_output=True,
+            text=True,
+            shell=True
+        )
+        main_disk = result.stdout.strip()
+        if main_disk:
+            print(f"Main disk detected: {main_disk}")
+            return main_disk
+        else:
+            print("No suitable disk found.")
+            return None
+    except Exception as e:
+        print(f"Error getting main disk: {e}")
+        return None
+
+# Example usage
+main_disk = get_main_disk()
+if main_disk:
+    # Pass the main disk to other functions or scripts
+    print(f"Proceeding with disk {main_disk}")
 
 # System Maintenance Functions
 def run_system_maintenance():
@@ -375,21 +377,22 @@ def execute_maintenance_tasks():
         print("Creating restore point...")
         create_restore_point()
 
-        # Get the main disk to use in the commands
+        # Get the main disk using the PowerShell command
         main_disk = get_main_disk()
-        print(f"Selected main disk for maintenance: {main_disk}")
 
-        # Define maintenance commands
+        if main_disk:
+            # Use the main disk in further disk-related maintenance
+            print(f"Performing maintenance on main disk: {main_disk}")
+        
+        # Continue with other maintenance commands
         commands = (
             "DISM.exe /Online /Cleanup-Image /CheckHealth; "
             "DISM.exe /Online /Cleanup-Image /ScanHealth; "
             "DISM.exe /Online /Cleanup-Image /RestoreHealth; "
             "sfc /scannow; "
             "gpupdate /force; "
-            f"chkdsk {main_disk} /f /r; "  # Using the main disk in chkdsk command
+            "chkdsk /f /r; "
         )
-
-        # Run the commands as an elevated PowerShell process
         subprocess.run(
             f'powershell -Command "Start-Process PowerShell -ArgumentList \'-NoProfile\', \'-Command {commands}\' -Verb RunAs"',
             shell=True
@@ -399,11 +402,6 @@ def execute_maintenance_tasks():
             print("Checking for Windows updates...")
             check_for_windows_updates()
 
-        print("Maintenance tasks completed.")
-    except Exception as e:
-        print(f"Error executing maintenance tasks: {e}")
-        messagebox.showerror("Error", f"Error executing maintenance tasks: {e}")
-        
         print("Maintenance tasks completed.")
     except Exception as e:
         print(f"Error executing maintenance tasks: {e}")
