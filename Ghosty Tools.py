@@ -273,6 +273,47 @@ def create_label_with_image(text, image_name, row, column, text_color="#993cda")
                              image=loaded_image, text_color=text_color, compound="left")
         label.grid(row=row, column=column, pady=(30, 0), sticky="nsew")
 
+def check_for_windows_updates():
+    if messagebox.askyesno("Check for Windows Updates", "Would you like to check for available updates?"):
+        threading.Thread(target=run_windows_update_check).start()
+
+def run_windows_update_check():
+    try:
+        print("Checking for Windows updates...")
+        # Running Windows Update command to check for available updates
+        result = subprocess.run(
+            "powershell -Command \"Get-WindowsUpdate\"",
+            shell=True, capture_output=True, text=True
+        )
+        print(result.stdout)
+        
+        if "No updates" in result.stdout:  # This is a sample check, modify based on actual output
+            messagebox.showinfo("Updates", "Your system is up to date.")
+        else:
+            # Inform the user that updates are available
+            messagebox.showinfo("Updates", "Updates are available! Proceed to install?")
+            # Option to install updates
+            if messagebox.askyesno("Install Updates", "Do you want to install the updates now?"):
+                install_windows_updates()
+
+    except Exception as e:
+        print(f"Error checking for updates: {e}")
+        messagebox.showerror("Error", f"Error checking for updates: {e}")
+
+# Function to install Windows updates
+def install_windows_updates():
+    try:
+        print("Installing updates...")
+        # Command to install available updates
+        subprocess.run(
+            "powershell -Command \"Install-WindowsUpdate -AcceptAll -AutoReboot\"",
+            shell=True
+        )
+        messagebox.showinfo("Updates", "Updates installed successfully! Your system may reboot.")
+    except Exception as e:
+        print(f"Error installing updates: {e}")
+        messagebox.showerror("Error", f"Error installing updates: {e}")
+
 # Open webpage
 def open_webpage(url):
     try:
@@ -290,6 +331,40 @@ def create_footer_label(image_name, command, row, column):
 create_footer_label("GithubLogo.png", lambda: open_webpage("https://github.com/Ghostshadowplays"), 8, 0)
 create_footer_label("twitchlogo.png", lambda: open_webpage("https://twitch.tv/ghostshadow_plays"), 8, 1)
 
+def get_main_disk():
+    disks = []
+
+    # Loop through all disk partitions
+    for partition in psutil.disk_partitions():
+        usage = psutil.disk_usage(partition.mountpoint)
+        media_type = "SSD" if "nvme" in partition.device or "sd" in partition.device else "HDD"  # Assuming SSD if device is 'nvme' or 'sd'
+        
+        # Gathering disk information (Assume size in GB)
+        disk_info = {
+            "DeviceID": partition.device,
+            "MediaType": media_type,
+            "Size": usage.total / (1024 ** 3)  # Convert size to GB
+        }
+        disks.append(disk_info)
+    
+    # Check if we have more than one disk
+    if len(disks) > 1:
+        main_disk = None
+        for disk in disks:
+            # If disk is SSD and size is greater than 100GB, set it as the main disk
+            if disk["MediaType"] == "SSD" and disk["Size"] > 100:
+                main_disk = disk["DeviceID"]
+                break
+        
+        # If no suitable SSD found, set the first disk as the main disk
+        if main_disk is None:
+            main_disk = disks[0]["DeviceID"]
+    else:
+        # If only one disk, set it as the main disk
+        main_disk = disks[0]["DeviceID"]
+    
+    return main_disk
+
 # System Maintenance Functions
 def run_system_maintenance():
     if messagebox.askyesno("Run Full System Maintenance", "This may take a while. Proceed?"):
@@ -300,19 +375,35 @@ def execute_maintenance_tasks():
         print("Creating restore point...")
         create_restore_point()
 
+        # Get the main disk to use in the commands
+        main_disk = get_main_disk()
+        print(f"Selected main disk for maintenance: {main_disk}")
+
+        # Define maintenance commands
         commands = (
             "DISM.exe /Online /Cleanup-Image /CheckHealth; "
             "DISM.exe /Online /Cleanup-Image /ScanHealth; "
             "DISM.exe /Online /Cleanup-Image /RestoreHealth; "
             "sfc /scannow; "
             "gpupdate /force; "
-            "chkdsk /f /r; "
-            "defrag C: /u"
+            f"chkdsk {main_disk} /f /r; "  # Using the main disk in chkdsk command
         )
+
+        # Run the commands as an elevated PowerShell process
         subprocess.run(
             f'powershell -Command "Start-Process PowerShell -ArgumentList \'-NoProfile\', \'-Command {commands}\' -Verb RunAs"',
             shell=True
         )
+
+        if check_updates_var.get() == 1:
+            print("Checking for Windows updates...")
+            check_for_windows_updates()
+
+        print("Maintenance tasks completed.")
+    except Exception as e:
+        print(f"Error executing maintenance tasks: {e}")
+        messagebox.showerror("Error", f"Error executing maintenance tasks: {e}")
+        
         print("Maintenance tasks completed.")
     except Exception as e:
         print(f"Error executing maintenance tasks: {e}")
@@ -557,7 +648,20 @@ def start_game():
 
 
 
+check_updates_var = ctk.IntVar()
 
+# Add a checkbox for checking Windows Updates
+check_updates_checkbox = ctk.CTkCheckBox(
+    master=app,
+    text="Check for Windows Updates",
+    fg_color="#4158D0",
+    text_color="#FFFFFF",
+    hover_color="#993cda",
+    border_color="#e7e7e7",
+    border_width=2,
+    variable=check_updates_var
+)
+check_updates_checkbox.grid(row=5, column=4, padx=20, pady=10, sticky="w")
 
 
 select_all_var = ctk.BooleanVar()
@@ -592,6 +696,7 @@ def toggle_all_checkboxes(select_all):
     enable_end_task_var.set(select_all)
     run_disk_cleanup_var.set(select_all)
     set_services_manual_var.set(select_all)
+    check_updates_var.set(select_all)
     
 
 
@@ -836,7 +941,12 @@ def disable_homegroup():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to disable HomeGroup: {e}")
 
-
+def run_defrag():
+    try:
+        subprocess.run(["defrag", "C:", "/u"], check=True)
+        print("Defragmentation started.")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to run defrag: {e}")
 
 
 delete_temp_files_var = ctk.BooleanVar()
@@ -881,6 +991,7 @@ def delete_temp_files():
         print(f"Error deleting temporary files: {e}")  
         messagebox.showerror("Error", f"Error deleting temporary files: {e}")
 
+
 disable_hibernation_var = ctk.BooleanVar()
 
 
@@ -895,6 +1006,8 @@ disable_hibernation_checkbox = ctk.CTkCheckBox(
     variable=disable_hibernation_var
 )
 disable_hibernation_checkbox.grid(row=3, column=3, padx=20, pady=10, sticky="w")
+
+
 
 
 def disable_hibernation():
