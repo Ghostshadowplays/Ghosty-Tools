@@ -402,10 +402,10 @@ def toggle_all_checkboxes(select_all):
     enable_end_task_var.set(select_all)
     run_disk_cleanup_var.set(select_all)
     set_services_manual_var.set(select_all)
-    check_updates_var.set(select_all)  # Update the Windows Updates checkbox
+    check_updates_var.set(select_all)  
 
-# Checkbox for checking Windows Updates
-check_updates_var = ctk.IntVar()  # Make sure to define this variable
+
+check_updates_var = ctk.IntVar()  
 
 check_updates_checkbox = ctk.CTkCheckBox(
     master=app,
@@ -415,13 +415,13 @@ check_updates_checkbox = ctk.CTkCheckBox(
     hover_color="#993cda",
     border_color="#e7e7e7",
     border_width=2,
-    variable=check_updates_var  # Use the correct variable
+    variable=check_updates_var  
 )
 check_updates_checkbox.grid(row=5, column=4, padx=20, pady=10, sticky="w")
 
-# Modify execute_maintenance_tasks to integrate Windows updates
+
 def execute_maintenance_tasks():
-    global main_disk  # Access the global variable
+    global main_disk  
     try:
         print("Creating restore point...")
         create_restore_point()
@@ -445,8 +445,8 @@ def execute_maintenance_tasks():
         )
 
         # Check for Windows updates based on the checkbox
-        if check_updates_var.get() == 1:  # Only check if checkbox is checked
-            run_windows_update_check()  # Call the function to check and install updates
+        if check_updates_var.get() == 1:  
+            run_windows_update_check()  
 
         # Ask to run defragmentation after other maintenance tasks
         if main_disk and messagebox.askyesno("Run Defragmentation", f"Do you want to defragment {main_disk}?"):
@@ -467,7 +467,7 @@ def run_windows_update_check():
         )
         print(result.stdout)
         
-        if "No updates" in result.stdout:  # Sample check, modify based on actual output
+        if "No updates" in result.stdout:  
             messagebox.showinfo("Updates", "Your system is up to date.")
         else:
             messagebox.showinfo("Updates", "Updates are available! Proceed to install?")
@@ -490,7 +490,7 @@ def install_windows_updates():
         print(f"Error installing updates: {e}")
         messagebox.showerror("Error", f"Error installing updates: {e}")
 
-# Updated run_system_maintenance function to get the main disk
+
 def run_system_maintenance():
     get_main_disk()  # Get the main disk before starting maintenance
     if messagebox.askyesno("Run Full System Maintenance", "This may take a while. Proceed?"):
@@ -806,19 +806,19 @@ enable_end_task_checkbox = ctk.CTkCheckBox(
 enable_end_task_checkbox.grid(row=5, column=2, padx=20, pady=10, sticky="w")
 
 def enable_end_task():
-    # Modify the registry to enable End Task with Right Click
+   
     try:
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", 0, winreg.KEY_SET_VALUE)
-        winreg.SetValueEx(key, "NoViewContextMenu", 0, winreg.REG_DWORD, 0)  # Set to 0 to enable context menu
+        winreg.SetValueEx(key, "NoViewContextMenu", 0, winreg.REG_DWORD, 0)  
         winreg.CloseKey(key)
     except Exception as e:
         messagebox.showerror("Error", f"Failed to enable End Task with Right Click: {e}")
 
 
-# variable for the checkbox to disable Wi-Fi Sense
+
 disable_wifi_sense_var = ctk.BooleanVar()
 
-# checkbox for disabling Wi-Fi Sense
+
 disable_wifi_sense_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Wi-Fi Sense",
@@ -847,10 +847,10 @@ def disable_wifi_sense():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to disable Wi-Fi Sense: {e}")
 
-# variable for the checkbox to disable Storage Sense
+
 disable_storage_sense_var = ctk.BooleanVar()
 
-# checkbox for disabling Storage Sense
+
 disable_storage_sense_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Storage Sense",
@@ -880,10 +880,10 @@ def disable_storage_sense():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to disable Storage Sense: {e}")
 
-# variable for the checkbox to disable location tracking
+
 disable_location_tracking_var = ctk.BooleanVar()
 
-# checkbox for disabling location tracking
+
 disable_location_tracking_checkbox = ctk.CTkCheckBox(
     master=app,
     text="Disable Location Tracking",
@@ -897,10 +897,10 @@ disable_location_tracking_checkbox = ctk.CTkCheckBox(
 disable_location_tracking_checkbox.grid(row=2, column=4, padx=20, pady=10, sticky="w")
 
 def disable_location_tracking():
-    # Modify the registry to disable location tracking
+    
     try:
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location", 0, winreg.KEY_SET_VALUE)
-        winreg.SetValueEx(key, "Value", 0, winreg.REG_DWORD, 0)  # Set to 0 to disable location tracking
+        winreg.SetValueEx(key, "Value", 0, winreg.REG_DWORD, 0)  
         winreg.CloseKey(key)
     except Exception as e:
         messagebox.showerror("Error", f"Failed to disable location tracking: {e}")
