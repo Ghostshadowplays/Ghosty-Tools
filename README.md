@@ -8,4 +8,4 @@ love to learn and understand more about the world of coding we all noobs still ;
 Open .py from your preferred Software but open as admin or the script will not work properly.
 
 
-![my GUI](https://github.com/user-attachments/assets/6becb45a-ed7e-44bb-b34c-d66ab5f3ddaf)
+![Updated GUI](https://github.com/user-attachments/assets/e59dccad-3ed4-42c6-92db-7c1db7e53f5b)
