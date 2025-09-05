@@ -82,8 +82,12 @@ ctk.set_default_color_theme("blue")
 app = ctk.CTk()
 app.title("Ghosty Tool")
 app.geometry("1330x520")
+app.minsize(800, 500)
+app.state("zoomed")
 app.grid_rowconfigure(0, weight=1)
 app.grid_columnconfigure(0, weight=1)
+app.grid_columnconfigure(1, weight=1)
+app.grid_columnconfigure(2, weight=1)
 app.resizable(True, True)
 
 
@@ -283,39 +287,34 @@ def check_for_windows_updates():
 def run_windows_update_check():
     try:
         print("Checking for Windows updates...")
-        # Running Windows Update command to check for available updates
+        # Use UsoClient which is built into Windows 10/11
         result = subprocess.run(
-            "powershell -Command \"Get-WindowsUpdate\"",
+            "powershell -Command \"UsoClient StartScan\"",
             shell=True, capture_output=True, text=True
         )
-        print("PowerShell output:\n", result.stdout)  # Print the full output for debugging
+        print(result.stdout)
 
-        # Check if there are any updates in the output
-        if "No updates available" in result.stdout:  # Adjust this string based on actual output
-            messagebox.showinfo("Updates", "Your system is up to date.")
-        elif "Updates are available" in result.stdout:  # Check for another possible output string
-            messagebox.showinfo("Updates", "Updates are available! Proceed to install?")
-            # Option to install updates
-            if messagebox.askyesno("Install Updates", "Do you want to install the updates now?"):
-                install_windows_updates()
-        else:
-            messagebox.showinfo("Updates", "Check completed, but no specific information available.")
-            
+        messagebox.showinfo(
+            "Updates",
+            "Windows Update scan has started. Please check Windows Update settings for progress."
+        )
+
     except Exception as e:
         print(f"Error checking for updates: {e}")
         messagebox.showerror("Error", f"Error checking for updates: {e}")
 
 
-# Function to install Windows updates
 def install_windows_updates():
     try:
         print("Installing updates...")
-        # Command to install available updates
-        subprocess.run(
-            "powershell -Command \"Install-WindowsUpdate -AcceptAll -AutoReboot\"",
-            shell=True
+        # Start download and installation
+        subprocess.run("UsoClient StartDownload", shell=True)
+        subprocess.run("UsoClient StartInstall", shell=True)
+
+        messagebox.showinfo(
+            "Updates",
+            "Updates are being downloaded and installed in the background. Your system may reboot."
         )
-        messagebox.showinfo("Updates", "Updates installed successfully! Your system may reboot.")
     except Exception as e:
         print(f"Error installing updates: {e}")
         messagebox.showerror("Error", f"Error installing updates: {e}")
