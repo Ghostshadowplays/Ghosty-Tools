@@ -36,4 +36,6 @@ jobs:
         bandit -r . -lll
     - name: Check compilation
       run: |
-        python -m py_compile main.py src/core/*.py src/gui/*.py src/utils/*.py
+        Get-ChildItem -Recurse -Filter *.py |
+          Where-Object { $_.FullName -notmatch '\\.venv\\' -and $_.FullName -notmatch '\\.github\\' } |
+          ForEach-Object { python -m py_compile $_.FullName }
