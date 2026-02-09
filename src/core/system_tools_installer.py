@@ -4,6 +4,8 @@ import json
 import logging
 from enum import Enum
 
+CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+
 logger = logging.getLogger(__name__)
 
 class ToolCategory(Enum):
@@ -66,7 +68,7 @@ class SystemToolsInstaller:
     def check_tool_status(self, tool):
         try:
             ps_cmd = ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", tool.check_command]
-            result = subprocess.run(ps_cmd, capture_output=True, text=True, timeout=30, shell=False)
+            result = subprocess.run(ps_cmd, capture_output=True, text=True, timeout=30, shell=False, creationflags=CREATE_NO_WINDOW)
             tool.is_installed = (result.returncode == 0)
             return tool.is_installed
         except Exception as e:

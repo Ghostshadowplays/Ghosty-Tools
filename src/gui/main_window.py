@@ -32,6 +32,8 @@ from src.core.security_scanner import SecurityScanner
 from src.gui.dialogs import MasterPasswordDialog
 from src.utils.helpers import is_admin, elevate_privileges, get_config_dir, ensure_private_file
 
+CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+
 logger = logging.getLogger(__name__)
 
 class GhostyTool(QMainWindow):
@@ -79,7 +81,8 @@ class GhostyTool(QMainWindow):
                 ["powershell", "-NoProfile", "-Command", powershell_script],
                 capture_output=True,
                 text=True,
-                shell=False
+                shell=False,
+                creationflags=CREATE_NO_WINDOW
             )
             self.main_disk = result.stdout.strip()
             if not self.main_disk:
@@ -374,7 +377,7 @@ class GhostyTool(QMainWindow):
             import platform
             
             # CPU Info - more robust parsing
-            cpu_res = subprocess.run(["wmic", "cpu", "get", "name"], capture_output=True, text=True)
+            cpu_res = subprocess.run(["wmic", "cpu", "get", "name"], capture_output=True, text=True, creationflags=CREATE_NO_WINDOW)
             cpu_lines = [line.strip() for line in cpu_res.stdout.split('\n') if line.strip()]
             cpu_info = cpu_lines[1] if len(cpu_lines) > 1 else "Unknown CPU"
             
@@ -382,12 +385,12 @@ class GhostyTool(QMainWindow):
             mem = psutil.virtual_memory()
             
             # GPU Info
-            gpu_res = subprocess.run(["wmic", "path", "win32_VideoController", "get", "name"], capture_output=True, text=True)
+            gpu_res = subprocess.run(["wmic", "path", "win32_VideoController", "get", "name"], capture_output=True, text=True, creationflags=CREATE_NO_WINDOW)
             gpu_lines = [line.strip() for line in gpu_res.stdout.split('\n') if line.strip()]
             gpu_info = gpu_lines[1] if len(gpu_lines) > 1 else "Unknown GPU"
             
             # Motherboard
-            mobo_res = subprocess.run(["wmic", "baseboard", "get", "product,manufacturer"], capture_output=True, text=True)
+            mobo_res = subprocess.run(["wmic", "baseboard", "get", "product,manufacturer"], capture_output=True, text=True, creationflags=CREATE_NO_WINDOW)
             mobo_lines = [line.strip() for line in mobo_res.stdout.split('\n') if line.strip()]
             mobo_info = mobo_lines[1] if len(mobo_lines) > 1 else "Unknown Motherboard"
             
@@ -799,7 +802,7 @@ class GhostyTool(QMainWindow):
             try:
                 process = subprocess.Popen(["powershell", "-NoProfile", "-Command", cmd], 
                                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
-                                         text=True, shell=False)
+                                         text=True, shell=False, creationflags=CREATE_NO_WINDOW)
                 for line in process.stdout:
                     if line.strip():
                         self.log_signal.emit(f"[{tool.name}] {line.strip()}", "debug")
@@ -1169,7 +1172,7 @@ class GhostyTool(QMainWindow):
     def flush_dns(self):
         self.log_signal.emit("Flushing DNS cache...", "info")
         try:
-            subprocess.run(["ipconfig", "/flushdns"], shell=False, check=True)
+            subprocess.run(["ipconfig", "/flushdns"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
             self.log_signal.emit("DNS Cache flushed successfully.", "success")
             QMessageBox.information(self, "DNS Flush", "DNS Cache flushed successfully.")
         except Exception as e:
@@ -1179,7 +1182,7 @@ class GhostyTool(QMainWindow):
     def get_physical_disks(self):
         try:
             ps_command = "Get-PhysicalDisk | Select-Object DeviceID, FriendlyName, Size, MediaType | ConvertTo-Json"
-            result = subprocess.run(["powershell", "-NoProfile", "-Command", ps_command], capture_output=True, text=True, shell=False)
+            result = subprocess.run(["powershell", "-NoProfile", "-Command", ps_command], capture_output=True, text=True, shell=False, creationflags=CREATE_NO_WINDOW)
             if not result.stdout.strip(): return []
             disks = json.loads(result.stdout)
             return disks if isinstance(disks, list) else [disks]
@@ -1230,7 +1233,7 @@ class GhostyTool(QMainWindow):
     def run_disk_cleanup(self):
         self.log_signal.emit("Launching Disk Cleanup...", "info")
         try:
-            subprocess.Popen(["cleanmgr", "/d", "C"], shell=False)
+            subprocess.Popen(["cleanmgr", "/d", "C"], shell=False, creationflags=CREATE_NO_WINDOW)
         except Exception as e:
             logger.error(f"Error launching disk cleanup: {e}")
             self.log_signal.emit(f"Failed to launch Disk Cleanup: {e}", "error")
@@ -1243,7 +1246,7 @@ class GhostyTool(QMainWindow):
     def _update_check_thread(self):
         try:
             ps_script = "$UpdateSession = New-Object -ComObject Microsoft.Update.Session; $UpdateSearcher = $UpdateSession.CreateUpdateSearcher(); $SearchResult = $UpdateSearcher.Search('IsInstalled=0 and IsHidden=0'); $SearchResult.Updates.Count"
-            res = subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], capture_output=True, text=True, shell=False)
+            res = subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], capture_output=True, text=True, shell=False, creationflags=CREATE_NO_WINDOW)
             count = res.stdout.strip()
             self.update_status.setText(f"Status: {count} updates found")
             self.log_signal.emit(f"Windows update check finished: {count} updates found.", "info")
@@ -1253,13 +1256,13 @@ class GhostyTool(QMainWindow):
 
     def install_windows_updates(self):
         self.log_signal.emit("Initiating Windows Update installation (GUI)...", "info")
-        subprocess.run(["control", "update"], shell=False)
+        subprocess.run(["control", "update"], shell=False, creationflags=CREATE_NO_WINDOW)
 
     def create_restore_point(self):
         self.log_signal.emit("Creating System Restore Point...", "info")
         try:
             cmd = 'Checkpoint-Computer -Description "GhostyTool Restore Point" -RestorePointType "MODIFY_SETTINGS"'
-            subprocess.run(["powershell", "-NoProfile", "-Command", cmd], shell=False, check=True)
+            subprocess.run(["powershell", "-NoProfile", "-Command", cmd], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
             self.log_signal.emit("System Restore Point created successfully.", "success")
             QMessageBox.information(self, "Restore Point", "System Restore Point created successfully.")
         except Exception as e:
@@ -1344,7 +1347,7 @@ class GhostyTool(QMainWindow):
         except Exception as e: logger.error(f"GameDVR tweak failed: {e}")
 
     def _disable_hibernation(self):
-        try: subprocess.run(["powercfg", "-h", "off"], shell=False, check=True)
+        try: subprocess.run(["powercfg", "-h", "off"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
         except Exception as e: logger.error(f"Hibernation tweak failed: {e}")
 
     def _disable_homegroup(self):
@@ -1391,5 +1394,5 @@ class GhostyTool(QMainWindow):
 
     def _set_services_to_manual(self, services):
         for service in services:
-            try: subprocess.run(["sc", "config", service, "start=", "demand"], shell=False, check=True)
+            try: subprocess.run(["sc", "config", service, "start=", "demand"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
             except Exception as e: logger.error(f"Failed to set service {service} to manual: {e}")

@@ -5,6 +5,8 @@ import logging
 from enum import Enum
 from typing import Optional, Dict, List, Tuple, Callable, Any
 
+CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+
 logger = logging.getLogger(__name__)
 
 class BloatwareCategory(Enum):
@@ -85,7 +87,7 @@ class BloatRemover:
     def execute_powershell(self, command, timeout=300):
         try:
             ps_command = ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command]
-            result = subprocess.run(ps_command, capture_output=True, text=True, timeout=timeout, shell=False)
+            result = subprocess.run(ps_command, capture_output=True, text=True, timeout=timeout, shell=False, creationflags=CREATE_NO_WINDOW)
             return result.returncode == 0, result.stdout.strip(), result.stderr.strip()
         except Exception as e:
             return False, "", str(e)
