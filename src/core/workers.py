@@ -1,7 +1,15 @@
 import subprocess
-import speedtest
 import logging
 import json
+import os
+import sys
+
+# speedtest-cli tries to access sys.stdout.fileno() which can be None in noconsole EXE
+try:
+    import speedtest
+except Exception:
+    speedtest = None
+
 from PyQt6.QtCore import QThread, pyqtSignal
 from src.core.security_scanner import SecurityScanner
 
@@ -12,6 +20,10 @@ class SpeedTestWorker(QThread):
     error_occurred = pyqtSignal(str)
 
     def run(self):
+        if speedtest is None:
+            self.error_occurred.emit("The 'speedtest-cli' module is not available or failed to load. Please ensure it is installed correctly.")
+            return
+
         try:
             st = speedtest.Speedtest()
             st.get_best_server()
