@@ -23,11 +23,24 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Fetch enough history so CodeQL can map commits/branches
+          fetch-depth: 2
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
 
+      # On pull requests from forks, GitHub restricts uploading code scanning results.
+      # Run analysis but skip upload to avoid "ref not found" errors.
+      - name: Perform CodeQL Analysis (no upload on forks)
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
+        uses: github/codeql-action/analyze@v3
+        with:
+          upload: false
+
+      # Normal analysis + upload for pushes and PRs from branches in this repo
       - name: Perform CodeQL Analysis
+        if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
         uses: github/codeql-action/analyze@v3
