@@ -1,0 +1,778 @@
+{
+  "version": "1.0",
+  "description": "Windows Bloatware Removal Configuration",
+  "items": [
+    {
+      "id": "xbox_apps",
+      "name": "Xbox Apps",
+      "description": "Remove Xbox Game Bar, Xbox Gaming Overlay, and related Xbox services",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Xbox*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Xbox*' | Remove-AppxPackage -ErrorAction SilentlyContinue",
+        "Get-AppxPackage -Name 'Microsoft.GamingApp' | Remove-AppxPackage -ErrorAction SilentlyContinue",
+        "Get-AppxPackage -Name 'Microsoft.XboxGamingOverlay' | Remove-AppxPackage -ErrorAction SilentlyContinue",
+        "Get-AppxPackage -Name 'Microsoft.XboxGameOverlay' | Remove-AppxPackage -ErrorAction SilentlyContinue",
+        "Get-AppxPackage -Name 'Microsoft.XboxIdentityProvider' | Remove-AppxPackage -ErrorAction SilentlyContinue",
+        "Get-AppxPackage -Name 'Microsoft.XboxSpeechToTextOverlay' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "cortana",
+      "name": "Cortana",
+      "description": "Remove Cortana voice assistant application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.549981C3F5F10' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.549981C3F5F10' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "bing_news",
+      "name": "Bing News",
+      "description": "Remove Microsoft News application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.BingNews' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.BingNews' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "bing_weather",
+      "name": "Bing Weather",
+      "description": "Remove Microsoft Weather application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.BingWeather' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.BingWeather' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "bing_finance",
+      "name": "Bing Finance",
+      "description": "Remove Microsoft Finance application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.BingFinance' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.BingFinance' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "spotify",
+      "name": "Spotify",
+      "description": "Remove Spotify Music application (if pre-installed)",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'SpotifyAB.SpotifyMusic' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'SpotifyAB.SpotifyMusic' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "disney_plus",
+      "name": "Disney+",
+      "description": "Remove Disney+ application (if pre-installed)",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Disney*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Disney*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "facebook",
+      "name": "Facebook",
+      "description": "Remove Facebook application (if pre-installed)",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Facebook*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Facebook*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "instagram",
+      "name": "Instagram",
+      "description": "Remove Instagram application (if pre-installed)",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Instagram*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Instagram*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "tiktok",
+      "name": "TikTok",
+      "description": "Remove TikTok application (if pre-installed)",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*TikTok*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*TikTok*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "twitter",
+      "name": "Twitter / X",
+      "description": "Remove Twitter/X application (if pre-installed)",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Twitter*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Twitter*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "solitaire",
+      "name": "Microsoft Solitaire Collection",
+      "description": "Remove Microsoft Solitaire and Casual Games",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.MicrosoftSolitaireCollection' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.MicrosoftSolitaireCollection' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "office_hub",
+      "name": "Office Hub",
+      "description": "Remove Microsoft Office Hub application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.MicrosoftOfficeHub' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.MicrosoftOfficeHub' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "skype",
+      "name": "Skype",
+      "description": "Remove Skype UWP application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.SkypeApp' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.SkypeApp' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "get_started",
+      "name": "Get Started / Tips",
+      "description": "Remove Get Started and Windows Tips applications",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.Getstarted' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.Getstarted' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "your_phone",
+      "name": "Your Phone / Phone Link",
+      "description": "Remove Your Phone (Phone Link) application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.YourPhone' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.YourPhone' | Remove-AppxPackage -ErrorAction SilentlyContinue",
+        "Get-AppxPackage -Name 'Microsoft.Windows.PhoneLink' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "messaging",
+      "name": "Messaging",
+      "description": "Remove Messaging application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.Messaging' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.Messaging' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "people",
+      "name": "People",
+      "description": "Remove People application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.People' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.People' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "zune_music",
+      "name": "Groove Music",
+      "description": "Remove Groove Music (Zune Music) application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.ZuneMusic' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.ZuneMusic' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "zune_video",
+      "name": "Movies & TV",
+      "description": "Remove Movies & TV (Zune Video) application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.ZuneVideo' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.ZuneVideo' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "feedback_hub",
+      "name": "Feedback Hub",
+      "description": "Remove Windows Feedback Hub application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.WindowsFeedbackHub' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.WindowsFeedbackHub' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "maps",
+      "name": "Windows Maps",
+      "description": "Remove Windows Maps application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.WindowsMaps' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.WindowsMaps' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "mixed_reality",
+      "name": "Mixed Reality Portal",
+      "description": "Remove Mixed Reality Portal and 3D Viewer",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.MixedReality.Portal' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.MixedReality.Portal' | Remove-AppxPackage -ErrorAction SilentlyContinue",
+        "Get-AppxPackage -Name 'Microsoft.Microsoft3DViewer' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "todo",
+      "name": "Microsoft To Do",
+      "description": "Remove Microsoft To Do application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.Todos' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.Todos' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "internet_explorer",
+      "name": "Internet Explorer 11",
+      "description": "Disable Internet Explorer 11 feature",
+      "category": "Windows Features",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": true,
+      "windows_versions": ["10"],
+      "check_command": "Get-WindowsOptionalFeature -Online -FeatureName 'Internet-Explorer-Optional-amd64' | Where-Object {$_.State -eq 'Enabled'}",
+      "commands": [
+        "Disable-WindowsOptionalFeature -Online -FeatureName 'Internet-Explorer-Optional-amd64' -NoRestart -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "windows_media_player",
+      "name": "Windows Media Player",
+      "description": "Disable Windows Media Player feature",
+      "category": "Windows Features",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": true,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsOptionalFeature -Online -FeatureName 'WindowsMediaPlayer' | Where-Object {$_.State -eq 'Enabled'}",
+      "commands": [
+        "Disable-WindowsOptionalFeature -Online -FeatureName 'WindowsMediaPlayer' -NoRestart -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "powershell_2",
+      "name": "PowerShell 2.0",
+      "description": "Disable legacy PowerShell 2.0 (security risk)",
+      "category": "Windows Features",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": true,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsOptionalFeature -Online -FeatureName 'MicrosoftWindowsPowerShellV2Root' | Where-Object {$_.State -eq 'Enabled'}",
+      "commands": [
+        "Disable-WindowsOptionalFeature -Online -FeatureName 'MicrosoftWindowsPowerShellV2Root' -NoRestart -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "xps_services",
+      "name": "XPS Services",
+      "description": "Disable XPS Document Writer and Viewer",
+      "category": "Windows Features",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsOptionalFeature -Online -FeatureName 'Printing-XPSServices-Features' | Where-Object {$_.State -eq 'Enabled'}",
+      "commands": [
+        "Disable-WindowsOptionalFeature -Online -FeatureName 'Printing-XPSServices-Features' -NoRestart -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "work_folders",
+      "name": "Work Folders Client",
+      "description": "Disable Work Folders client feature",
+      "category": "Windows Features",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsOptionalFeature -Online -FeatureName 'WorkFolders-Client' | Where-Object {$_.State -eq 'Enabled'}",
+      "commands": [
+        "Disable-WindowsOptionalFeature -Online -FeatureName 'WorkFolders-Client' -NoRestart -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "smb1",
+      "name": "SMB 1.0 Protocol",
+      "description": "Disable insecure SMB 1.0 protocol (security risk)",
+      "category": "Windows Features",
+      "safety_level": "moderate",
+      "requires_admin": true,
+      "requires_restart": true,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsOptionalFeature -Online -FeatureName 'SMB1Protocol' | Where-Object {$_.State -eq 'Enabled'}",
+      "commands": [
+        "Disable-WindowsOptionalFeature -Online -FeatureName 'SMB1Protocol' -NoRestart -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "tftp_client",
+      "name": "TFTP Client",
+      "description": "Disable TFTP Client feature",
+      "category": "Windows Features",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsOptionalFeature -Online -FeatureName 'TFTP' | Where-Object {$_.State -eq 'Enabled'}",
+      "commands": [
+        "Disable-WindowsOptionalFeature -Online -FeatureName 'TFTP' -NoRestart -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "telnet_client",
+      "name": "Telnet Client",
+      "description": "Disable insecure Telnet Client (security risk)",
+      "category": "Windows Features",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsOptionalFeature -Online -FeatureName 'TelnetClient' | Where-Object {$_.State -eq 'Enabled'}",
+      "commands": [
+        "Disable-WindowsOptionalFeature -Online -FeatureName 'TelnetClient' -NoRestart -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "onedrive_uninstall",
+      "name": "OneDrive",
+      "description": "Uninstall OneDrive and remove sync folders",
+      "category": "OneDrive",
+      "safety_level": "moderate",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-Process -Name 'OneDrive' -ErrorAction SilentlyContinue",
+      "commands": [
+        "taskkill /f /im OneDrive.exe",
+        "Start-Sleep -Seconds 2",
+        "if (Test-Path \"$env:SystemRoot\\System32\\OneDriveSetup.exe\") { Start-Process -FilePath \"$env:SystemRoot\\System32\\OneDriveSetup.exe\" -ArgumentList '/uninstall' -Wait }",
+        "if (Test-Path \"$env:SystemRoot\\SysWOW64\\OneDriveSetup.exe\") { Start-Process -FilePath \"$env:SystemRoot\\SysWOW64\\OneDriveSetup.exe\" -ArgumentList '/uninstall' -Wait }",
+        "Remove-Item -Path \"$env:UserProfile\\OneDrive\" -Force -Recurse -ErrorAction SilentlyContinue",
+        "Remove-Item -Path \"$env:LocalAppData\\Microsoft\\OneDrive\" -Force -Recurse -ErrorAction SilentlyContinue",
+        "Remove-Item -Path \"$env:ProgramData\\Microsoft OneDrive\" -Force -Recurse -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "disable_telemetry_registry",
+      "name": "Disable Telemetry",
+      "description": "Disable Windows telemetry and diagnostic data collection via registry",
+      "category": "Telemetry And Privacy",
+      "safety_level": "moderate",
+      "requires_admin": true,
+      "requires_restart": true,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection' -Name 'AllowTelemetry' -ErrorAction SilentlyContinue",
+      "commands": [
+        "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection' -Force -ErrorAction SilentlyContinue",
+        "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection' -Name 'AllowTelemetry' -Value 0 -Type DWord -Force"
+      ]
+    },
+    {
+      "id": "disable_activity_history",
+      "name": "Disable Activity History",
+      "description": "Disable Windows activity history and timeline",
+      "category": "Telemetry And Privacy",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System' -Name 'EnableActivityFeed' -ErrorAction SilentlyContinue",
+      "commands": [
+        "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System' -Force -ErrorAction SilentlyContinue",
+        "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System' -Name 'EnableActivityFeed' -Value 0 -Type DWord -Force",
+        "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System' -Name 'PublishUserActivities' -Value 0 -Type DWord -Force",
+        "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System' -Name 'UploadUserActivities' -Value 0 -Type DWord -Force"
+      ]
+    },
+    {
+      "id": "disable_cortana_data",
+      "name": "Disable Cortana Data Collection",
+      "description": "Disable Cortana data collection and cloud search",
+      "category": "Telemetry And Privacy",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search' -Name 'AllowCortana' -ErrorAction SilentlyContinue",
+      "commands": [
+        "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search' -Force -ErrorAction SilentlyContinue",
+        "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search' -Name 'AllowCortana' -Value 0 -Type DWord -Force",
+        "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search' -Name 'AllowCloudSearch' -Value 0 -Type DWord -Force"
+      ]
+    },
+    {
+      "id": "dell_bloatware",
+      "name": "Dell OEM Bloatware",
+      "description": "Remove Dell pre-installed applications",
+      "category": "OEM Bloatware",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Dell*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Dell*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "hp_bloatware",
+      "name": "HP OEM Bloatware",
+      "description": "Remove HP pre-installed applications",
+      "category": "OEM Bloatware",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*HP*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*HP*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "lenovo_bloatware",
+      "name": "Lenovo OEM Bloatware",
+      "description": "Remove Lenovo pre-installed applications",
+      "category": "OEM Bloatware",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Lenovo*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Lenovo*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "asus_bloatware",
+      "name": "Asus OEM Bloatware",
+      "description": "Remove Asus pre-installed applications",
+      "category": "OEM Bloatware",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Asus*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Asus*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "acer_bloatware",
+      "name": "Acer OEM Bloatware",
+      "description": "Remove Acer pre-installed applications",
+      "category": "OEM Bloatware",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Acer*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Acer*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "mcafee_bloatware",
+      "name": "McAfee Trial",
+      "description": "Remove McAfee trial software",
+      "category": "OEM Bloatware",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*McAfee*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*McAfee*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "norton_bloatware",
+      "name": "Norton Trial",
+      "description": "Remove Norton trial software",
+      "category": "OEM Bloatware",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Norton*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Norton*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "dropbox_promo",
+      "name": "Dropbox Promotion",
+      "description": "Remove Dropbox promotional application",
+      "category": "OEM Bloatware",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Dropbox*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Dropbox*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "disable_remote_registry",
+      "name": "Remote Registry Service",
+      "description": "Disable Remote Registry service",
+      "category": "Windows Services",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-Service -Name 'RemoteRegistry' | Where-Object {$_.Status -eq 'Running'}",
+      "commands": [
+        "Stop-Service -Name 'RemoteRegistry' -Force -ErrorAction SilentlyContinue",
+        "Set-Service -Name 'RemoteRegistry' -StartupType Disabled -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "disable_diagnostic_tracking",
+      "name": "Diagnostic Tracking Service",
+      "description": "Disable Connected User Experiences and Telemetry service",
+      "category": "Windows Services",
+      "safety_level": "moderate",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-Service -Name 'DiagTrack' | Where-Object {$_.Status -eq 'Running'}",
+      "commands": [
+        "Stop-Service -Name 'DiagTrack' -Force -ErrorAction SilentlyContinue",
+        "Set-Service -Name 'DiagTrack' -StartupType Disabled -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "disable_wap_push",
+      "name": "WAP Push Service",
+      "description": "Disable WAP Push Message Routing Service",
+      "category": "Windows Services",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-Service -Name 'dmwappushservice' | Where-Object {$_.Status -eq 'Running'}",
+      "commands": [
+        "Stop-Service -Name 'dmwappushservice' -Force -ErrorAction SilentlyContinue",
+        "Set-Service -Name 'dmwappushservice' -StartupType Disabled -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "disable_fax",
+      "name": "Fax Service",
+      "description": "Disable Fax service",
+      "category": "Windows Services",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-Service -Name 'Fax' | Where-Object {$_.Status -eq 'Running'}",
+      "commands": [
+        "Stop-Service -Name 'Fax' -Force -ErrorAction SilentlyContinue",
+        "Set-Service -Name 'Fax' -StartupType Disabled -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "disable_xbox_services",
+      "name": "Xbox Services",
+      "description": "Disable Xbox Live Auth Manager and other Xbox services",
+      "category": "Windows Services",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-Service -Name 'XblAuthManager' | Where-Object {$_.Status -eq 'Running'}",
+      "commands": [
+        "Stop-Service -Name 'XblAuthManager' -Force -ErrorAction SilentlyContinue",
+        "Set-Service -Name 'XblAuthManager' -StartupType Disabled -ErrorAction SilentlyContinue",
+        "Stop-Service -Name 'XblGameSave' -Force -ErrorAction SilentlyContinue",
+        "Set-Service -Name 'XblGameSave' -StartupType Disabled -ErrorAction SilentlyContinue",
+        "Stop-Service -Name 'XboxGipSvc' -Force -ErrorAction SilentlyContinue",
+        "Set-Service -Name 'XboxGipSvc' -StartupType Disabled -ErrorAction SilentlyContinue",
+        "Stop-Service -Name 'XboxNetApiSvc' -Force -ErrorAction SilentlyContinue",
+        "Set-Service -Name 'XboxNetApiSvc' -StartupType Disabled -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "remove_quick_assist",
+      "name": "Quick Assist",
+      "description": "Remove Quick Assist capability",
+      "category": "Optional Components",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsCapability -Online | Where-Object {$_.Name -like '*QuickAssist*' -and $_.State -eq 'Installed'}",
+      "commands": [
+        "Get-WindowsCapability -Online | Where-Object {$_.Name -like '*QuickAssist*'} | Remove-WindowsCapability -Online -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "remove_steps_recorder",
+      "name": "Steps Recorder",
+      "description": "Remove Steps Recorder capability",
+      "category": "Optional Components",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsCapability -Online | Where-Object {$_.Name -like '*StepsRecorder*' -and $_.State -eq 'Installed'}",
+      "commands": [
+        "Get-WindowsCapability -Online | Where-Object {$_.Name -like '*StepsRecorder*'} | Remove-WindowsCapability -Online -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "remove_math_recognizer",
+      "name": "Math Recognizer",
+      "description": "Remove Math Recognizer capability",
+      "category": "Optional Components",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsCapability -Online | Where-Object {$_.Name -like '*MathRecognizer*' -and $_.State -eq 'Installed'}",
+      "commands": [
+        "Get-WindowsCapability -Online | Where-Object {$_.Name -like '*MathRecognizer*'} | Remove-WindowsCapability -Online -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "remove_powershell_ise",
+      "name": "PowerShell ISE",
+      "description": "Remove PowerShell ISE capability",
+      "category": "Optional Components",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsCapability -Online | Where-Object {$_.Name -like '*PowerShell.ISE*' -and $_.State -eq 'Installed'}",
+      "commands": [
+        "Get-WindowsCapability -Online | Where-Object {$_.Name -like '*PowerShell.ISE*'} | Remove-WindowsCapability -Online -ErrorAction SilentlyContinue"
+      ]
+    }
+  ]
+}

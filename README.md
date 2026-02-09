@@ -1,54 +1,97 @@
-# 🛠️ Ghosty Tools – Technician’s Ritual Suite
+# 👻 Ghosty Tools
 
-**Simple one-click repair tool for reclaiming your system.**  
-Built for technicians, learners, and digital guardians alike.
+![Security & Quality Audit](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml/badge.svg)
+[![Lint: flake8](https://img.shields.io/badge/lint-flake8-1f6feb?logo=python&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml)
+[![Format: black](https://img.shields.io/badge/format-black-000000?logo=python&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml)
+[![Types: mypy](https://img.shields.io/badge/types-mypy-2d2d2d?logo=python&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml)
+
+**Professional Windows System Optimization & Security Suite**
+
+Ghosty Tools is a comprehensive, modular, and secure utility designed to maintain, optimize, and secure your Windows environment. It brings together several essential tools into a single, professional interface.
+
+## ✨ Features
+
+### 📊 Dashboard & Monitoring
+- **Live System Usage:** Real-time monitoring of CPU and RAM utilization.
+- **System Specifications:** Detailed hardware information (CPU, GPU, RAM, Motherboard).
+- **Battery Health:** Check charge levels and power status.
+- **Disk Health:** Real-time health status monitoring for your system drive.
+- **Network Speed Test:** Integrated speed test to verify your connection.
+
+### 🔧 System Maintenance
+- **Full Maintenance:** One-click execution of SFC, DISM, GPUpdate, and CHKDSK.
+- **DNS Flush:** Quickly clear your DNS resolver cache.
+- **Disk Cleanup:** Launch the Windows Disk Cleanup utility.
+- **Windows Updates:** Check for and initiate Windows Update installations.
+- **Restore Points:** Create system restore points before making major changes.
+- **Advanced Disk Tools:** MBR to GPT conversion utility (MBR2GPT) with safety validation.
+
+### 🛡️ Security Assessment
+- **Vulnerability Scanner:** Checks for Windows Defender status, Firewall configuration, UAC settings, SMBv1 risks, and active network shares.
+- **Live Feedback:** Instant reporting of security findings with severity levels.
+
+### 🗑️ Windows Debloat
+- **System Scan:** Detect installed bloatware across multiple categories (Xbox, Cortana, Bing, etc.).
+- **Safe Removal:** Categorized removal of pre-installed apps and unnecessary Windows components.
+- **Restore Integration:** Links directly to restore point creation for maximum safety.
+
+### 📦 System Tools Installer
+- **Winget-Powered:** Easily install essential developer tools like WSL, Git, Python, VS Code, Docker, and more.
+- **Status Detection:** Automatically detects if tools are already installed.
+
+### 🔐 Password Management
+- **Password Generator:** Generate cryptographically secure passwords with customizable length and complexity.
+- **ShadowKeys Vault:** AES-encrypted local password storage with Master Password protection (PBKDF2HMAC key derivation).
+
+### ⚙️ System Tweaks
+- **Performance & Privacy:** Categorized registry optimizations for Telemetry, Activity History, GameDVR, and more.
+- **Bulk Application:** Select multiple tweaks and apply them all at once.
+
+## 🚀 Quick Start
+
+### Prerequisites
+- **Python 3.10+** (Fully compatible with Python 3.14.3)
+- **Windows 10 or 11**
+- **Administrator Privileges** (required for system modifications)
+
+### Installation
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Ghostshadowplays/Ghosty-Tools.git
+   cd Ghosty-Tools
+   ```
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+### Running the App
+Launch using the wrapper:
+```bash
+python "Ghosty Tools.py"
+```
+Or directly:
+```bash
+python main.py
+```
+
+## 📁 Project Structure
+- `src/core/`: Logic engines for scanning, cleaning, and security.
+- `src/gui/`: User interface components built with PyQt6.
+- `src/utils/`: Helper functions and logging configurations.
+- `config/`: JSON configuration files for bloatware and tools.
+- `images/`: Brand assets and icons.
+
+## 🔒 Security Policy
+- **No Data Collection:** Ghosty Tools operates entirely locally. No passwords or system data are ever transmitted externally.
+- **Secure Commands:** All system operations use secure `subprocess` calls without shell execution to prevent command injection.
+- **Encryption:** Password vault uses industry-standard Fernet (AES) encryption with secure key derivation iterations.
+
+## 📝 License
+This project is licensed under the **GNU General Public License v3.0**. See the `LICENSE` file for details.
+
+## 🙏 Special Thanks
+A big thank you to [haywardgg](https://github.com/haywardgg) for pushing me on my project and inspiring me with new ideas. This project would not be as great as it is without him.
 
 ---
-
-## 🔗 Follow the Journey  
-Come hang out and learn with me on Twitch:  
-👉 [twitch.tv/ghostshadow_plays](https://www.twitch.tv/ghostshadow_plays)  
-We’re all noobs still—every click is a step toward mastery.
-
----
-
-## ⚙️ How to Use  
-- Open the `.py` file using your preferred software.  
-- **Run as Administrator** — some rituals require elevated access.  
-- GUI and audio feedback included for immersive technician flow.
-
-![Updated GUI](https://github.com/user-attachments/assets/e59dccad-3ed4-42c6-92db-7c1db7e53f5b)
-
----
-
-## 🧰 Features
-
-- 🧹 Temp file cleanup  
-- 🛡️ Telemetry disabling  
-- 🕰️ Restore point creation  
-- 🧱 Disk defragmentation  
-- 🔄 Windows Update control  
-- 🌐 Network speed test  
-- 🌙 Dark mode toggle  
-- 🎮 Mini-games (because even technicians need play)
-
----
-
-## 📜 License  
-Ghosty Tools is licensed under **GNU GPLv3**.  
-This means:
-- You’re free to use, modify, and share it.
-- Any changes must also remain open-source.
-- The technician legacy stays protected.
-
-See the [LICENSE](./LICENSE) file for full terms.
-
----
-
-## 🧙‍♂️ Mythos  
-Ghosty Tools isn’t just a utility—it’s a technician’s altar.  
-Every function is a ritual. Every log is a legacy.  
-Built to honor earned mastery and protect users from digital decay.
-
----
-
+**Disclaimer:** *Ghosty Tools provides advanced system modification capabilities. While safety checks are included, use these tools at your own risk. Always back up important data.*

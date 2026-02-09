@@ -1,0 +1,138 @@
+{
+  "version": "1.0",
+  "description": "System Tools Installation Configuration",
+  "tools": [
+    {
+      "id": "wsl",
+      "name": "Windows Subsystem for Linux (WSL)",
+      "description": "Install WSL 2 for running Linux distributions on Windows. Enables seamless Linux development environment.",
+      "category": "Development Environment",
+      "requires_admin": true,
+      "requires_restart": true,
+      "check_command": "wsl --status",
+      "install_commands": [
+        "dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart",
+        "dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart",
+        "wsl --set-default-version 2"
+      ],
+      "post_install_message": "WSL installed successfully! A restart is required. After restarting, install a Linux distribution from the Microsoft Store (e.g., Ubuntu)."
+    },
+    {
+      "id": "git",
+      "name": "Git for Windows",
+      "description": "Install Git version control system with Git Bash, Git GUI, and shell integration.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "git --version",
+      "install_commands": [
+        "winget install --id Git.Git -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Git installed successfully! You may need to restart your terminal or IDE to use git commands."
+    },
+    {
+      "id": "python",
+      "name": "Python (Latest)",
+      "description": "Install the latest Python 3 interpreter with pip package manager and standard library.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "python --version",
+      "install_commands": [
+        "winget install --id Python.Python.3.14 -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Python installed successfully! Restart your terminal to use python and pip commands. Add Python to PATH if not automatically configured."
+    },
+    {
+      "id": "nodejs",
+      "name": "Node.js (LTS)",
+      "description": "Install Node.js LTS version with npm package manager for JavaScript development.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "node --version",
+      "install_commands": [
+        "winget install --id OpenJS.NodeJS.LTS -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Node.js installed successfully! Restart your terminal to use node and npm commands."
+    },
+    {
+      "id": "windows_terminal",
+      "name": "Windows Terminal",
+      "description": "Install modern Windows Terminal with tabs, split panes, and GPU-accelerated text rendering.",
+      "category": "Terminal & Shell",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-AppxPackage -Name '*WindowsTerminal*' | Select-Object -First 1",
+      "install_commands": [
+        "winget install --id Microsoft.WindowsTerminal -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Windows Terminal installed successfully! Launch it from the Start menu or pin it to your taskbar."
+    },
+    {
+      "id": "vscode",
+      "name": "Visual Studio Code",
+      "description": "Install Visual Studio Code, a lightweight but powerful source code editor with extensive extensions.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "code --version",
+      "install_commands": [
+        "winget install --id Microsoft.VisualStudioCode -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Visual Studio Code installed successfully! Launch from Start menu or use 'code' command in terminal after restart."
+    },
+    {
+      "id": "powershell7",
+      "name": "PowerShell 7",
+      "description": "Install PowerShell 7, the latest cross-platform PowerShell with improved performance and new features.",
+      "category": "Terminal & Shell",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "pwsh --version",
+      "install_commands": [
+        "winget install --id Microsoft.PowerShell -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "PowerShell 7 installed successfully! Use 'pwsh' command to launch PowerShell 7."
+    },
+    {
+      "id": "docker_desktop",
+      "name": "Docker Desktop",
+      "description": "Install Docker Desktop for containerized application development. Requires WSL 2 to be installed first.",
+      "category": "Development Environment",
+      "requires_admin": true,
+      "requires_restart": true,
+      "check_command": "docker --version",
+      "install_commands": [
+        "winget install --id Docker.DockerDesktop -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Docker Desktop installed successfully! A restart is recommended. Make sure WSL 2 is installed and enabled."
+    },
+    {
+      "id": "winget",
+      "name": "Windows Package Manager (winget)",
+      "description": "Update or install Windows Package Manager (winget) - the official Windows package manager.",
+      "category": "Package Managers",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "winget --version",
+      "install_commands": [
+        "Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe"
+      ],
+      "post_install_message": "Winget updated successfully! Winget is now ready to install and manage packages."
+    },
+    {
+      "id": "chocolatey",
+      "name": "Chocolatey Package Manager",
+      "description": "Install Chocolatey, a popular package manager for Windows with thousands of packages.",
+      "category": "Package Managers",
+      "requires_admin": true,
+      "requires_restart": false,
+      "check_command": "choco --version",
+      "install_commands": [
+        "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
+      ],
+      "post_install_message": "Chocolatey installed successfully! Restart your terminal and use 'choco' command to manage packages."
+    }
+  ]
+}

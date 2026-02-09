@@ -1,0 +1,134 @@
+name: Security & Quality Audit
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"  # Weekly, Mondays 03:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit (Bandit + pip-audit) • py${{ matrix.python-version }} • ubuntu
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install bandit flake8 black mypy
+
+      - name: Quick compile check (syntax only)
+        run: |
+          python - <<'PY'
+          import pathlib, py_compile
+          for p in pathlib.Path('.').rglob('*.py'):
+              if '.venv' in p.parts or p.parts[0] == '.github':
+                  continue
+              py_compile.compile(str(p), doraise=True)
+          print('py_compile OK')
+          PY
+
+      - name: Lint (flake8)
+        run: flake8 .
+
+      - name: Format check (black)
+        run: black --check .
+
+      - name: Type check (mypy, relaxed)
+        run: |
+          mypy --ignore-missing-imports --install-types --non-interactive .
+
+      - name: Bandit (fail on High severity, high confidence)
+        run: |
+          set -e
+          bandit -q -r src main.py "Ghosty Tools.py" -lll -o bandit-report.txt --format txt || true
+          if grep -E "Severity:\s*HIGH" bandit-report.txt >/dev/null 2>&1; then
+            echo "High severity Bandit findings detected" >&2
+            cat bandit-report.txt
+            exit 1
+          fi
+
+      - name: Upload Bandit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report-py${{ matrix.python-version }}
+          path: bandit-report.txt
+
+      - name: Dependency audit (pip-audit)
+        uses: pypa/gh-action-pip-audit@v1
+        with:
+          inputs: requirements.txt
+
+  windows-smoke:
+    name: Windows smoke (install + compile) • py3.14
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install deps (no GUI needed)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Import smoke
+        shell: bash
+        run: |
+          python - <<'PY'
+          import importlib
+          for mod in ("PyQt6", "psutil", "cryptography", "speedtest"):
+              importlib.import_module(mod)
+          print("Imports OK")
+          PY
+
+      - name: Compile check
+        shell: bash
+        run: |
+          python - <<'PY'
+          import pathlib, py_compile
+          for p in pathlib.Path('.').rglob('*.py'):
+              if '.venv' in p.parts or p.parts[0] == '.github':
+                  continue
+              py_compile.compile(str(p), doraise=True)
+          print('py_compile OK (Windows)')
+          PY
