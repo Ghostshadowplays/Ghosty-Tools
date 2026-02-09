@@ -6,6 +6,7 @@ from PyQt6.QtCore import Qt
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
+from src.utils.helpers import ensure_private_file
 
 class MasterPasswordDialog(QDialog):
     def __init__(self, salt_file_path):
@@ -69,20 +70,36 @@ class MasterPasswordDialog(QDialog):
             salt = secrets.token_bytes(16)
             with open(self.salt_file_path, "wb") as f:
                 f.write(salt)
+            try:
+                ensure_private_file(self.salt_file_path)
+            except Exception:
+                pass
         else:
             with open(self.salt_file_path, "rb") as f:
                 salt = f.read()
 
         self.key = self.derive_key(pw.encode(), salt)
+
+        # Best-effort memory cleanup
+        self.password_entry.clear()
+        if hasattr(self, 'confirm_entry'):
+            self.confirm_entry.clear()
+        pw = None
+
         self.accept()
 
     @staticmethod
     def derive_key(password: bytes, salt: bytes) -> bytes:
+        iterations = 390000
+        try:
+            iterations = int(os.environ.get("GHOSTYTOOLS_KDF_ITERS", iterations))
+        except Exception:
+            pass
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt,
-            iterations=390000,
+            iterations=iterations,
             backend=default_backend()
         )
         return base64.urlsafe_b64encode(kdf.derive(password))

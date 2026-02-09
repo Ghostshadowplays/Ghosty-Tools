@@ -17,7 +17,10 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QSize
 from PyQt6.QtGui import QIcon, QFont, QColor, QTextCursor
 import psutil
-import winreg
+try:
+    import winreg  # type: ignore
+except Exception:  # Non-Windows platforms
+    winreg = None  # type: ignore
 import pyperclip
 
 # Internal imports
@@ -27,6 +30,7 @@ from src.core.bloat_remover import BloatRemover, BloatwareCategory, SafetyLevel
 from src.core.system_tools_installer import SystemToolsInstaller, ToolCategory
 from src.core.security_scanner import SecurityScanner
 from src.gui.dialogs import MasterPasswordDialog
+from src.utils.helpers import is_admin, elevate_privileges, get_config_dir, ensure_private_file
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +53,13 @@ class GhostyTool(QMainWindow):
         self.get_main_disk()
 
         self.password_manager = None
-        self.salt_path = os.path.join(os.path.expanduser("~"), ".shadowkeys_salt")
+        config_dir = get_config_dir()
+        self.salt_path = os.path.join(config_dir, "salt")
+
+        # Clipboard security
+        self.clipboard_timer = QTimer()
+        self.clipboard_timer.setSingleShot(True)
+        self.clipboard_timer.timeout.connect(self.clear_clipboard)
 
         self.init_ui()
         
@@ -146,6 +156,21 @@ class GhostyTool(QMainWindow):
         self.page_title.setStyleSheet("color: white;")
         self.header_layout.addWidget(self.page_title)
         self.header_layout.addStretch()
+
+        # Admin status in header
+        self.admin_label = QLabel()
+        self.admin_label.setStyleSheet("margin-right: 10px;")
+        self.update_admin_status_ui()
+        self.header_layout.addWidget(self.admin_label)
+
+        self.elevate_btn = QPushButton("Elevate")
+        self.elevate_btn.setFixedWidth(80)
+        self.elevate_btn.setStyleSheet("background-color: #f44747; color: white; font-weight: bold; border-radius: 3px; height: 30px;")
+        self.elevate_btn.clicked.connect(self.request_elevation)
+        self.header_layout.addWidget(self.elevate_btn)
+
+        if is_admin():
+            self.elevate_btn.hide()
         
         self.right_layout.addWidget(self.header_frame)
         self.right_layout.addWidget(self.content_stack)
@@ -226,6 +251,28 @@ class GhostyTool(QMainWindow):
         self.sidebar_layout.addWidget(btn)
         self.nav_buttons.append(btn)
         if index == 0: btn.setChecked(True)
+
+    def update_admin_status_ui(self):
+        if is_admin():
+            self.admin_label.setText("🛡️ Admin Mode")
+            self.admin_label.setStyleSheet("color: #6a9955; font-weight: bold;")
+        else:
+            self.admin_label.setText("👤 Standard Mode")
+            self.admin_label.setStyleSheet("color: #d7ba7d; font-weight: bold;")
+
+    def request_elevation(self):
+        if QMessageBox.question(self, "Elevate", "Restart app with administrator privileges?") == QMessageBox.StandardButton.Yes:
+            elevate_privileges()
+
+    def clear_clipboard(self):
+        pyperclip.copy("")
+        self.log_signal.emit("Clipboard cleared for security.", "info")
+
+    def copy_to_clipboard(self, text, timeout=30):
+        if text:
+            pyperclip.copy(text)
+            self.log_signal.emit(f"Copied to clipboard. Will clear in {timeout}s.", "info")
+            self.clipboard_timer.start(timeout * 1000)
 
     def log_to_terminal(self, message, level="info"):
         """Logs a message to the live terminal with color coding."""
@@ -899,6 +946,10 @@ class GhostyTool(QMainWindow):
             db_path = os.path.join(os.path.dirname(self.salt_path), "vault.json")
             if not os.path.exists(db_path):
                 with open(db_path, "w") as f: json.dump({}, f)
+                try:
+                    ensure_private_file(db_path)
+                except Exception:
+                    pass
             self.password_manager.set_file_path(db_path)
             if self.password_manager.load_passwords():
                 self.refresh_vault_list()
@@ -938,7 +989,7 @@ class GhostyTool(QMainWindow):
         pw = self.password_manager.passwords.get(site, "")
         self.vault_site_entry.setText(site)
         self.vault_pass_entry.setText(pw)
-        pyperclip.copy(pw)
+        self.copy_to_clipboard(pw)
         self.log_signal.emit(f"Password for {site} copied to clipboard.", "info")
 
     def setup_tweaks_page(self):
