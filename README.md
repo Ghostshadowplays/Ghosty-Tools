@@ -41,7 +41,7 @@ Ghosty Tools is a comprehensive, modular, and secure utility designed to maintai
 
 ### 🔐 Password Management
 - **Password Generator:** Generate cryptographically secure passwords with customizable length and complexity.
-- **ShadowKeys Vault:** AES-encrypted local password storage with Master Password protection (PBKDF2HMAC key derivation).
+- **ShadowKeys Vault:** AES-encrypted local password storage with Master Password protection (PBKDF2-HMAC key derivation). Now stores data in secure, platform-specific config directories with encryption verification.
 
 ### ⚙️ System Tweaks
 - **Performance & Privacy:** Categorized registry optimizations for Telemetry, Activity History, GameDVR, and more.
@@ -50,9 +50,9 @@ Ghosty Tools is a comprehensive, modular, and secure utility designed to maintai
 ## 🚀 Quick Start
 
 ### Prerequisites
-- **Python 3.10+** (Fully compatible with Python 3.14.3)
+- **Python 3.10+** (Fully compatible with Python 3.14)
 - **Windows 10 or 11**
-- **Administrator Privileges** (required for system modifications)
+- **Administrator Privileges** (optional for launch, required for system modifications)
 
 ### Installation
 1. Clone the repository:
@@ -60,7 +60,17 @@ Ghosty Tools is a comprehensive, modular, and secure utility designed to maintai
    git clone https://github.com/Ghostshadowplays/Ghosty-Tools.git
    cd Ghosty-Tools
    ```
-2. Install dependencies:
+2. Create and activate a virtual environment (Recommended):
+   ```bash
+   # Windows
+   python -m venv venv
+   .\venv\Scripts\activate
+
+   # Linux/macOS
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+3. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
@@ -84,8 +94,14 @@ python main.py
 
 ## 🔒 Security Policy
 - **No Data Collection:** Ghosty Tools operates entirely locally. No passwords or system data are ever transmitted externally.
-- **Secure Commands:** All system operations use secure `subprocess` calls without shell execution to prevent command injection.
-- **Encryption:** Password vault uses industry-standard Fernet (AES) encryption with secure key derivation iterations.
+- **Secure Commands:** All system operations use secure `subprocess` calls without shell execution (where possible) to prevent command injection.
+- **Encryption:** ShadowKeys uses industry-standard Fernet (AES) encryption with secure key derivation (PBKDF2-HMAC-SHA256).
+- **Key Verification:** The vault includes a verification block to ensure the master password is correct before attempting to decrypt your data.
+- **Local Storage:** Salt and Vault files are stored in platform-specific configuration directories with restricted file permissions:
+  - **Windows:** `%APPDATA%\GhostyTools\`
+  - **Linux/macOS:** `~/.config/ghostytools/`
+- **Clipboard Security:** Copied passwords are automatically cleared from the clipboard after 30 seconds to prevent accidental exposure.
+- **Least Privilege:** The application launches with standard user privileges. Admin elevation is only requested when performing system-level maintenance or tweaks.
 
 ## 📝 License
 This project is licensed under the **GNU General Public License v3.0**. See the `LICENSE` file for details.
