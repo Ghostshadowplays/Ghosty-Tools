@@ -1,305 +1,389 @@
-[main]  INFO    profile include tests: None
-[main]  INFO    profile exclude tests: None
-[main]  INFO    cli include tests: None
-[main]  INFO    cli exclude tests: None
-[main]  INFO    running on Python 3.14.2
-Working... ━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  15% 0:00:27[manager]      WARNING  Test in comment: _lines is not a test name or id, ignoring
-[manager]       WARNING Test in comment: is is not a test name or id, ignoring
-[manager]       WARNING Test in comment: a is not a test name or id, ignoring
-[manager]       WARNING Test in comment: dict is not a test name or id, ignoring
-[manager]       WARNING Test in comment: of is not a test name or id, ignoring
-[manager]       WARNING Test in comment: line is not a test name or id, ignoring
-[manager]       WARNING Test in comment: number is not a test name or id, ignoring
-[manager]       WARNING Test in comment: set is not a test name or id, ignoring
-[manager]       WARNING Test in comment: of is not a test name or id, ignoring
-[manager]       WARNING Test in comment: tests is not a test name or id, ignoring
-[manager]       WARNING Test in comment: to is not a test name or id, ignoring
-[manager]       WARNING Test in comment: ignore is not a test name or id, ignoring
-[manager]       WARNING Test in comment: tkelsey is not a test name or id, ignoring
-Working... ━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  15% 0:00:26[manager]      WARNING  Test in comment: catching is not a test name or id, ignoring
-[manager]       WARNING Test in comment: expected is not a test name or id, ignoring
-[manager]       WARNING Test in comment: exception is not a test name or id, ignoring
-Working... ━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  16% 0:00:26[tester]       WARNING  nosec encountered (B108), but no failed test on line 61
-Working... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:01:06
-Run started:2026-02-09 12:08:59.831145+00:00
-Test results:
->> Issue: [B324:hashlib] Use of weak SHA1 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\authlib\oauth1\rfc5849\client_auth.py:150:47
-149             if body and headers.get("Content-Type") != CONTENT_TYPE_FORM_URLENCODED:
-150                 oauth_body_hash = base64.b64encode(hashlib.sha1(body).digest())
-151                 oauth_params.append(("oauth_body_hash", oauth_body_hash.decode("utf-8")))
---------------------------------------------------
->> Issue: [B613:trojansource] A Python source file contains bidirectional control characters ('\u202e').
-   Severity: High   Confidence: Medium
-   CWE: CWE-838 (https://cwe.mitre.org/data/definitions/838.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b613_trojansource.html
-   Location: .\.venv\Lib\site-packages\bandit\plugins\trojansource.py:22:36
-21           3          access_level = "user"
-22           4      if access_level != 'none‮⁦': # Check if admin ⁩⁦' and access_level != 'user
-23           5          print("You are an admin.\n")
---------------------------------------------------
->> Issue: [B324:hashlib] Use of weak SHA1 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\cryptography\x509\extensions.py:71:11
-70
-71          return hashlib.sha1(data).digest()
-72
---------------------------------------------------
->> Issue: [B324:hashlib] Use of weak SHA1 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\httpx\_auth.py:309:15
-308
-309             return hashlib.sha1(s).hexdigest()[:16].encode()
-310
---------------------------------------------------
->> Issue: [B324:hashlib] Use of weak SHA1 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\jinja2\bccache.py:156:15
-155             """Returns the unique hash key for this template name."""
-156             hash = sha1(name.encode("utf-8"))
-157
---------------------------------------------------
->> Issue: [B324:hashlib] Use of weak SHA1 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\jinja2\bccache.py:165:15
-164             """Returns a checksum for the source."""
-165             return sha1(source.encode("utf-8")).hexdigest()
-166
---------------------------------------------------
->> Issue: [B324:hashlib] Use of weak SHA1 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\jinja2\loaders.py:661:25
-660         def get_template_key(name: str) -> str:
-661             return "tmpl_" + sha1(name.encode("utf-8")).hexdigest()
-662
---------------------------------------------------
->> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\joblib\test\test_hashing.py:228:15
-227         def md5_hash(x):
-228             return hashlib.md5(memoryview(x)).hexdigest()
-229
---------------------------------------------------
->> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\nltk\downloader.py:2245:17
-2244    def _md5_hexdigest(fp):
-2245        md5_digest = md5()
-2246        while True:
---------------------------------------------------
->> Issue: [B602:subprocess_popen_with_shell_equals_true] subprocess call with shell=True identified, security issue.
-   Severity: High   Confidence: High
-   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b602_subprocess_popen_with_shell_equals_true.html
-   Location: .\.venv\Lib\site-packages\nltk\sem\boxer.py:271:16
-270                 p = subprocess.Popen(
-271                     cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
-272                 )
-273             stdout, stderr = p.communicate()
-274
---------------------------------------------------
->> Issue: [B602:subprocess_popen_with_shell_equals_true] subprocess call with shell=True identified, security issue.
-   Severity: High   Confidence: High
-   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b602_subprocess_popen_with_shell_equals_true.html
-   Location: .\.venv\Lib\site-packages\pip\_internal\commands\configuration.py:247:12
-246             try:
-247                 subprocess.check_call(f'{editor} "{fname}"', shell=True)
-248             except FileNotFoundError as e:
---------------------------------------------------
->> Issue: [B411:blacklist] Using xmlrpc.client to parse untrusted XML data is known to be vulnerable to XML attacks. Use defusedxml.xmlrpc.monkey_patch() function to monkey-patch xmlrpclib and mitigate XML vulnerabilities.
-   Severity: High   Confidence: High
-   CWE: CWE-20 (https://cwe.mitre.org/data/definitions/20.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_imports.html#b411-import-xmlrpclib
-   Location: .\.venv\Lib\site-packages\pip\_internal\commands\search.py:7:0
-6       import textwrap
-7       import xmlrpc.client
-8       from collections import OrderedDict
---------------------------------------------------
->> Issue: [B411:blacklist] Using xmlrpc.client to parse untrusted XML data is known to be vulnerable to XML attacks. Use defusedxml.xmlrpc.monkey_patch() function to monkey-patch xmlrpclib and mitigate XML vulnerabilities.
-   Severity: High   Confidence: High
-   CWE: CWE-20 (https://cwe.mitre.org/data/definitions/20.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_imports.html#b411-import-xmlrpclib
-   Location: .\.venv\Lib\site-packages\pip\_internal\network\xmlrpc.py:5:0
-4       import urllib.parse
-5       import xmlrpc.client
-6       from typing import TYPE_CHECKING
---------------------------------------------------
->> Issue: [B411:blacklist] Using _HostType to parse untrusted XML data is known to be vulnerable to XML attacks. Use defusedxml.xmlrpc.monkey_patch() function to monkey-patch xmlrpclib and mitigate XML vulnerabilities.
-   Severity: High   Confidence: High
-   CWE: CWE-20 (https://cwe.mitre.org/data/definitions/20.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_imports.html#b411-import-xmlrpclib
-   Location: .\.venv\Lib\site-packages\pip\_internal\network\xmlrpc.py:13:4
-12      if TYPE_CHECKING:
-13          from xmlrpc.client import _HostType, _Marshallable
-14
---------------------------------------------------
->> Issue: [B202:tarfile_unsafe_members] tarfile.extractall used without any validation. Please check and discard dangerous members.
-   Severity: High   Confidence: High
-   CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b202_tarfile_unsafe_members.html
-   Location: .\.venv\Lib\site-packages\pip\_internal\utils\unpacking.py:245:12
-244
-245                 tar.extractall(location, filter=pip_filter)
-246
---------------------------------------------------
->> Issue: [B411:blacklist] Using xmlrpclib to parse untrusted XML data is known to be vulnerable to XML attacks. Use defusedxml.xmlrpc.monkey_patch() function to monkey-patch xmlrpclib and mitigate XML vulnerabilities.
-   Severity: High   Confidence: High
-   CWE: CWE-20 (https://cwe.mitre.org/data/definitions/20.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_imports.html#b411-import-xmlrpclib
-   Location: .\.venv\Lib\site-packages\pip\_vendor\distlib\compat.py:42:4
-41          import httplib
-42          import xmlrpclib
-43          import Queue as queue
---------------------------------------------------
->> Issue: [B411:blacklist] Using xmlrpc.client to parse untrusted XML data is known to be vulnerable to XML attacks. Use defusedxml.xmlrpc.monkey_patch() function to monkey-patch xmlrpclib and mitigate XML vulnerabilities.
-   Severity: High   Confidence: High
-   CWE: CWE-20 (https://cwe.mitre.org/data/definitions/20.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_imports.html#b411-import-xmlrpclib
-   Location: .\.venv\Lib\site-packages\pip\_vendor\distlib\compat.py:81:4
-80          import urllib.request as urllib2
-81          import xmlrpc.client as xmlrpclib
-82          import queue
---------------------------------------------------
->> Issue: [B202:tarfile_unsafe_members] tarfile.extractall used without any validation. Please check and discard dangerous members.
-   Severity: High   Confidence: High
-   CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b202_tarfile_unsafe_members.html
-   Location: .\.venv\Lib\site-packages\pip\_vendor\distlib\util.py:1285:8
-1284
-1285            archive.extractall(dest_dir)
-1286
---------------------------------------------------
->> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\pip\_vendor\requests\auth.py:148:23
-147                         x = x.encode("utf-8")
-148                     return hashlib.md5(x).hexdigest()
-149
---------------------------------------------------
->> Issue: [B324:hashlib] Use of weak SHA1 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\pip\_vendor\requests\auth.py:156:23
-155                         x = x.encode("utf-8")
-156                     return hashlib.sha1(x).hexdigest()
-157
---------------------------------------------------
->> Issue: [B324:hashlib] Use of weak SHA1 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\pip\_vendor\requests\auth.py:205:17
-204
-205             cnonce = hashlib.sha1(s).hexdigest()[:16]
-206             if _algorithm == "MD5-SESS":
---------------------------------------------------
->> Issue: [B202:tarfile_unsafe_members] tarfile.extractall used without any validation. Please check and discard dangerous members.
-   Severity: High   Confidence: High
-   CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b202_tarfile_unsafe_members.html
-   Location: .\.venv\Lib\site-packages\pygments\lexers\_php_builtins.py:3301:12
-3300            with tarfile.open(download[0]) as tar:
-3301                tar.extractall()
-3302            yield from glob.glob(f"{PHP_MANUAL_DIR}{PHP_REFERENCE_GLOB}")
---------------------------------------------------
->> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\requests\auth.py:148:23
-147                         x = x.encode("utf-8")
-148                     return hashlib.md5(x).hexdigest()
-149
---------------------------------------------------
->> Issue: [B324:hashlib] Use of weak SHA1 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\requests\auth.py:156:23
-155                         x = x.encode("utf-8")
-156                     return hashlib.sha1(x).hexdigest()
-157
---------------------------------------------------
->> Issue: [B324:hashlib] Use of weak SHA1 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\requests\auth.py:205:17
-204
-205             cnonce = hashlib.sha1(s).hexdigest()[:16]
-206             if _algorithm == "MD5-SESS":
---------------------------------------------------
->> Issue: [B701:jinja2_autoescape_false] By default, jinja2 sets autoescape to False. Consider using autoescape=True or use the select_autoescape function to mitigate XSS vulnerabilities.
-   Severity: High   Confidence: High
-   CWE: CWE-94 (https://cwe.mitre.org/data/definitions/94.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b701_jinja2_autoescape_false.html
-   Location: .\.venv\Lib\site-packages\safety\alerts\utils.py:154:10
-153         p = Path(__file__).parent / "templates"
-154         env = jinja2.Environment(loader=jinja2.FileSystemLoader(Path(p)))  # type: ignore
-155         template = env.get_template("pr.jinja2")
---------------------------------------------------
->> Issue: [B701:jinja2_autoescape_false] By default, jinja2 sets autoescape to False. Consider using autoescape=True or use the select_autoescape function to mitigate XSS vulnerabilities.
-   Severity: High   Confidence: High
-   CWE: CWE-94 (https://cwe.mitre.org/data/definitions/94.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b701_jinja2_autoescape_false.html
-   Location: .\.venv\Lib\site-packages\safety\alerts\utils.py:204:10
-203         p = Path(__file__).parent / "templates"
-204         env = jinja2.Environment(loader=jinja2.FileSystemLoader(Path(p)))  # type: ignore
-205         template = env.get_template("issue.jinja2")
---------------------------------------------------
->> Issue: [B324:hashlib] Use of weak SHA1 hash for security. Consider usedforsecurity=False
-   Severity: High   Confidence: High
-   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html
-   Location: .\.venv\Lib\site-packages\safety\alerts\utils.py:262:11
-261         """
-262         return hashlib.sha1(
-263             b"blob " + str(len(raw_contents)).encode("ascii") + b"\0" + raw_contents
-264         ).hexdigest()
-265
---------------------------------------------------
->> Issue: [B701:jinja2_autoescape_false] By default, jinja2 sets autoescape to False. Consider using autoescape=True or use the select_autoescape function to mitigate XSS vulnerabilities.
-   Severity: High   Confidence: High
-   CWE: CWE-94 (https://cwe.mitre.org/data/definitions/94.html)
-   More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b701_jinja2_autoescape_false.html
-   Location: .\.venv\Lib\site-packages\safety\output_utils.py:1251:10
-1250        file_loader = PackageLoader('safety', 'templates')
-1251        env = Environment(loader=file_loader)
-1252        template = env.get_template(template)
---------------------------------------------------
-Code scanned:
-        Total lines of code: 659926
-        Total lines skipped (#nosec): 5
-Run metrics:
-        Total issues (by severity):
-                Undefined: 0
-                Low: 2878
-                Medium: 174
-                High: 29
-        Total issues (by confidence):
-                Undefined: 0
-                Low: 16
-                Medium: 110
-                High: 2955
-Files skipped (0):
+.\main.py:6:1: E302 expected 2 blank lines, found 1
+.\main.py:18:1: E305 expected 2 blank lines after class or function definition, found 1
+.\src\core\bloat_remover.py:6:1: F401 'typing.Optional' imported but unused
+.\src\core\bloat_remover.py:6:1: F401 'typing.Dict' imported but unused
+.\src\core\bloat_remover.py:6:1: F401 'typing.List' imported but unused
+.\src\core\bloat_remover.py:6:1: F401 'typing.Tuple' imported but unused
+.\src\core\bloat_remover.py:6:1: F401 'typing.Callable' imported but unused
+.\src\core\bloat_remover.py:6:1: F401 'typing.Any' imported but unused
+.\src\core\bloat_remover.py:10:1: E302 expected 2 blank lines, found 1
+.\src\core\bloat_remover.py:19:1: E302 expected 2 blank lines, found 1
+.\src\core\bloat_remover.py:24:1: E302 expected 2 blank lines, found 1
+.\src\core\bloat_remover.py:25:80: E501 line too long (84 > 79 characters)
+.\src\core\bloat_remover.py:25:85: W291 trailing whitespace
+.\src\core\bloat_remover.py:26:80: E501 line too long (82 > 79 characters)
+.\src\core\bloat_remover.py:38:1: E302 expected 2 blank lines, found 1
+.\src\core\bloat_remover.py:43:80: E501 line too long (134 > 79 characters)
+.\src\core\bloat_remover.py:46:1: W293 blank line contains whitespace
+.\src\core\bloat_remover.py:52:1: W293 blank line contains whitespace
+.\src\core\bloat_remover.py:55:1: W293 blank line contains whitespace
+.\src\core\bloat_remover.py:65:1: W293 blank line contains whitespace
+.\src\core\bloat_remover.py:68:32: E701 multiple statements on one line (colon)
+.\src\core\bloat_remover.py:69:1: W293 blank line contains whitespace
+.\src\core\bloat_remover.py:75:80: E501 line too long (80 > 79 characters)
+.\src\core\bloat_remover.py:87:80: E501 line too long (127 > 79 characters)
+.\src\core\bloat_remover.py:88:80: E501 line too long (109 > 79 characters)
+.\src\core\bloat_remover.py:89:80: E501 line too long (87 > 79 characters)
+.\src\core\bloat_remover.py:97:33: E701 multiple statements on one line (colon)
+.\src\core\bloat_remover.py:97:80: E501 line too long (108 > 79 characters)
+.\src\core\bloat_remover.py:101:80: E501 line too long (80 > 79 characters)
+.\src\core\bloat_remover.py:105:29: E701 multiple statements on one line (colon)
+.\src\core\bloat_remover.py:109:80: E501 line too long (85 > 79 characters)
+.\src\core\bloat_remover.py:112:24: E701 multiple statements on one line (colon)
+.\src\core\bloat_remover.py:113:1: W293 blank line contains whitespace
+.\src\core\bloat_remover.py:114:31: E701 multiple statements on one line (colon)
+.\src\core\bloat_remover.py:114:80: E501 line too long (83 > 79 characters)
+.\src\core\bloat_remover.py:119:34: E701 multiple statements on one line (colon)
+.\src\core\bloat_remover.py:122:27: E701 multiple statements on one line (colon)
+.\src\core\bloat_remover.py:122:80: E501 line too long (98 > 79 characters)
+.\src\core\password_manager.py:8:1: E302 expected 2 blank lines, found 1
+.\src\core\password_manager.py:23:80: E501 line too long (110 > 79 characters)
+.\src\core\password_manager.py:34:80: E501 line too long (114 > 79 characters)
+.\src\core\password_manager.py:55:80: E501 line too long (98 > 79 characters)
+.\src\core\security_scanner.py:3:1: E302 expected 2 blank lines, found 1
+.\src\core\security_scanner.py:6:80: E501 line too long (103 > 79 characters)
+.\src\core\security_scanner.py:7:80: E501 line too long (127 > 79 characters)
+.\src\core\security_scanner.py:11:9: E722 do not use bare 'except'
+.\src\core\security_scanner.py:11:15: E701 multiple statements on one line (colon)
+.\src\core\security_scanner.py:15:80: E501 line too long (135 > 79 characters)
+.\src\core\security_scanner.py:19:9: E722 do not use bare 'except'
+.\src\core\security_scanner.py:19:15: E701 multiple statements on one line (colon)
+.\src\core\security_scanner.py:23:80: E501 line too long (121 > 79 characters)
+.\src\core\security_scanner.py:24:80: E501 line too long (127 > 79 characters)
+.\src\core\security_scanner.py:28:9: E722 do not use bare 'except'
+.\src\core\security_scanner.py:28:15: E701 multiple statements on one line (colon)
+.\src\core\security_scanner.py:32:80: E501 line too long (91 > 79 characters)
+.\src\core\security_scanner.py:33:80: E501 line too long (127 > 79 characters)
+.\src\core\security_scanner.py:37:9: E722 do not use bare 'except'
+.\src\core\security_scanner.py:37:15: E701 multiple statements on one line (colon)
+.\src\core\security_scanner.py:41:80: E501 line too long (95 > 79 characters)
+.\src\core\security_scanner.py:42:80: E501 line too long (169 > 79 characters)
+.\src\core\security_scanner.py:46:9: E722 do not use bare 'except'
+.\src\core\security_scanner.py:46:15: E701 multiple statements on one line (colon)
+.\src\core\system_tools_installer.py:9:1: E302 expected 2 blank lines, found 1
+.\src\core\system_tools_installer.py:15:1: E302 expected 2 blank lines, found 1
+.\src\core\system_tools_installer.py:16:79: W291 trailing whitespace
+.\src\core\system_tools_installer.py:17:80: E501 line too long (103 > 79 characters)
+.\src\core\system_tools_installer.py:29:1: E302 expected 2 blank lines, found 1
+.\src\core\system_tools_installer.py:33:80: E501 line too long (130 > 79 characters)
+.\src\core\system_tools_installer.py:39:52: E701 multiple statements on one line (colon)
+.\src\core\system_tools_installer.py:42:1: W293 blank line contains whitespace
+.\src\core\system_tools_installer.py:49:1: W293 blank line contains whitespace
+.\src\core\system_tools_installer.py:55:80: E501 line too long (88 > 79 characters)
+.\src\core\system_tools_installer.py:60:80: E501 line too long (82 > 79 characters)
+.\src\core\system_tools_installer.py:68:80: E501 line too long (104 > 79 characters)
+.\src\core\system_tools_installer.py:69:80: E501 line too long (100 > 79 characters)
+.\src\core\system_tools_installer.py:73:80: E501 line too long (97 > 79 characters)
+.\src\core\workers.py:4:1: F401 'json' imported but unused
+.\src\core\workers.py:10:1: E302 expected 2 blank lines, found 1
+.\src\core\workers.py:21:80: E501 line too long (118 > 79 characters)
+.\src\core\workers.py:26:1: E302 expected 2 blank lines, found 1
+.\src\core\workers.py:38:80: E501 line too long (85 > 79 characters)
+.\src\core\workers.py:39:80: E501 line too long (83 > 79 characters)
+.\src\core\workers.py:40:80: E501 line too long (89 > 79 characters)
+.\src\core\workers.py:45:1: W293 blank line contains whitespace
+.\src\core\workers.py:56:1: W293 blank line contains whitespace
+.\src\core\workers.py:60:1: W293 blank line contains whitespace
+.\src\core\workers.py:63:80: E501 line too long (82 > 79 characters)
+.\src\core\workers.py:65:80: E501 line too long (99 > 79 characters)
+.\src\core\workers.py:67:80: E501 line too long (98 > 79 characters)
+.\src\core\workers.py:72:1: E302 expected 2 blank lines, found 1
+.\src\core\workers.py:91:1: W293 blank line contains whitespace
+.\src\core\workers.py:98:1: W293 blank line contains whitespace
+.\src\core\workers.py:102:1: W293 blank line contains whitespace
+.\src\core\workers.py:106:80: E501 line too long (126 > 79 characters)
+.\src\core\workers.py:111:1: E302 expected 2 blank lines, found 1
+.\src\core\workers.py:125:1: E302 expected 2 blank lines, found 1
+.\src\core\workers.py:136:1: W293 blank line contains whitespace
+.\src\core\workers.py:140:1: W293 blank line contains whitespace
+.\src\gui\dialogs.py:4:80: E501 line too long (93 > 79 characters)
+.\src\gui\dialogs.py:5:1: F401 'PyQt6.QtCore.Qt' imported but unused
+.\src\gui\dialogs.py:10:1: E302 expected 2 blank lines, found 1
+.\src\gui\dialogs.py:25:80: E501 line too long (94 > 79 characters)
+.\src\gui\dialogs.py:26:80: E501 line too long (82 > 79 characters)
+.\src\gui\dialogs.py:42:80: E501 line too long (85 > 79 characters)
+.\src\gui\main_window.py:2:1: F401 'sys' imported but unused
+.\src\gui\main_window.py:12:1: F401 'PyQt6.QtWidgets.QProgressBar' imported but unused
+.\src\gui\main_window.py:12:77: W291 trailing whitespace
+.\src\gui\main_window.py:13:72: W291 trailing whitespace
+.\src\gui\main_window.py:14:80: E501 line too long (84 > 79 characters)
+.\src\gui\main_window.py:15:80: E501 line too long (96 > 79 characters)
+.\src\gui\main_window.py:16:80: E501 line too long (108 > 79 characters)
+.\src\gui\main_window.py:17:1: F401 'PyQt6.QtCore.QSize' imported but unused
+.\src\gui\main_window.py:24:80: E501 line too long (122 > 79 characters)
+.\src\gui\main_window.py:26:1: F401 'src.core.bloat_remover.BloatwareCategory' imported but unused
+.\src\gui\main_window.py:26:1: F401 'src.core.bloat_remover.SafetyLevel' imported but unused
+.\src\gui\main_window.py:27:1: F401 'src.core.system_tools_installer.ToolCategory' imported but unused
+.\src\gui\main_window.py:28:1: F401 'src.core.security_scanner.SecurityScanner' imported but unused
+.\src\gui\main_window.py:33:1: E302 expected 2 blank lines, found 1
+.\src\gui\main_window.py:38:80: E501 line too long (87 > 79 characters)
+.\src\gui\main_window.py:41:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:42:80: E501 line too long (80 > 79 characters)
+.\src\gui\main_window.py:52:80: E501 line too long (82 > 79 characters)
+.\src\gui\main_window.py:55:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:64:80: E501 line too long (83 > 79 characters)
+.\src\gui\main_window.py:65:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:67:80: E501 line too long (131 > 79 characters)
+.\src\gui\main_window.py:77:80: E501 line too long (109 > 79 characters)
+.\src\gui\main_window.py:136:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:140:80: E501 line too long (100 > 79 characters)
+.\src\gui\main_window.py:143:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:149:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:171:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:184:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:228:22: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:234:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:235:28: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:236:32: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:237:32: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:238:30: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:239:29: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:240:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:241:80: E501 line too long (132 > 79 characters)
+.\src\gui\main_window.py:244:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:245:28: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:246:32: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:247:13: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:262:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:277:80: E501 line too long (102 > 79 characters)
+.\src\gui\main_window.py:288:80: E501 line too long (96 > 79 characters)
+.\src\gui\main_window.py:297:80: E501 line too long (81 > 79 characters)
+.\src\gui\main_window.py:300:80: E501 line too long (93 > 79 characters)
+.\src\gui\main_window.py:312:80: E501 line too long (94 > 79 characters)
+.\src\gui\main_window.py:328:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:330:80: E501 line too long (100 > 79 characters)
+.\src\gui\main_window.py:331:80: E501 line too long (93 > 79 characters)
+.\src\gui\main_window.py:333:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:336:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:338:80: E501 line too long (126 > 79 characters)
+.\src\gui\main_window.py:339:80: E501 line too long (93 > 79 characters)
+.\src\gui\main_window.py:341:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:343:80: E501 line too long (123 > 79 characters)
+.\src\gui\main_window.py:344:80: E501 line too long (95 > 79 characters)
+.\src\gui\main_window.py:345:80: E501 line too long (87 > 79 characters)
+.\src\gui\main_window.py:346:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:351:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:357:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:367:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:368:80: E501 line too long (82 > 79 characters)
+.\src\gui\main_window.py:370:80: E501 line too long (94 > 79 characters)
+.\src\gui\main_window.py:376:80: E501 line too long (92 > 79 characters)
+.\src\gui\main_window.py:382:80: E501 line too long (96 > 79 characters)
+.\src\gui\main_window.py:391:80: E501 line too long (101 > 79 characters)
+.\src\gui\main_window.py:395:80: E501 line too long (103 > 79 characters)
+.\src\gui\main_window.py:405:80: E501 line too long (96 > 79 characters)
+.\src\gui\main_window.py:420:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:423:80: E501 line too long (95 > 79 characters)
+.\src\gui\main_window.py:426:80: E501 line too long (85 > 79 characters)
+.\src\gui\main_window.py:431:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:447:80: E501 line too long (93 > 79 characters)
+.\src\gui\main_window.py:463:80: E501 line too long (89 > 79 characters)
+.\src\gui\main_window.py:465:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:480:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:482:80: E501 line too long (82 > 79 characters)
+.\src\gui\main_window.py:484:80: E501 line too long (89 > 79 characters)
+.\src\gui\main_window.py:487:80: E501 line too long (95 > 79 characters)
+.\src\gui\main_window.py:497:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:498:80: E501 line too long (88 > 79 characters)
+.\src\gui\main_window.py:501:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:508:80: E501 line too long (80 > 79 characters)
+.\src\gui\main_window.py:517:80: E501 line too long (106 > 79 characters)
+.\src\gui\main_window.py:521:80: E501 line too long (108 > 79 characters)
+.\src\gui\main_window.py:545:30: E261 at least two spaces before inline comment
+.\src\gui\main_window.py:556:80: E501 line too long (113 > 79 characters)
+.\src\gui\main_window.py:567:80: E501 line too long (81 > 79 characters)
+.\src\gui\main_window.py:571:80: E501 line too long (80 > 79 characters)
+.\src\gui\main_window.py:598:80: E501 line too long (82 > 79 characters)
+.\src\gui\main_window.py:610:27: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:612:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:614:80: E501 line too long (84 > 79 characters)
+.\src\gui\main_window.py:616:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:617:80: E501 line too long (121 > 79 characters)
+.\src\gui\main_window.py:618:80: E501 line too long (93 > 79 characters)
+.\src\gui\main_window.py:619:13: E306 expected 1 blank line before a nested definition, found 0
+.\src\gui\main_window.py:619:30: E741 ambiguous variable name 'l'
+.\src\gui\main_window.py:619:33: W291 trailing whitespace
+.\src\gui\main_window.py:621:80: E501 line too long (113 > 79 characters)
+.\src\gui\main_window.py:630:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:632:80: E501 line too long (82 > 79 characters)
+.\src\gui\main_window.py:637:80: E501 line too long (106 > 79 characters)
+.\src\gui\main_window.py:647:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:648:80: E501 line too long (84 > 79 characters)
+.\src\gui\main_window.py:651:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:664:80: E501 line too long (94 > 79 characters)
+.\src\gui\main_window.py:668:80: E501 line too long (96 > 79 characters)
+.\src\gui\main_window.py:680:30: E261 at least two spaces before inline comment
+.\src\gui\main_window.py:691:80: E501 line too long (99 > 79 characters)
+.\src\gui\main_window.py:697:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:722:80: E501 line too long (85 > 79 characters)
+.\src\gui\main_window.py:737:27: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:739:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:740:28: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:741:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:742:80: E501 line too long (94 > 79 characters)
+.\src\gui\main_window.py:745:80: E501 line too long (81 > 79 characters)
+.\src\gui\main_window.py:746:80: E501 line too long (93 > 79 characters)
+.\src\gui\main_window.py:753:80: E501 line too long (89 > 79 characters)
+.\src\gui\main_window.py:753:90: W291 trailing whitespace
+.\src\gui\main_window.py:754:42: E128 continuation line under-indented for visual indent
+.\src\gui\main_window.py:754:80: E501 line too long (90 > 79 characters)
+.\src\gui\main_window.py:754:91: W291 trailing whitespace
+.\src\gui\main_window.py:755:42: E128 continuation line under-indented for visual indent
+.\src\gui\main_window.py:758:80: E501 line too long (86 > 79 characters)
+.\src\gui\main_window.py:761:80: E501 line too long (115 > 79 characters)
+.\src\gui\main_window.py:763:80: E501 line too long (83 > 79 characters)
+.\src\gui\main_window.py:766:80: E501 line too long (82 > 79 characters)
+.\src\gui\main_window.py:768:80: E501 line too long (112 > 79 characters)
+.\src\gui\main_window.py:770:80: E501 line too long (86 > 79 characters)
+.\src\gui\main_window.py:782:80: E501 line too long (123 > 79 characters)
+.\src\gui\main_window.py:795:80: E501 line too long (109 > 79 characters)
+.\src\gui\main_window.py:801:80: E501 line too long (126 > 79 characters)
+.\src\gui\main_window.py:805:80: E501 line too long (100 > 79 characters)
+.\src\gui\main_window.py:823:39: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:824:40: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:825:41: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:837:24: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:837:36: E702 multiple statements on one line (semicolon)
+.\src\gui\main_window.py:838:25: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:838:37: E702 multiple statements on one line (semicolon)
+.\src\gui\main_window.py:839:13: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:840:41: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:840:53: E702 multiple statements on one line (semicolon)
+.\src\gui\main_window.py:840:80: E501 line too long (93 > 79 characters)
+.\src\gui\main_window.py:841:41: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:841:53: E702 multiple statements on one line (semicolon)
+.\src\gui\main_window.py:841:80: E501 line too long (90 > 79 characters)
+.\src\gui\main_window.py:842:72: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:842:80: E501 line too long (128 > 79 characters)
+.\src\gui\main_window.py:842:84: E702 multiple statements on one line (semicolon)
+.\src\gui\main_window.py:843:22: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:844:24: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:845:13: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:862:80: E501 line too long (133 > 79 characters)
+.\src\gui\main_window.py:878:80: E501 line too long (93 > 79 characters)
+.\src\gui\main_window.py:888:80: E501 line too long (95 > 79 characters)
+.\src\gui\main_window.py:899:80: E501 line too long (81 > 79 characters)
+.\src\gui\main_window.py:901:45: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:908:80: E501 line too long (93 > 79 characters)
+.\src\gui\main_window.py:925:80: E501 line too long (93 > 79 characters)
+.\src\gui\main_window.py:926:80: E501 line too long (111 > 79 characters)
+.\src\gui\main_window.py:934:80: E501 line too long (80 > 79 characters)
+.\src\gui\main_window.py:942:80: E501 line too long (81 > 79 characters)
+.\src\gui\main_window.py:949:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:951:80: E501 line too long (82 > 79 characters)
+.\src\gui\main_window.py:954:80: E501 line too long (106 > 79 characters)
+.\src\gui\main_window.py:969:80: E501 line too long (83 > 79 characters)
+.\src\gui\main_window.py:974:80: E501 line too long (118 > 79 characters)
+.\src\gui\main_window.py:975:80: E501 line too long (132 > 79 characters)
+.\src\gui\main_window.py:976:80: E501 line too long (99 > 79 characters)
+.\src\gui\main_window.py:981:80: E501 line too long (83 > 79 characters)
+.\src\gui\main_window.py:993:80: E501 line too long (81 > 79 characters)
+.\src\gui\main_window.py:1000:80: E501 line too long (96 > 79 characters)
+.\src\gui\main_window.py:1003:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:1015:80: E501 line too long (87 > 79 characters)
+.\src\gui\main_window.py:1020:80: E501 line too long (273 > 79 characters)
+.\src\gui\main_window.py:1024:80: E501 line too long (89 > 79 characters)
+.\src\gui\main_window.py:1028:80: E501 line too long (94 > 79 characters)
+.\src\gui\main_window.py:1029:80: E501 line too long (113 > 79 characters)
+.\src\gui\main_window.py:1029:114: W291 trailing whitespace
+.\src\gui\main_window.py:1031:80: E501 line too long (94 > 79 characters)
+.\src\gui\main_window.py:1032:80: E501 line too long (104 > 79 characters)
+.\src\gui\main_window.py:1040:5: E303 too many blank lines (2)
+.\src\gui\main_window.py:1049:80: E501 line too long (114 > 79 characters)
+.\src\gui\main_window.py:1050:80: E501 line too long (92 > 79 characters)
+.\src\gui\main_window.py:1060:80: E501 line too long (85 > 79 characters)
+.\src\gui\main_window.py:1062:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:1063:80: E501 line too long (95 > 79 characters)
+.\src\gui\main_window.py:1074:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:1075:80: E501 line too long (82 > 79 characters)
+.\src\gui\main_window.py:1076:80: E501 line too long (157 > 79 characters)
+.\src\gui\main_window.py:1079:80: E501 line too long (83 > 79 characters)
+.\src\gui\main_window.py:1099:80: E501 line too long (89 > 79 characters)
+.\src\gui\main_window.py:1106:80: E501 line too long (116 > 79 characters)
+.\src\gui\main_window.py:1107:80: E501 line too long (134 > 79 characters)
+.\src\gui\main_window.py:1108:41: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1120:80: E501 line too long (128 > 79 characters)
+.\src\gui\main_window.py:1124:27: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1125:80: E501 line too long (90 > 79 characters)
+.\src\gui\main_window.py:1129:80: E501 line too long (155 > 79 characters)
+.\src\gui\main_window.py:1134:27: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1135:80: E501 line too long (235 > 79 characters)
+.\src\gui\main_window.py:1137:80: E501 line too long (97 > 79 characters)
+.\src\gui\main_window.py:1141:80: E501 line too long (195 > 79 characters)
+.\src\gui\main_window.py:1161:80: E501 line too long (80 > 79 characters)
+.\src\gui\main_window.py:1170:80: E501 line too long (247 > 79 characters)
+.\src\gui\main_window.py:1171:80: E501 line too long (130 > 79 characters)
+.\src\gui\main_window.py:1174:80: E501 line too long (98 > 79 characters)
+.\src\gui\main_window.py:1180:80: E501 line too long (87 > 79 characters)
+.\src\gui\main_window.py:1186:80: E501 line too long (115 > 79 characters)
+.\src\gui\main_window.py:1187:80: E501 line too long (98 > 79 characters)
+.\src\gui\main_window.py:1188:80: E501 line too long (89 > 79 characters)
+.\src\gui\main_window.py:1189:80: E501 line too long (104 > 79 characters)
+.\src\gui\main_window.py:1192:80: E501 line too long (88 > 79 characters)
+.\src\gui\main_window.py:1193:80: E501 line too long (87 > 79 characters)
+.\src\gui\main_window.py:1197:80: E501 line too long (149 > 79 characters)
+.\src\gui\main_window.py:1200:80: E501 line too long (87 > 79 characters)
+.\src\gui\main_window.py:1201:80: E501 line too long (90 > 79 characters)
+.\src\gui\main_window.py:1203:80: E501 line too long (118 > 79 characters)
+.\src\gui\main_window.py:1210:80: E501 line too long (90 > 79 characters)
+.\src\gui\main_window.py:1212:1: W293 blank line contains whitespace
+.\src\gui\main_window.py:1213:80: E501 line too long (168 > 79 characters)
+.\src\gui\main_window.py:1215:80: E501 line too long (88 > 79 characters)
+.\src\gui\main_window.py:1218:41: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1219:49: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1220:48: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1220:80: E501 line too long (81 > 79 characters)
+.\src\gui\main_window.py:1221:47: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1222:51: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1223:49: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1224:43: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1225:48: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1225:80: E501 line too long (82 > 79 characters)
+.\src\gui\main_window.py:1226:53: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1226:80: E501 line too long (83 > 79 characters)
+.\src\gui\main_window.py:1227:50: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1228:47: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1229:52: W291 trailing whitespace
+.\src\gui\main_window.py:1230:80: E501 line too long (101 > 79 characters)
+.\src\gui\main_window.py:1231:80: E501 line too long (84 > 79 characters)
+.\src\gui\main_window.py:1232:80: E501 line too long (93 > 79 characters)
+.\src\gui\main_window.py:1238:46: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1242:78: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1242:80: E501 line too long (99 > 79 characters)
+.\src\gui\main_window.py:1243:50: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1249:80: E501 line too long (116 > 79 characters)
+.\src\gui\main_window.py:1252:30: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1256:80: E501 line too long (108 > 79 characters)
+.\src\gui\main_window.py:1257:80: E501 line too long (80 > 79 characters)
+.\src\gui\main_window.py:1259:30: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1259:80: E501 line too long (82 > 79 characters)
+.\src\gui\main_window.py:1263:80: E501 line too long (88 > 79 characters)
+.\src\gui\main_window.py:1266:80: E501 line too long (110 > 79 characters)
+.\src\gui\main_window.py:1269:30: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1272:12: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1273:30: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1277:80: E501 line too long (139 > 79 characters)
+.\src\gui\main_window.py:1278:80: E501 line too long (81 > 79 characters)
+.\src\gui\main_window.py:1280:30: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1284:80: E501 line too long (117 > 79 characters)
+.\src\gui\main_window.py:1285:80: E501 line too long (83 > 79 characters)
+.\src\gui\main_window.py:1287:30: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1287:80: E501 line too long (81 > 79 characters)
+.\src\gui\main_window.py:1291:80: E501 line too long (120 > 79 characters)
+.\src\gui\main_window.py:1294:30: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1294:80: E501 line too long (83 > 79 characters)
+.\src\gui\main_window.py:1298:80: E501 line too long (144 > 79 characters)
+.\src\gui\main_window.py:1301:30: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1305:80: E501 line too long (117 > 79 characters)
+.\src\gui\main_window.py:1306:80: E501 line too long (83 > 79 characters)
+.\src\gui\main_window.py:1308:30: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1312:80: E501 line too long (124 > 79 characters)
+.\src\gui\main_window.py:1315:30: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1319:16: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1319:80: E501 line too long (103 > 79 characters)
+.\src\gui\main_window.py:1320:34: E701 multiple statements on one line (colon)
+.\src\gui\main_window.py:1320:80: E501 line too long (98 > 79 characters)
+.\src\utils\helpers.py:7:80: E501 line too long (91 > 79 characters)
+.\src\utils\helpers.py:10:1: E302 expected 2 blank lines, found 1
+.\src\utils\helpers.py:17:1: E302 expected 2 blank lines, found 1
+.\src\utils\helpers.py:21:80: E501 line too long (91 > 79 characters)
