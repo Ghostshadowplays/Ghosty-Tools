@@ -1063,10 +1063,34 @@ class GhostyTool(QMainWindow):
     def setup_about_page(self):
         page = QWidget()
         layout = QVBoxLayout(page)
-        info_label = QLabel("Ghosty Tool v4.0\nProfessional System Optimization Suite")
+        
+        info_label = QLabel("Ghosty Tool v5.0")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        info_label.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        info_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
+        info_label.setStyleSheet("color: #4158D0; margin-top: 20px;")
         layout.addWidget(info_label)
+
+        sub_label = QLabel("The Ultimate Windows Optimization & Security Suite")
+        sub_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        sub_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Medium))
+        sub_label.setStyleSheet("color: #888; margin-bottom: 20px;")
+        layout.addWidget(sub_label)
+
+        features_group = QGroupBox("What's New in v5.0")
+        features_layout = QVBoxLayout()
+        features_text = QLabel(
+            "• 🛡️ <b>Security Hardening:</b> Full audit with Bandit & pip-audit.<br>"
+            "• 🔐 <b>ShadowKeys 2.0:</b> AES-256 encryption, PBKDF2 verification, and clipboard auto-clear.<br>"
+            "• 👤 <b>Least Privilege:</b> Starts as standard user; elevate only when needed.<br>"
+            "• 🚀 <b>Auto-Deploy:</b> Automated high-performance EXE builds via GitHub Actions.<br>"
+            "• 💻 <b>Cross-Platform:</b> Core logic now safe for Windows, Linux, and macOS."
+        )
+        features_text.setTextFormat(Qt.TextFormat.RichText)
+        features_text.setWordWrap(True)
+        features_text.setStyleSheet("padding: 10px; line-height: 1.5;")
+        features_layout.addWidget(features_text)
+        features_group.setLayout(features_layout)
+        layout.addWidget(features_group)
 
         thanks_label = QLabel('A big thank you to <a href="https://github.com/haywardgg" style="color: #4158D0; text-decoration: none;">haywardgg</a> for pushing me on my project and inspiring me with new ideas.<br>This project would not be as great as it is without him.')
         thanks_label.setAlignment(Qt.AlignmentFlag.AlignCenter)

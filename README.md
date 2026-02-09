@@ -1,13 +1,13 @@
-# 👻 Ghosty Tools
+# 👻 Ghosty Tools v5.0
 
 ![Security & Quality Audit](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml/badge.svg)
 [![Lint: flake8](https://img.shields.io/badge/lint-flake8-1f6feb?logo=python&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml)
 [![Format: black](https://img.shields.io/badge/format-black-000000?logo=python&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml)
 [![Types: mypy](https://img.shields.io/badge/types-mypy-2d2d2d?logo=python&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml)
 
-**Professional Windows System Optimization & Security Suite**
+**The Professional All-in-One Windows Optimization & Security Suite**
 
-Ghosty Tools is a comprehensive, modular, and secure utility designed to maintain, optimize, and secure your Windows environment. It brings together several essential tools into a single, professional interface.
+Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows environment. Built with a focus on **Security First**, it combines system maintenance, bloatware removal, and professional-grade password management into a single, sleek interface.
 
 ## ✨ Features
 
