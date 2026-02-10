@@ -4,4 +4,4 @@ speedtest-cli==2.1.3
 PyQt6==6.10.2
 cryptography==46.0.4
 pyperclip==1.11.0
-requests==2.32.3
+requests==2.32.4
