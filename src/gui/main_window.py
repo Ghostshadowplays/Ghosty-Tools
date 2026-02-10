@@ -1094,7 +1094,7 @@ class GhostyTool(QMainWindow):
         sub_label.setStyleSheet("color: #888; margin-bottom: 20px;")
         layout.addWidget(sub_label)
 
-        features_group = QGroupBox("What's New in v5.0")
+        features_group = QGroupBox("What's New in v5.0.2")
         features_layout = QVBoxLayout()
         features_text = QLabel(
             "• 🛡️ <b>Security Hardening:</b> Full audit with Bandit & pip-audit.<br>"
