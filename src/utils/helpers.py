@@ -67,6 +67,11 @@ def elevate_privileges():
         params = ' '.join([f'"{sys.argv[0]}"'] + [f'"{arg}"' for arg in sys.argv[1:]])
 
     try:
+        # Prepare environment: remove _MEIPASS so the elevated process extracts itself properly
+        # instead of trying to use the current process's temporary directory.
+        if '_MEIPASS' in os.environ:
+            del os.environ['_MEIPASS']
+            
         ctypes.windll.shell32.ShellExecuteW(None, "runas", executable, params, None, 1)
     except Exception as e:
         logger.error(f"Failed to elevate privileges: {e}")
