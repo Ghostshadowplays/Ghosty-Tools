@@ -29,6 +29,7 @@ from src.core.password_manager import PasswordManager
 from src.core.bloat_remover import BloatRemover, BloatwareCategory, SafetyLevel
 from src.core.system_tools_installer import SystemToolsInstaller, ToolCategory
 from src.core.security_scanner import SecurityScanner
+from src.core.update_manager import UpdateManager, UpdateWorker
 from src.gui.dialogs import MasterPasswordDialog
 from src.utils.helpers import is_admin, elevate_privileges, get_config_dir, ensure_private_file
 
@@ -65,6 +66,12 @@ class GhostyTool(QMainWindow):
 
         self.init_ui()
         
+        # Initialize Update Manager
+        self.update_manager = UpdateManager()
+        self._latest_update_info = None
+        QTimer.singleShot(1000, self.check_for_updates)
+        QTimer.singleShot(2000, self.check_for_whats_new)
+
         # Timer for system usage updates
         self.usage_timer = QTimer()
         self.usage_timer.timeout.connect(self.update_system_usage)
@@ -315,6 +322,14 @@ class GhostyTool(QMainWindow):
         self.usage_label = QLabel("CPU: ... | RAM: ...")
         self.usage_label.setFont(QFont("Segoe UI", 12))
         usage_layout.addWidget(self.usage_label)
+        # Update status indicator on Dashboard (subtle)
+        self.update_status_btn = QPushButton("Checking for updates…")
+        self.update_status_btn.setFlat(True)
+        self.update_status_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.update_status_btn.setStyleSheet("color: #cccccc; font-size: 11px;")
+        self.update_status_btn.setMaximumWidth(180)
+        self.update_status_btn.clicked.connect(self.on_update_status_clicked)
+        usage_layout.addWidget(self.update_status_btn, 0, Qt.AlignmentFlag.AlignRight)
         usage_group.setLayout(usage_layout)
         content_layout.addWidget(usage_group)
 
@@ -1067,7 +1082,7 @@ class GhostyTool(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         
-        info_label = QLabel("Ghosty Tool v5.0")
+        info_label = QLabel("Ghosty Tool v5.0.2")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         info_label.setStyleSheet("color: #4158D0; margin-top: 20px;")
@@ -1108,12 +1123,163 @@ class GhostyTool(QMainWindow):
         twitch_btn = QPushButton("Twitch")
         twitch_btn.setIcon(QIcon(os.path.join(self.project_root, "images", "twitchlogo.png")))
         twitch_btn.clicked.connect(lambda _: webbrowser.open("https://www.twitch.tv/ghostshadow_plays"))
+        update_btn = QPushButton("Check for Updates")
+        update_btn.clicked.connect(lambda _: self.check_for_updates(True))
         links_layout.addWidget(github_btn)
         links_layout.addWidget(twitch_btn)
+        links_layout.addWidget(update_btn)
         layout.addLayout(links_layout)
         layout.addStretch()
         self.content_stack.addWidget(page)
 
+
+    def check_for_whats_new(self):
+        """Shows a one-time 'What's New' popup after an update."""
+        last_version = self.update_manager.get_last_seen_version()
+        
+        # If we have a stored version and it's different from current, we just updated
+        if last_version and last_version != self.update_manager.current_version:
+            def show_dialog():
+                release_info = self.update_manager.get_release_info()
+                notes = release_info.get("body", "No release notes available.") if release_info else "Check GitHub for full release notes."
+                
+                # Custom dialog for better formatting of release notes
+                dlg = QDialog(self)
+                dlg.setWindowTitle(f"What's New in {self.update_manager.current_version}")
+                dlg.setMinimumSize(500, 400)
+                vbox = QVBoxLayout(dlg)
+                
+                title = QLabel(f"Ghosty Tool updated to {self.update_manager.current_version}!")
+                title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+                title.setStyleSheet("color: #4158D0;")
+                vbox.addWidget(title)
+                
+                vbox.addWidget(QLabel("Here are the latest changes:"))
+                
+                notes_area = QTextEdit()
+                notes_area.setReadOnly(True)
+                notes_area.setPlainText(notes)
+                vbox.addWidget(notes_area)
+                
+                btn = QPushButton("Got it!")
+                btn.setMinimumHeight(40)
+                btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+                btn.clicked.connect(dlg.accept)
+                vbox.addWidget(btn)
+                
+                dlg.exec()
+
+            # Run in a small delay to ensure UI is fully up
+            QTimer.singleShot(500, show_dialog)
+            
+        # Always acknowledge the current version so we don't show it again for this version
+        self.update_manager.acknowledge_current_version()
+
+    def check_for_updates(self, manual=False):
+        try:
+            update_info = self.update_manager.check_for_updates()
+        except Exception as e:
+            self.log_signal.emit(f"Update check failed: {e}", "warning")
+            return
+        self._latest_update_info = update_info
+        if update_info.get("available"):
+            # Update available: show subtle red button on Dashboard
+            if hasattr(self, "update_status_btn"):
+                self.update_status_btn.setText("Update available")
+                self.update_status_btn.setEnabled(True)
+                self.update_status_btn.setStyleSheet("color: #e74c3c; font-size: 11px;")
+            if manual:
+                self.log_signal.emit(f"Update {update_info.get('latest_version')} available — open Dashboard to apply.", "info")
+        else:
+            # Fully updated: show green text and disable click
+            if hasattr(self, "update_status_btn"):
+                self.update_status_btn.setText("Fully updated")
+                self.update_status_btn.setEnabled(False)
+                self.update_status_btn.setStyleSheet("color: #2ecc71; font-size: 11px;")
+            if manual:
+                self.log_signal.emit("You are already using the latest version.", "success")
+
+    def on_update_status_clicked(self):
+        if self._latest_update_info and self._latest_update_info.get("available"):
+            # Safety check for source installations
+            if not getattr(sys, 'frozen', False):
+                msg = ("You are running from source code. Automatic updates are optimized for the packaged (.exe) version.\n\n"
+                       "Do you want to open the GitHub releases page to download the latest version manually?")
+                res = QMessageBox.question(self, "Update Source Code?", msg,
+                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel)
+                
+                if res == QMessageBox.StandardButton.Yes:
+                    webbrowser.open(self._latest_update_info.get("download_url", "https://github.com/Ghostshadowplays/Ghosty-Tools/releases"))
+                    return
+                elif res == QMessageBox.StandardButton.Cancel:
+                    return
+                # If No, we proceed to download but apply_update will handle it safely
+            
+            self.start_update_download(self._latest_update_info)
+        else:
+            # If clicked when no update, trigger a quick re-check
+            self.check_for_updates(True)
+
+    def start_update_download(self, update_info):
+        # In a real scenario, we'd pick the right asset (EXE or source).
+        # For this implementation, we assume there's a download URL.
+        # If assets are available, try to find an EXE.
+        download_url = update_info["download_url"]
+        for asset in update_info.get("assets", []):
+            if asset["name"].endswith(".exe"):
+                download_url = asset["browser_download_url"]
+                break
+        
+        target_path = os.path.join(get_config_dir(), "update_package" + (".exe" if ".exe" in download_url else ".zip"))
+        
+        self.update_dialog = QDialog(self)
+        self.update_dialog.setWindowTitle("Downloading Update")
+        self.update_dialog.setFixedSize(300, 100)
+        vbox = QVBoxLayout(self.update_dialog)
+        self.update_progress = QProgressBar()
+        vbox.addWidget(QLabel("Downloading latest version..."))
+        vbox.addWidget(self.update_progress)
+        
+        self.update_worker = UpdateWorker(download_url, target_path)
+        self.update_worker.progress.connect(self.update_progress.setValue)
+        self.update_worker.finished.connect(self._on_update_download_finished)
+        self.update_worker.start()
+        self.update_dialog.exec()
+
+    def _on_update_download_finished(self, success, result):
+        self.update_dialog.close()
+        if success:
+            QMessageBox.information(self, "Download Complete", "Update downloaded. The application will now close to apply the update.")
+            self.apply_update(result)
+        else:
+            QMessageBox.critical(self, "Update Error", f"Failed to download update: {result}")
+
+    def apply_update(self, new_file):
+        updater_script = os.path.join(self.project_root, "src", "utils", "updater.py")
+        is_frozen = getattr(sys, 'frozen', False)
+        current_file = sys.executable if is_frozen else os.path.abspath(sys.argv[0])
+        
+        # Critical Safety: Don't overwrite .py files with downloaded updates (usually .exe)
+        if not is_frozen and current_file.lower().endswith(".py"):
+            self.log_signal.emit(f"Update downloaded to {new_file}. Manual update required for source installations.", "warning")
+            QMessageBox.information(self, "Update Downloaded", 
+                                   f"The update has been downloaded to:\n{new_file}\n\n"
+                                   "Since you are running from source, please replace your files manually or run the new version directly.\n"
+                                   "The source files will not be automatically overwritten to prevent data loss.")
+            # Open the folder containing the new file
+            try:
+                subprocess.Popen(["explorer", "/select,", os.path.normpath(new_file)], creationflags=CREATE_NO_WINDOW)
+            except Exception:
+                pass
+            return
+
+        # Launch updater script for frozen (EXE) installations
+        if os.path.exists(updater_script):
+            subprocess.Popen([sys.executable, updater_script, current_file, new_file], creationflags=CREATE_NO_WINDOW)
+            sys.exit(0)
+        else:
+            # Fallback if updater script is missing
+            QMessageBox.warning(self, "Update Error", "Updater script not found. Please update manually.")
 
     def update_system_usage(self):
         cpu = psutil.cpu_percent()
