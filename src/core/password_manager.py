@@ -1,106 +1,257 @@
 import os
+import sqlite3
 import json
 import logging
+import base64
+import secrets
 from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
 
 logger = logging.getLogger(__name__)
 
 class PasswordManager:
-    def __init__(self, key):
-        self.key = key
-        self.cipher = Fernet(self.key)
+    def __init__(self, db_path):
+        self.db_path = db_path
+        self.key = None
+        self.cipher = None
         self.passwords = {}
-        self.password_file_path = None
+        self._init_db()
 
-    def set_file_path(self, path):
-        self.password_file_path = path
+    def _init_db(self):
+        """Initialize SQLite database tables."""
+        try:
+            # Ensure directory exists
+            db_dir = os.path.dirname(self.db_path)
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+            
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS metadata (
+                    key TEXT PRIMARY KEY,
+                    value BLOB
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS passwords (
+                    site TEXT PRIMARY KEY,
+                    encrypted_password BLOB
+                )
+            ''')
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {e}")
 
-    def load_passwords(self):
-        """Loads and decrypts passwords from file with key verification."""
-        if self.password_file_path and os.path.exists(self.password_file_path):
-            try:
-                with open(self.password_file_path, "r") as f:
-                    data = json.load(f)
-                
-                # 1. Key Verification
-                if "__verify__" in data:
-                    try:
-                        self.decrypt(data["__verify__"].encode())
-                    except InvalidToken:
-                        logger.error("Master password verification failed (InvalidToken).")
-                        return False
-                
-                # 2. Decrypt all entries
-                new_passwords = {}
-                for site, pw in data.items():
-                    if site == "__verify__":
-                        continue
-                    new_passwords[site] = self.decrypt(pw.encode())
-                
-                self.passwords = new_passwords
-                return True
-            except (InvalidToken, json.JSONDecodeError, KeyError) as e:
-                logger.error(f"Failed to load password file (Security/Format error): {e}")
+    def exists(self):
+        """Checks if a vault already exists in the database (has a salt)."""
+        try:
+            if not os.path.exists(self.db_path):
                 return False
-            except Exception as e:
-                logger.error(f"Unexpected error loading passwords: {e}")
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT value FROM metadata WHERE key = 'salt'")
+            row = cursor.fetchone()
+            conn.close()
+            return row is not None
+        except Exception:
+            return False
+
+    def initialize_vault(self, master_password):
+        """Creates a new vault with master password and salt."""
+        salt = secrets.token_bytes(16)
+        self.key = self._derive_key(master_password, salt)
+        self.cipher = Fernet(self.key)
+        
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES ('salt', ?)", (salt,))
+            # Store a verification block to check password later
+            verify_block = self.cipher.encrypt(b"VERIFY_KEY_OK")
+            cursor.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES ('verify', ?)", (verify_block,))
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to initialize vault: {e}")
+            return False
+
+    def unlock(self, master_password):
+        """Verifies master password and prepares for decryption."""
+        try:
+            if not os.path.exists(self.db_path):
                 return False
-        return False
-
-    def save_to_file(self):
-        """Encrypts and saves passwords to file with a verification block."""
-        if self.password_file_path:
-            try:
-                # Add verification block to allow key checking on next load
-                encrypted_data = {
-                    "__version__": 1,
-                    "__verify__": self.encrypt("VERIFY_KEY_OK").decode()
-                }
-                for site, pw in self.passwords.items():
-                    encrypted_data[site] = self.encrypt(pw).decode()
                 
-                with open(self.password_file_path, "w") as f:
-                    json.dump(encrypted_data, f, indent=4)
-            except Exception as e:
-                logger.error(f"Failed to save password file: {e}")
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT value FROM metadata WHERE key = 'salt'")
+            salt_row = cursor.fetchone()
+            if not salt_row:
+                conn.close()
+                return False
+            
+            salt = salt_row[0]
+            cursor.execute("SELECT value FROM metadata WHERE key = 'verify'")
+            verify_row = cursor.fetchone()
+            conn.close()
+            
+            if not verify_row:
+                return False
+            
+            self.key = self._derive_key(master_password, salt)
+            self.cipher = Fernet(self.key)
+            
+            # This will raise InvalidToken if password is wrong
+            self.cipher.decrypt(verify_row[0])
+            
+            # If we reached here, password is correct. Load all entries.
+            return self._load_all()
+        except (InvalidToken, Exception) as e:
+            if not isinstance(e, InvalidToken):
+                logger.error(f"Error unlocking vault: {e}")
+            self.key = None
+            self.cipher = None
+            return False
 
-    def encrypt(self, password):
-        return self.cipher.encrypt(password.encode())
-
-    def decrypt(self, encrypted_password):
-        return self.cipher.decrypt(encrypted_password).decode()
+    def _load_all(self):
+        """Loads and decrypts all passwords from the database."""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT site, encrypted_password FROM passwords")
+            rows = cursor.fetchall()
+            conn.close()
+            
+            self.passwords = {}
+            for site, enc_pw in rows:
+                try:
+                    self.passwords[site] = self.cipher.decrypt(enc_pw).decode()
+                except Exception:
+                    continue # Skip entries that fail to decrypt
+            return True
+        except Exception as e:
+            logger.error(f"Failed to load passwords: {e}")
+            return False
 
     def save_password(self, site, password):
-        if self.is_safe_input(site) and self.is_safe_input(password):
+        """Encrypts and saves a single password entry."""
+        if not self.cipher: return False
+        if not self.is_safe_input(site) or not self.is_safe_input(password):
+            return False
+            
+        try:
+            enc_pw = self.cipher.encrypt(password.encode())
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("INSERT OR REPLACE INTO passwords (site, encrypted_password) VALUES (?, ?)", (site, enc_pw))
+            conn.commit()
+            conn.close()
             self.passwords[site] = password
-            self.save_to_file()
             return True
-        return False
-
-    def is_safe_input(self, user_input):
-        """Validate input to prevent injection and handle size limits."""
-        if not isinstance(user_input, str):
+        except Exception as e:
+            logger.error(f"Failed to save password: {e}")
             return False
-        if len(user_input) > 4096: # Prevent massive memory allocation
-            return False
-        # Disallow control characters that could be used for JSON trickery 
-        # although json.dump handles escaping, it's good practice.
-        return all(ord(c) >= 32 for c in user_input)
 
     def delete_password(self, site):
-        if site in self.passwords:
-            # Overwrite with empty before deletion (best effort in Python)
-            self.passwords[site] = "" 
-            del self.passwords[site]
-            self.save_to_file()
+        """Deletes a password entry."""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM passwords WHERE site = ?", (site,))
+            conn.commit()
+            conn.close()
+            if site in self.passwords:
+                del self.passwords[site]
             return True
-        return False
+        except Exception as e:
+            logger.error(f"Failed to delete password: {e}")
+            return False
+
+    def _derive_key(self, password, salt):
+        """Derives a 32-byte key using PBKDF2."""
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=390000,
+            backend=default_backend()
+        )
+        return base64.urlsafe_b64encode(kdf.derive(password.encode()))
+
+    def is_safe_input(self, user_input):
+        if not isinstance(user_input, str) or len(user_input) > 4096:
+            return False
+        return all(ord(c) >= 32 for c in user_input)
+
+    def get_all_sites(self):
+        return sorted(list(self.passwords.keys()))
 
     def clear_memory(self):
         """Best effort to clear sensitive data from memory."""
         for site in list(self.passwords.keys()):
             self.passwords[site] = ""
         self.passwords.clear()
+        self.key = None
+        self.cipher = None
 
-    def get_all_sites(self):
-        return list(self.passwords.keys())
+    def migrate_from_json(self, json_path, salt_path, master_password):
+        """Attempts to migrate data from old JSON/salt files."""
+        if not os.path.exists(json_path) or not os.path.exists(salt_path):
+            return False
+            
+        try:
+            # 1. Ensure the current SQLite vault is ready to accept passwords
+            if not self.cipher:
+                if not self.exists():
+                    if not self.initialize_vault(master_password):
+                        return False
+                else:
+                    if not self.unlock(master_password):
+                        return False
+
+            # 2. Open and decrypt the old legacy vault
+            with open(salt_path, "rb") as f:
+                old_salt = f.read()
+            
+            # Derive the OLD key using the same logic
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=old_salt,
+                iterations=390000,
+                backend=default_backend()
+            )
+            old_key = base64.urlsafe_b64encode(kdf.derive(master_password.encode()))
+            old_cipher = Fernet(old_key)
+            
+            with open(json_path, "r") as f:
+                data = json.load(f)
+            
+            # Verify the old password works for the JSON vault if it has __verify__
+            if "__verify__" in data:
+                try:
+                    old_cipher.decrypt(data["__verify__"].encode())
+                except InvalidToken:
+                    logger.error("Migration failed: Master password incorrect for legacy vault.")
+                    return False
+            
+            # 3. Migrate entries to the current SQLite vault
+            count = 0
+            for site, enc_pw_str in data.items():
+                if site in ("__verify__", "__version__"): continue
+                try:
+                    raw_pw = old_cipher.decrypt(enc_pw_str.encode()).decode()
+                    if self.save_password(site, raw_pw):
+                        count += 1
+                except Exception:
+                    continue
+            
+            logger.info(f"Successfully migrated {count} passwords from old JSON vault.")
+            return True
+        except Exception as e:
+            logger.error(f"Migration failed: {e}")
+            return False

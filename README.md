@@ -42,7 +42,7 @@ Ghosty Tools is a high-performance, modular utility designed to secure and optim
 
 ### 🔐 Password Management
 - **Password Generator:** Generate cryptographically secure passwords with customizable length and complexity.
-- **ShadowKeys Vault:** AES-encrypted local password storage with Master Password protection (PBKDF2-HMAC key derivation). Now stores data in secure, platform-specific config directories with encryption verification.
+- **ShadowKeys Vault:** Robust SQLite-backed local password storage with AES-256 encryption, PBKDF2-HMAC key derivation, and automated legacy migration. Now stores data in secure, platform-specific config directories with encryption verification.
 
 ### ⚙️ System Tweaks
 - **Performance & Privacy:** Categorized registry optimizations for Telemetry, Activity History, GameDVR, and more.

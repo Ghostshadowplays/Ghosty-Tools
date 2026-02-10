@@ -55,9 +55,9 @@ class GhostyTool(QMainWindow):
         self.main_disk = None
         self.get_main_disk()
 
-        self.password_manager = None
         config_dir = get_config_dir()
-        self.salt_path = os.path.join(config_dir, "salt")
+        self.db_path = os.path.join(config_dir, "vault.db")
+        self.password_manager = PasswordManager(self.db_path)
 
         # Clipboard security
         self.clipboard_timer = QTimer()
@@ -975,23 +975,42 @@ class GhostyTool(QMainWindow):
         self.content_stack.addWidget(page)
 
     def unlock_vault(self):
-        dlg = MasterPasswordDialog(self.salt_path)
+        config_dir = os.path.dirname(self.db_path)
+        old_json = os.path.join(config_dir, "vault.json")
+        old_salt = os.path.join(config_dir, "salt")
+        
+        is_new = not self.password_manager.exists()
+        dlg = MasterPasswordDialog(is_new=is_new)
+        
         if dlg.exec() == QDialog.DialogCode.Accepted:
-            self.password_manager = PasswordManager(dlg.key)
-            db_path = os.path.join(os.path.dirname(self.salt_path), "vault.json")
-            if not os.path.exists(db_path):
-                with open(db_path, "w") as f: json.dump({}, f)
+            password = dlg.password
+            success = False
+            
+            if is_new:
+                # Setup new SQLite vault
+                if self.password_manager.initialize_vault(password):
+                    success = True
+                    # Check if we should migrate from old JSON format
+                    if os.path.exists(old_json) and os.path.exists(old_salt):
+                        self.log_signal.emit("Legacy vault found. Attempting migration...", "info")
+                        if self.password_manager.migrate_from_json(old_json, old_salt, password):
+                            self.log_signal.emit("Migration successful. Legacy files can be removed.", "success")
+                            # We don't delete them automatically for safety, but they are now redundant
+            else:
+                # Unlock existing SQLite vault
+                success = self.password_manager.unlock(password)
+            
+            if success:
                 try:
-                    ensure_private_file(db_path)
+                    ensure_private_file(self.db_path)
                 except Exception:
                     pass
-            self.password_manager.set_file_path(db_path)
-            if self.password_manager.load_passwords():
                 self.refresh_vault_list()
                 self.vault_stack.setCurrentIndex(1)
                 self.log_signal.emit("Vault unlocked successfully.", "success")
             else:
-                self.log_signal.emit("Failed to load vault. Check master password.", "error")
+                self.log_signal.emit("Failed to unlock vault. Check master password.", "error")
+                QMessageBox.critical(self, "Unlock Failed", "Invalid master password or corrupted vault.")
 
     def refresh_vault_list(self):
         self.vault_list.clear()
@@ -1124,7 +1143,7 @@ class GhostyTool(QMainWindow):
         features_layout = QVBoxLayout()
         features_text = QLabel(
             "• 🛡️ <b>Security Hardening:</b> Full audit with Bandit & pip-audit.<br>"
-            "• 🔐 <b>ShadowKeys 2.0:</b> AES-256 encryption, PBKDF2 verification, and clipboard auto-clear.<br>"
+            "• 🔐 <b>ShadowKeys 2.1:</b> Robust SQLite-backed vault with AES-256 encryption, PBKDF2 verification, and automated legacy migration.<br>"
             "• 👤 <b>Least Privilege:</b> Starts as standard user; elevate only when needed.<br>"
             "• 🚀 <b>Auto-Deploy:</b> Automated high-performance EXE builds via GitHub Actions.<br>"
             "• 💻 <b>Cross-Platform:</b> Core logic now safe for Windows, Linux, and macOS.<br>"
