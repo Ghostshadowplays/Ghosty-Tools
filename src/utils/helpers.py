@@ -67,10 +67,16 @@ def elevate_privileges():
         params = ' '.join([f'"{sys.argv[0]}"'] + [f'"{arg}"' for arg in sys.argv[1:]])
 
     try:
-        # Prepare environment: remove _MEIPASS so the elevated process extracts itself properly
+        # Prepare environment: remove PyInstaller variables to ensure the new process extracts itself correctly
         # instead of trying to use the current process's temporary directory.
-        if '_MEIPASS' in os.environ:
-            del os.environ['_MEIPASS']
+        for key in list(os.environ.keys()):
+            if key == '_MEIPASS' or key.startswith('PYI'):
+                del os.environ[key]
+        
+        # Clean PATH of any _MEI references to prevent loading DLLs from the wrong temp folder
+        if 'PATH' in os.environ:
+            paths = os.environ['PATH'].split(os.pathsep)
+            os.environ['PATH'] = os.pathsep.join([p for p in paths if '_MEI' not in p])
             
         ctypes.windll.shell32.ShellExecuteW(None, "runas", executable, params, None, 1)
     except Exception as e:

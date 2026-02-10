@@ -1329,13 +1329,23 @@ class GhostyTool(QMainWindow):
                 QMessageBox.warning(self, "Update Error", "The downloaded update is not an executable file. Please update manually.")
                 return
 
-            # Prepare environment without _MEIPASS to ensure the new process extracts itself correctly
+            # Prepare environment without PyInstaller variables to ensure the new process extracts itself correctly
             env = os.environ.copy()
-            env.pop("_MEIPASS", None)
+            for key in list(env.keys()):
+                if key == '_MEIPASS' or key.startswith('PYI'):
+                    env.pop(key, None)
+            
+            # Clean PATH of any _MEI references to prevent loading DLLs from the wrong temp folder
+            if 'PATH' in env:
+                paths = env['PATH'].split(os.pathsep)
+                env['PATH'] = os.pathsep.join([p for p in paths if '_MEI' not in p])
 
+            # Use a more robust PowerShell script that also explicitly clears session variables
             ps_command = (
-                f'Start-Sleep -Seconds 2; '
-                f'Remove-Item -LiteralPath "{current_file}" -Force; '
+                f'$env:_MEIPASS = $null; '
+                f'$env:PATH = ($env:PATH -split ";" | Where-Object {{ $_ -notmatch "_MEI" }}) -join ";"; '
+                f'Start-Sleep -Seconds 5; '
+                f'if (Test-Path -LiteralPath "{current_file}") {{ Remove-Item -LiteralPath "{current_file}" -Force -ErrorAction SilentlyContinue }}; '
                 f'Move-Item -LiteralPath "{new_file}" -Destination "{current_file}" -Force; '
                 f'Start-Process -FilePath "{current_file}"'
             )
