@@ -1249,16 +1249,19 @@ class GhostyTool(QMainWindow):
             self.check_for_updates(True)
 
     def start_update_download(self, update_info):
-        # In a real scenario, we'd pick the right asset (EXE or source).
-        # For this implementation, we assume there's a download URL.
-        # If assets are available, try to find an EXE.
-        download_url = update_info["download_url"]
+        # Find the EXE asset if available
+        download_url = None
         for asset in update_info.get("assets", []):
-            if asset["name"].endswith(".exe"):
+            if asset["name"].lower().endswith(".exe"):
                 download_url = asset["browser_download_url"]
                 break
         
-        target_path = os.path.join(get_config_dir(), "update_package" + (".exe" if ".exe" in download_url else ".zip"))
+        if not download_url:
+            self.log_signal.emit("No executable asset found in the latest release. Opening GitHub releases page...", "warning")
+            webbrowser.open(update_info.get("html_url", "https://github.com/Ghostshadowplays/Ghosty-Tools/releases"))
+            return
+        
+        target_path = os.path.join(get_config_dir(), "update_package.exe")
         
         self.update_dialog = QDialog(self)
         self.update_dialog.setWindowTitle("Downloading Update")
@@ -1283,7 +1286,6 @@ class GhostyTool(QMainWindow):
             QMessageBox.critical(self, "Update Error", f"Failed to download update: {result}")
 
     def apply_update(self, new_file):
-        updater_script = os.path.join(self.project_root, "src", "utils", "updater.py")
         is_frozen = getattr(sys, 'frozen', False)
         current_file = sys.executable if is_frozen else os.path.abspath(sys.argv[0])
         
@@ -1301,13 +1303,31 @@ class GhostyTool(QMainWindow):
                 pass
             return
 
-        # Launch updater script for frozen (EXE) installations
-        if os.path.exists(updater_script):
-            subprocess.Popen([sys.executable, updater_script, current_file, new_file], creationflags=CREATE_NO_WINDOW)
-            sys.exit(0)
+        # Launch updater via PowerShell for frozen (EXE) installations
+        # This is more reliable for Windows EXEs as it doesn't depend on a bundled script or interpreter
+        if is_frozen:
+            if not new_file.lower().endswith(".exe"):
+                QMessageBox.warning(self, "Update Error", "The downloaded update is not an executable file. Please update manually.")
+                return
+
+            ps_command = (
+                f'Start-Sleep -Seconds 2; '
+                f'Remove-Item -LiteralPath "{current_file}" -Force; '
+                f'Move-Item -LiteralPath "{new_file}" -Destination "{current_file}" -Force; '
+                f'Start-Process -FilePath "{current_file}"'
+            )
+            
+            try:
+                self.log_signal.emit("Launching PowerShell updater...", "info")
+                subprocess.Popen(["powershell", "-NoProfile", "-Command", ps_command], 
+                                 creationflags=CREATE_NO_WINDOW)
+                sys.exit(0)
+            except Exception as e:
+                logger.error(f"Failed to launch PowerShell updater: {e}")
+                QMessageBox.warning(self, "Update Error", f"Failed to launch automatic updater: {e}\n\nPlease update manually.")
         else:
-            # Fallback if updater script is missing
-            QMessageBox.warning(self, "Update Error", "Updater script not found. Please update manually.")
+            # Fallback for non-frozen, non-py (shouldn't happen with current logic but for safety)
+            QMessageBox.warning(self, "Update Error", "Automatic update is only supported for the packaged (.exe) version. Please update manually.")
 
     def update_system_usage(self):
         cpu = psutil.cpu_percent()

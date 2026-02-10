@@ -35,6 +35,7 @@ jobs:
             --icon="images/ghosty icon.ico" `
             --add-data "config;config" `
             --add-data "images;images" `
+            --add-data "src;src" `
             --name "GhostyTools" `
             main.py
 
