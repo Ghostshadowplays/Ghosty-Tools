@@ -9,7 +9,7 @@ from src.utils.helpers import get_config_dir
 
 logger = logging.getLogger(__name__)
 
-CURRENT_VERSION = "v5.0.2"
+CURRENT_VERSION = "v5.0.3"
 REPO_URL = "https://api.github.com/repos/Ghostshadowplays/Ghosty-Tools/releases/latest"
 
 class UpdateManager:

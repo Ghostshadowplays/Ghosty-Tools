@@ -13,6 +13,8 @@ class ToolCategory(Enum):
     DEV_TOOLS = "Development Tools"
     TERMINAL = "Terminal & Shell"
     PACKAGE_MGR = "Package Managers"
+    ESSENTIAL_UTILS = "Essential Utilities"
+    HARDWARE_TOOLS = "Hardware Tools"
 
 class SystemTool:
     def __init__(self, tool_id, name, description, category, install_commands, 
@@ -46,7 +48,9 @@ class SystemToolsInstaller:
                 "Development Environment": ToolCategory.DEV_ENV,
                 "Development Tools": ToolCategory.DEV_TOOLS,
                 "Terminal & Shell": ToolCategory.TERMINAL,
-                "Package Managers": ToolCategory.PACKAGE_MGR
+                "Package Managers": ToolCategory.PACKAGE_MGR,
+                "Essential Utilities": ToolCategory.ESSENTIAL_UTILS,
+                "Hardware Tools": ToolCategory.HARDWARE_TOOLS
             }
             
             for tool_data in config.get("tools", []):

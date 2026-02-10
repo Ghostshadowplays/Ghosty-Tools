@@ -1,4 +1,4 @@
-# 👻 Ghosty Tools v5.0.2
+# 👻 Ghosty Tools v5.0.3
 
 ![Security & Quality Audit](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml/badge.svg)
 [![Lint: flake8](https://img.shields.io/badge/lint-flake8-1f6feb?logo=python&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml)
@@ -38,6 +38,7 @@ Ghosty Tools is a high-performance, modular utility designed to secure and optim
 ### 📦 System Tools Installer
 - **Winget-Powered:** Easily install essential developer tools like WSL, Git, Python, VS Code, Docker, and more.
 - **Status Detection:** Automatically detects if tools are already installed.
+- **Now includes Essentials & Hardware Tools:** 7-Zip, VLC, Brave, Discord, HWiNFO, CPU-Z.
 
 ### 🔐 Password Management
 - **Password Generator:** Generate cryptographically secure passwords with customizable length and complexity.
@@ -46,6 +47,7 @@ Ghosty Tools is a high-performance, modular utility designed to secure and optim
 ### ⚙️ System Tweaks
 - **Performance & Privacy:** Categorized registry optimizations for Telemetry, Activity History, GameDVR, and more.
 - **Bulk Application:** Select multiple tweaks and apply them all at once.
+- **New in this build:** Disable Windows Copilot, disable News & Interests, and quickly show file extensions and hidden files.
 
 ## 🚀 Quick Start
 

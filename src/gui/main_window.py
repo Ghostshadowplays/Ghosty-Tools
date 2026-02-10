@@ -339,7 +339,7 @@ class GhostyTool(QMainWindow):
         specs_layout.addWidget(self.specs_label)
         refresh_specs_btn = QPushButton("Refresh Specs")
         refresh_specs_btn.setMinimumHeight(36)
-        refresh_specs_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        refresh_specs_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         refresh_specs_btn.clicked.connect(self.update_specs)
         specs_layout.addWidget(refresh_specs_btn)
         specs_group.setLayout(specs_layout)
@@ -350,7 +350,7 @@ class GhostyTool(QMainWindow):
         self.battery_label = QLabel("Click to check battery health")
         battery_btn = QPushButton("Update Battery Health")
         battery_btn.setMinimumHeight(36)
-        battery_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        battery_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         battery_btn.clicked.connect(self.update_battery_health)
         battery_layout.addWidget(self.battery_label)
         battery_layout.addWidget(battery_btn)
@@ -362,7 +362,7 @@ class GhostyTool(QMainWindow):
         self.disk_label = QLabel(f"Checking health for disk {self.main_disk}...")
         disk_btn = QPushButton("Check Disk Health")
         disk_btn.setMinimumHeight(36)
-        disk_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        disk_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         disk_btn.clicked.connect(self.check_disk_health)
         disk_layout.addWidget(self.disk_label)
         disk_layout.addWidget(disk_btn)
@@ -374,7 +374,7 @@ class GhostyTool(QMainWindow):
         self.speed_label = QLabel("Result: Not started")
         speed_btn = QPushButton("Run Speed Test")
         speed_btn.setMinimumHeight(36)
-        speed_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        speed_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         speed_btn.clicked.connect(self.run_speed_test)
         speed_layout.addWidget(self.speed_label)
         speed_layout.addWidget(speed_btn)
@@ -413,8 +413,25 @@ class GhostyTool(QMainWindow):
             win_ver = platform.version()
             build = int(win_ver.split('.')[-1]) if '.' in win_ver else 0
             os_name = "Windows 11" if build >= 22000 else "Windows 10"
+            arch = platform.machine()
+            arch_bits = platform.architecture()[0]
+            
+            # OS install date (may require admin on some systems)
+            install_date = ""
+            try:
+                ps_cmd = [
+                    "powershell", "-NoProfile", "-Command",
+                    "(Get-CimInstance Win32_OperatingSystem).InstallDate.ToString('yyyy-MM-dd HH:mm')"
+                ]
+                ins = subprocess.run(ps_cmd, capture_output=True, text=True, creationflags=CREATE_NO_WINDOW)
+                install_date = ins.stdout.strip()
+            except Exception:
+                install_date = ""
             
             specs = f"<b>OS:</b> {os_name} (Build {win_ver})<br>"
+            specs += f"<b>Architecture:</b> {arch} ({arch_bits})<br>"
+            if install_date:
+                specs += f"<b>Installed:</b> {install_date}<br>"
             specs += f"<b>CPU:</b> {cpu_info}<br>"
             specs += f"<b>RAM:</b> {mem.total / (1024**3):.1f} GB Total<br>"
             specs += f"<b>GPU:</b> {gpu_info}<br>"
@@ -432,19 +449,19 @@ class GhostyTool(QMainWindow):
         
         maint_btn = QPushButton("Run Full System Maintenance (SFC, DISM, CHKDSK)")
         maint_btn.setMinimumHeight(40)
-        maint_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        maint_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         maint_btn.clicked.connect(self.run_system_maintenance)
         layout.addWidget(maint_btn)
 
         dns_btn = QPushButton("Flush DNS Cache")
         dns_btn.setMinimumHeight(40)
-        dns_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        dns_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         dns_btn.clicked.connect(self.flush_dns)
         layout.addWidget(dns_btn)
 
         cleanup_btn = QPushButton("Run Disk Cleanup")
         cleanup_btn.setMinimumHeight(40)
-        cleanup_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        cleanup_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         cleanup_btn.clicked.connect(self.run_disk_cleanup)
         layout.addWidget(cleanup_btn)
 
@@ -453,11 +470,11 @@ class GhostyTool(QMainWindow):
         self.update_status = QLabel("Status: Idle")
         check_update_btn = QPushButton("Check for Updates")
         check_update_btn.setMinimumHeight(40)
-        check_update_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        check_update_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         check_update_btn.clicked.connect(self.run_windows_update_check)
         install_update_btn = QPushButton("Install Updates")
         install_update_btn.setMinimumHeight(40)
-        install_update_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        install_update_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         install_update_btn.clicked.connect(self.install_windows_updates)
         update_layout.addWidget(self.update_status)
         update_layout.addWidget(check_update_btn)
@@ -467,7 +484,7 @@ class GhostyTool(QMainWindow):
 
         restore_btn = QPushButton("Create System Restore Point")
         restore_btn.setMinimumHeight(40)
-        restore_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        restore_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         restore_btn.clicked.connect(self.create_restore_point)
         layout.addWidget(restore_btn)
 
@@ -509,7 +526,7 @@ class GhostyTool(QMainWindow):
         layout.addWidget(self.security_list)
         scan_btn = QPushButton("Run Security Scan")
         scan_btn.setMinimumHeight(40)
-        scan_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        scan_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         scan_btn.clicked.connect(self.run_security_scan)
         layout.addWidget(scan_btn)
         layout.addStretch()
@@ -579,11 +596,11 @@ class GhostyTool(QMainWindow):
         btn_layout = QHBoxLayout()
         self.debloat_scan_btn = QPushButton("Scan System for Bloatware")
         self.debloat_scan_btn.setMinimumHeight(40)
-        self.debloat_scan_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        self.debloat_scan_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         self.debloat_scan_btn.clicked.connect(self.scan_bloatware)
         self.debloat_remove_btn = QPushButton("Remove Selected Items")
         self.debloat_remove_btn.setMinimumHeight(40)
-        self.debloat_remove_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        self.debloat_remove_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         self.debloat_remove_btn.clicked.connect(self.remove_bloatware)
         btn_layout.addWidget(self.debloat_scan_btn)
         btn_layout.addWidget(self.debloat_remove_btn)
@@ -726,11 +743,11 @@ class GhostyTool(QMainWindow):
         btn_layout = QHBoxLayout()
         check_btn = QPushButton("Refresh Tools Status")
         check_btn.setMinimumHeight(40)
-        check_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        check_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         check_btn.clicked.connect(self.check_tools_status)
         install_btn = QPushButton("Install Selected Tools")
         install_btn.setMinimumHeight(40)
-        install_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        install_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         install_btn.clicked.connect(self.install_tools)
         btn_layout.addWidget(check_btn)
         btn_layout.addWidget(install_btn)
@@ -857,7 +874,7 @@ class GhostyTool(QMainWindow):
         group_layout.addWidget(self.pass_special)
         gen_btn = QPushButton("Generate Secure Password")
         gen_btn.setFixedHeight(45)
-        gen_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold; font-size: 14px;")
+        gen_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; font-size: 14px; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         gen_btn.clicked.connect(self.generate_password)
         group_layout.addWidget(gen_btn)
         self.generated_pass_entry = QLineEdit()
@@ -924,7 +941,7 @@ class GhostyTool(QMainWindow):
         login_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         unlock_btn = QPushButton("Unlock Password Vault")
         unlock_btn.setFixedSize(250, 60)
-        unlock_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold; border-radius: 10px; font-size: 16px;")
+        unlock_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border-radius: 10px; font-size: 16px; border: 1px solid #2e46a9; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         unlock_btn.clicked.connect(self.unlock_vault)
         login_layout.addWidget(unlock_btn)
         self.vault_stack.addWidget(login_widget)
@@ -940,7 +957,7 @@ class GhostyTool(QMainWindow):
         form_layout.addRow("Password:", self.vault_pass_entry)
         save_btn = QPushButton("Save to Vault")
         save_btn.setMinimumHeight(40)
-        save_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        save_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         save_btn.clicked.connect(self.save_vault_entry)
         form_layout.addRow(save_btn)
         form_group.setLayout(form_layout)
@@ -950,7 +967,7 @@ class GhostyTool(QMainWindow):
         vault_layout.addWidget(self.vault_list)
         delete_btn = QPushButton("Delete Selected")
         delete_btn.setMinimumHeight(40)
-        delete_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        delete_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         delete_btn.clicked.connect(self.delete_vault_entry)
         vault_layout.addWidget(delete_btn)
         self.vault_stack.addWidget(self.vault_main_widget)
@@ -1036,13 +1053,22 @@ class GhostyTool(QMainWindow):
             "disable_wifi_sense": QCheckBox("Disable Wi-Fi Sense"),
             "enable_end_task": QCheckBox("Enable End Task With Right Click"),
             "set_services_manual": QCheckBox("Set Unnecessary Services to Manual"),
+            "ultimate_performance": QCheckBox("Enable Ultimate Performance power plan"),
+            "disable_web_search": QCheckBox("Disable Start Menu web search"),
+            "classic_context_menu": QCheckBox("Windows 11 classic context menu"),
+            "disable_ad_id": QCheckBox("Disable Advertising ID"),
+            "disable_spotlight": QCheckBox("Disable Lock Screen Spotlight"),
+            "disable_copilot": QCheckBox("Disable Windows Copilot"),
+            "disable_news": QCheckBox("Disable News and Interests"),
+            "show_file_ext": QCheckBox("Show file extensions"),
+            "show_hidden": QCheckBox("Show hidden files (incl. protected)"),
         }
 
         # Categories mapping
         categories = {
-            "Privacy & Security": ["disable_telemetry", "disable_activity", "disable_location", "disable_wifi_sense"],
-            "System Performance": ["delete_temp", "disable_gamedvr", "disable_hibernation", "disable_storage_sense", "prefer_ipv4"],
-            "Interface & Services": ["enable_end_task", "disable_homegroup", "set_services_manual"]
+            "Privacy & Security": ["disable_telemetry", "disable_activity", "disable_location", "disable_wifi_sense", "disable_web_search", "disable_ad_id", "disable_spotlight"],
+            "System Performance": ["delete_temp", "disable_gamedvr", "disable_hibernation", "disable_storage_sense", "prefer_ipv4", "ultimate_performance"],
+            "Interface & Services": ["enable_end_task", "disable_homegroup", "set_services_manual", "classic_context_menu", "disable_copilot", "disable_news", "show_file_ext", "show_hidden"]
         }
 
         for cat_name, tweak_keys in categories.items():
@@ -1066,7 +1092,7 @@ class GhostyTool(QMainWindow):
 
         confirm_btn = QPushButton("Apply Selected Tweaks")
         confirm_btn.setMinimumHeight(45)
-        confirm_btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+        confirm_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         confirm_btn.clicked.connect(self.confirm_changes)
         layout.addWidget(confirm_btn)
         
@@ -1082,7 +1108,7 @@ class GhostyTool(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         
-        info_label = QLabel("Ghosty Tool v5.0.2")
+        info_label = QLabel("Ghosty Tool v5.0.3")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         info_label.setStyleSheet("color: #4158D0; margin-top: 20px;")
@@ -1094,14 +1120,16 @@ class GhostyTool(QMainWindow):
         sub_label.setStyleSheet("color: #888; margin-bottom: 20px;")
         layout.addWidget(sub_label)
 
-        features_group = QGroupBox("What's New in v5.0.2")
+        features_group = QGroupBox("What's New in v5.0.3")
         features_layout = QVBoxLayout()
         features_text = QLabel(
             "• 🛡️ <b>Security Hardening:</b> Full audit with Bandit & pip-audit.<br>"
             "• 🔐 <b>ShadowKeys 2.0:</b> AES-256 encryption, PBKDF2 verification, and clipboard auto-clear.<br>"
             "• 👤 <b>Least Privilege:</b> Starts as standard user; elevate only when needed.<br>"
             "• 🚀 <b>Auto-Deploy:</b> Automated high-performance EXE builds via GitHub Actions.<br>"
-            "• 💻 <b>Cross-Platform:</b> Core logic now safe for Windows, Linux, and macOS."
+            "• 💻 <b>Cross-Platform:</b> Core logic now safe for Windows, Linux, and macOS.<br>"
+            "• 🧩 <b>New Tweaks:</b> Disable Copilot/News & Interests; show file extensions/hidden files.<br>"
+            "• 📦 <b>Installer:</b> Added 7-Zip, VLC, Brave, Discord, HWiNFO, CPU-Z."
         )
         features_text.setTextFormat(Qt.TextFormat.RichText)
         features_text.setWordWrap(True)
@@ -1163,7 +1191,7 @@ class GhostyTool(QMainWindow):
                 
                 btn = QPushButton("Got it!")
                 btn.setMinimumHeight(40)
-                btn.setStyleSheet("background-color: #4158D0; color: white; font-weight: bold;")
+                btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
                 btn.clicked.connect(dlg.accept)
                 vbox.addWidget(btn)
                 
@@ -1470,6 +1498,15 @@ class GhostyTool(QMainWindow):
                 elif name == "disable_storage_sense": self._disable_storage_sense()
                 elif name == "disable_wifi_sense": self._disable_wifi_sense()
                 elif name == "enable_end_task": self._enable_end_task()
+                elif name == "ultimate_performance": self._enable_ultimate_performance()
+                elif name == "disable_web_search": self._disable_web_search()
+                elif name == "classic_context_menu": self._enable_classic_context_menu()
+                elif name == "disable_ad_id": self._disable_advertising_id()
+                elif name == "disable_spotlight": self._disable_spotlight()
+                elif name == "disable_copilot": self._disable_copilot()
+                elif name == "disable_news": self._disable_news_and_interests()
+                elif name == "show_file_ext": self._show_file_extensions()
+                elif name == "show_hidden": self._show_hidden_files()
                 elif name == "set_services_manual": 
                     self._set_services_to_manual(["DiagTrack", "dmwappushservice", "RemoteRegistry"])
             self.log_signal.emit("Selected tweaks applied successfully.", "success")
@@ -1562,3 +1599,98 @@ class GhostyTool(QMainWindow):
         for service in services:
             try: subprocess.run(["sc", "config", service, "start=", "demand"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
             except Exception as e: logger.error(f"Failed to set service {service} to manual: {e}")
+
+
+    def _enable_ultimate_performance(self):
+        try:
+            subprocess.run(["powercfg", "-duplicatescheme", "e9a42b02-d5df-448d-aa00-03f14749eb61"], shell=False, check=False, creationflags=CREATE_NO_WINDOW)
+            subprocess.run(["powercfg", "-setactive", "e9a42b02-d5df-448d-aa00-03f14749eb61"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
+        except Exception as e:
+            logger.error(f"Ultimate Performance plan tweak failed: {e}")
+
+    def _disable_web_search(self):
+        try:
+            # Disable Bing web search in Start
+            key1 = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\\Microsoft\\Windows\\CurrentVersion\\Search")
+            winreg.SetValueEx(key1, "BingSearchEnabled", 0, winreg.REG_DWORD, 0)
+            winreg.SetValueEx(key1, "CortanaConsent", 0, winreg.REG_DWORD, 0)
+            winreg.CloseKey(key1)
+            # Disable SearchBox suggestions via policy
+            key2 = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\\Policies\\Microsoft\\Windows\\Explorer")
+            winreg.SetValueEx(key2, "DisableSearchBoxSuggestions", 0, winreg.REG_DWORD, 1)
+            winreg.CloseKey(key2)
+        except Exception as e:
+            logger.error(f"Disable web search tweak failed: {e}")
+
+    def _enable_classic_context_menu(self):
+        try:
+            clsid = r"Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\\InprocServer32"
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, clsid)
+            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "")
+            winreg.CloseKey(key)
+        except Exception as e:
+            logger.error(f"Classic context menu tweak failed: {e}")
+
+    def _disable_advertising_id(self):
+        try:
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo")
+            winreg.SetValueEx(key, "Enabled", 0, winreg.REG_DWORD, 0)
+            winreg.CloseKey(key)
+        except Exception as e:
+            logger.error(f"Disable Advertising ID tweak failed: {e}")
+
+    def _disable_spotlight(self):
+        try:
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\\Policies\\Microsoft\\Windows\\CloudContent")
+            winreg.SetValueEx(key, "DisableWindowsSpotlightFeatures", 0, winreg.REG_DWORD, 1)
+            winreg.CloseKey(key)
+        except Exception as e:
+            logger.error(f"Disable Spotlight tweak failed: {e}")
+
+
+    def _disable_copilot(self):
+        try:
+            if winreg is None:
+                return
+            key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot")
+            winreg.SetValueEx(key, "TurnOffWindowsCopilot", 0, winreg.REG_DWORD, 1)
+            winreg.CloseKey(key)
+            key2 = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced")
+            winreg.SetValueEx(key2, "ShowCopilotButton", 0, winreg.REG_DWORD, 0)
+            winreg.CloseKey(key2)
+        except Exception as e:
+            logger.error(f"Disable Copilot tweak failed: {e}")
+
+    def _disable_news_and_interests(self):
+        try:
+            if winreg is None:
+                return
+            key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\Microsoft\Windows\Windows Feeds")
+            winreg.SetValueEx(key, "EnableFeeds", 0, winreg.REG_DWORD, 0)
+            winreg.CloseKey(key)
+            key2 = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Feeds")
+            winreg.SetValueEx(key2, "ShellFeedsTaskbarViewMode", 0, winreg.REG_DWORD, 2)
+            winreg.CloseKey(key2)
+        except Exception as e:
+            logger.error(f"Disable News & Interests tweak failed: {e}")
+
+    def _show_file_extensions(self):
+        try:
+            if winreg is None:
+                return
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced")
+            winreg.SetValueEx(key, "HideFileExt", 0, winreg.REG_DWORD, 0)
+            winreg.CloseKey(key)
+        except Exception as e:
+            logger.error(f"Show file extensions tweak failed: {e}")
+
+    def _show_hidden_files(self):
+        try:
+            if winreg is None:
+                return
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced")
+            winreg.SetValueEx(key, "Hidden", 0, winreg.REG_DWORD, 1)
+            winreg.SetValueEx(key, "ShowSuperHidden", 0, winreg.REG_DWORD, 1)
+            winreg.CloseKey(key)
+        except Exception as e:
+            logger.error(f"Show hidden files tweak failed: {e}")

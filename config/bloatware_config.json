@@ -773,6 +773,161 @@
       "commands": [
         "Get-WindowsCapability -Online | Where-Object {$_.Name -like '*PowerShell.ISE*'} | Remove-WindowsCapability -Online -ErrorAction SilentlyContinue"
       ]
+    },
+    {
+      "id": "windows_widgets",
+      "name": "Windows 11 Widgets",
+      "description": "Remove Windows Web Experience Pack (Widgets)",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["11"],
+      "check_command": "Get-AppxPackage -Name 'MicrosoftWindows.Client.WebExperience' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'MicrosoftWindows.Client.WebExperience' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "teams_chat",
+      "name": "Microsoft Teams (Chat)",
+      "description": "Remove built-in Microsoft Teams (Chat)",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["11"],
+      "check_command": "Get-AppxPackage -Name '*Teams*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'MicrosoftTeams' | Remove-AppxPackage -ErrorAction SilentlyContinue",
+        "Get-AppxPackage -Name '*Teams*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "clipchamp",
+      "name": "Clipchamp",
+      "description": "Remove Clipchamp video editor",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Clipchamp.Clipchamp' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Clipchamp.Clipchamp' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "power_automate",
+      "name": "Power Automate",
+      "description": "Remove Microsoft Power Automate (Desktop)",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.PowerAutomateDesktop' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.PowerAutomateDesktop' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "onenote_uwp",
+      "name": "OneNote (UWP)",
+      "description": "Remove OneNote UWP app",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.Office.OneNote' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.Office.OneNote' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "sticky_notes",
+      "name": "Sticky Notes",
+      "description": "Remove Microsoft Sticky Notes",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.MicrosoftStickyNotes' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.MicrosoftStickyNotes' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "heif_extension",
+      "name": "HEIF Image Extension",
+      "description": "Remove HEIF Image Extension",
+      "category": "Microsoft Store Apps",
+      "safety_level": "moderate",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.HEIFImageExtension' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.HEIFImageExtension' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "vp9_extension",
+      "name": "VP9 Video Extensions",
+      "description": "Remove VP9 Video Extensions",
+      "category": "Microsoft Store Apps",
+      "safety_level": "moderate",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.VP9VideoExtensions' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.VP9VideoExtensions' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "webp_extension",
+      "name": "Webp Image Extension",
+      "description": "Remove Webp Image Extension",
+      "category": "Microsoft Store Apps",
+      "safety_level": "moderate",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.WebpImageExtension' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.WebpImageExtension' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "samsung_bloatware",
+      "name": "Samsung OEM Bloatware",
+      "description": "Remove Samsung pre-installed applications",
+      "category": "OEM Bloatware",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Samsung*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Samsung*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "razer_bloatware",
+      "name": "Razer OEM Bloatware",
+      "description": "Remove Razer pre-installed applications",
+      "category": "OEM Bloatware",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Razer*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Razer*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
     }
   ]
 }

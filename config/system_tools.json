@@ -133,6 +133,84 @@
         "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
       ],
       "post_install_message": "Chocolatey installed successfully! Restart your terminal and use 'choco' command to manage packages."
+    },
+    {
+      "id": "7zip",
+      "name": "7-Zip",
+      "description": "High compression ratio file archiver. Supports most archive formats including 7z, ZIP, RAR, GZIP, and TAR.",
+      "category": "Essential Utilities",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "7z",
+      "install_commands": [
+        "winget install --id 7zip.7zip -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "7-Zip installed successfully!"
+    },
+    {
+      "id": "vlc",
+      "name": "VLC Media Player",
+      "description": "Free and open source cross-platform multimedia player that plays most multimedia files as well as DVDs, Audio CDs, VCDs, and various streaming protocols.",
+      "category": "Essential Utilities",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "vlc --version",
+      "install_commands": [
+        "winget install --id VideoLAN.VLC -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "VLC Media Player installed successfully!"
+    },
+    {
+      "id": "brave",
+      "name": "Brave Browser",
+      "description": "Privacy-focused web browser that blocks ads and trackers by default. Fast, secure, and built on Chromium.",
+      "category": "Essential Utilities",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-AppxPackage -Name '*Brave*' | Select-Object -First 1",
+      "install_commands": [
+        "winget install --id Brave.Brave -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Brave Browser installed successfully!"
+    },
+    {
+      "id": "discord",
+      "name": "Discord",
+      "description": "All-in-one voice and text chat for gamers that's free, secure, and works on both your desktop and phone.",
+      "category": "Essential Utilities",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Process -Name 'Discord' -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id Discord.Discord -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Discord installed successfully!"
+    },
+    {
+      "id": "hwinfo",
+      "name": "HWiNFO64",
+      "description": "Professional hardware information and diagnostic tool for Windows. Provides detailed hardware analysis, monitoring, and reporting.",
+      "category": "Hardware Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Process -Name 'HWiNFO64' -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id REALiX.HWiNFO -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "HWiNFO installed successfully!"
+    },
+    {
+      "id": "cpuz",
+      "name": "CPU-Z",
+      "description": "A freeware that gathers information on some of the main devices of your system (CPU, Motherboard, Memory, etc.).",
+      "category": "Hardware Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Process -Name 'cpuz' -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id CPUID.CPU-Z -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "CPU-Z installed successfully!"
     }
   ]
 }
