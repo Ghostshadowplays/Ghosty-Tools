@@ -29,9 +29,9 @@ jobs:
           pip install -r requirements.txt
 
       - name: Clean PyInstaller cache
+        shell: pwsh
         run: |
           pyinstaller --clean --noconfirm main.py
-        shell: pwsh
 
       - name: Build with PyInstaller
         shell: pwsh
@@ -48,14 +48,30 @@ jobs:
             main.py
 
       # -----------------------------
-      # CODE SIGNING SECTION
+      # REBUILD PFX ON RUNNER
       # -----------------------------
 
-      - name: Decode certificate
+      - name: Rebuild PFX from PEM secrets
         shell: pwsh
+        env:
+          CERT_PUBLIC: ${{ secrets.CERT_PUBLIC }}
+          CERT_PRIVATE_KEY: ${{ secrets.CERT_PRIVATE_KEY }}
+          CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
         run: |
-          $bytes = [System.Convert]::FromBase64String($env:CERT_PFX)
-          [IO.File]::WriteAllBytes("cert.pfx", $bytes)
+          # Write PEM files
+          Set-Content -Path public.pem -Value $env:CERT_PUBLIC -NoNewline
+          Set-Content -Path private.pem -Value $env:CERT_PRIVATE_KEY -NoNewline
+
+          # Build PFX from PEMs
+          openssl pkcs12 -export `
+            -in public.pem `
+            -inkey private.pem `
+            -out cert.pfx `
+            -password pass:$env:CERT_PASSWORD
+
+      # -----------------------------
+      # SIGN EXE
+      # -----------------------------
 
       - name: Sign EXE
         shell: pwsh
