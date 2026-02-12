@@ -78,9 +78,6 @@ class GhostyTool(QMainWindow):
         self.usage_timer = QTimer()
         self.usage_timer.timeout.connect(self.update_system_usage)
         self.usage_timer.start(2000)
-        self.sensor_timer = QTimer()
-        self.sensor_timer.timeout.connect(self.update_sensor_panel)
-        self.sensor_timer.start(2000)
 
     def get_main_disk(self):
         try:
@@ -544,56 +541,6 @@ class GhostyTool(QMainWindow):
             logger.error(f"Error gathering specs: {e}")
             self.specs_label.setText(f"Error gathering specs: {e}")
 
-    def get_sensors(self):
-        try:
-            r = requests.get("http://localhost:8085/data.json", timeout=1)
-            data = r.json()
-        except:
-            return None
-
-        sensors = {}
-
-        def walk(node):
-            if "Children" in node:
-                for child in node["Children"]:
-                    walk(child)
-            if "Sensors" in node:
-                for s in node["Sensors"]:
-                    sensors[s["Name"]] = {
-                        "value": s["Value"],
-                        "type": s["SensorType"],
-                        "unit": s["Unit"]
-                    }
-
-        walk(data)
-        return sensors
-
-    def update_sensor_panel(self):
-        sensors = self.get_sensors()
-        if not sensors:
-            self.sensor_label.setText("Sensors unavailable (start LibreHardwareMonitor)")
-            return
-
-        text = ""
-
-        def add(name):
-            if name in sensors:
-                v = sensors[name]
-                return f"{name}: {v['value']} {v['unit']}<br>"
-            return ""
-
-        text += "<b>CPU:</b><br>"
-        text += add("CPU Package")
-        text += add("CPU Core #1 Temperature")
-        text += add("CPU Core #1 Clock")
-
-        text += "<br><b>GPU:</b><br>"
-        text += add("GPU Core")
-        text += add("GPU Memory")
-        text += add("GPU Fan")
-
-        self.sensor_label.setText(text)
-        self.sensor_label.setTextFormat(Qt.TextFormat.RichText)
 
     def enable_full_monitoring(self):
 
@@ -641,7 +588,6 @@ class GhostyTool(QMainWindow):
 
             config_xml = """<?xml version="1.0" encoding="utf-8"?>
     <configuration>
-    <RemoteWebServer Enabled="true" Port="8085" />
     </configuration>
     """
             with open(config_path, "w") as f:
