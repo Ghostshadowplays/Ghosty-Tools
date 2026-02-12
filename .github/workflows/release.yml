@@ -47,6 +47,36 @@ jobs:
             --name "GhostyTools" `
             main.py
 
+      # -----------------------------
+      # CODE SIGNING SECTION
+      # -----------------------------
+
+      - name: Decode certificate
+        shell: bash
+        run: echo "$CERT_PFX" | base64 -d > cert.pfx
+
+      - name: Sign EXE
+        shell: pwsh
+        run: |
+          $password = "$env:CERT_PASSWORD"
+          $exe = "dist/GhostyTools.exe"
+
+          if (Test-Path $exe) {
+            signtool sign `
+              /f cert.pfx `
+              /p $password `
+              /tr http://timestamp.digicert.com `
+              /td sha256 `
+              /fd sha256 `
+              "$exe"
+          } else {
+            Write-Error "EXE not found: $exe"
+          }
+
+      # -----------------------------
+      # RELEASE UPLOAD
+      # -----------------------------
+
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release'
