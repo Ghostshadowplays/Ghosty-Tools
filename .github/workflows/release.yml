@@ -51,6 +51,12 @@ jobs:
       # CODE SIGNING (using action)
       # -----------------------------
 
+      - name: Decode certificate
+        shell: pwsh
+        run: |
+          $bytes = [System.Convert]::FromBase64String($env:CERT_PFX)
+          [IO.File]::WriteAllBytes("cert.pfx", $bytes)
+
       - name: Sign EXE
         shell: pwsh
         run: |
