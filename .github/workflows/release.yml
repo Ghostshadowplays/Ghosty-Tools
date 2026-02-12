@@ -57,11 +57,13 @@ jobs:
           $exe = "dist/GhostyTools.exe"
           $password = $env:CERT_PASSWORD
 
-          # Find signtool.exe dynamically
-          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\" -Recurse -Filter signtool.exe | Select-Object -First 1
+          # Find ONLY the x64 signtool.exe
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\" -Recurse -Filter signtool.exe |
+                      Where-Object { $_.FullName -match "x64" } |
+                      Select-Object -First 1
 
           if (-not $signtool) {
-            Write-Error "SignTool not found on this runner."
+            Write-Error "No x64 SignTool found on this runner."
             exit 1
           }
 
