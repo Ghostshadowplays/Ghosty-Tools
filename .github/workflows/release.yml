@@ -47,6 +47,38 @@ jobs:
             --name "GhostyTools" `
             main.py
 
+      # -----------------------------
+      # CODE SIGNING SECTION
+      # -----------------------------
+
+      - name: Decode certificate
+        shell: pwsh
+        run: |
+          $bytes = [System.Convert]::FromBase64String($env:CERT_PFX)
+          [IO.File]::WriteAllBytes("cert.pfx", $bytes)
+
+      - name: Sign EXE
+        shell: pwsh
+        run: |
+          $exe = "dist/GhostyTools.exe"
+          $password = $env:CERT_PASSWORD
+
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\" -Recurse -Filter signtool.exe |
+                      Where-Object { $_.FullName -match "x64" } |
+                      Select-Object -First 1
+
+          & "$($signtool.FullName)" sign `
+            /f cert.pfx `
+            /p "$password" `
+            /tr http://timestamp.digicert.com `
+            /td sha256 `
+            /fd sha256 `
+            "$exe"
+
+      # -----------------------------
+      # RELEASE UPLOAD
+      # -----------------------------
+
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release'
