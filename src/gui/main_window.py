@@ -18,10 +18,11 @@ from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QSize
 from PyQt6.QtGui import QIcon, QFont, QColor, QTextCursor
 import psutil
 try:
-    import winreg  # type: ignore
-except Exception:  # Non-Windows platforms
-    winreg = None  # type: ignore
+    import winreg
+except Exception:
+    winreg = None 
 import pyperclip
+import zipfile
 
 # Internal imports
 from src.core.workers import SpeedTestWorker, MaintenanceWorker, GenericCommandWorker, SecurityScanWorker, BloatScanWorker
@@ -76,6 +77,9 @@ class GhostyTool(QMainWindow):
         self.usage_timer = QTimer()
         self.usage_timer.timeout.connect(self.update_system_usage)
         self.usage_timer.start(2000)
+        self.sensor_timer = QTimer()
+        self.sensor_timer.timeout.connect(self.update_sensor_panel)
+        self.sensor_timer.start(2000)
 
     def get_main_disk(self):
         try:
@@ -381,6 +385,31 @@ class GhostyTool(QMainWindow):
         speed_group.setLayout(speed_layout)
         content_layout.addWidget(speed_group)
 
+        monitor_group = QGroupBox("Full Hardware Monitoring")
+        monitor_layout = QVBoxLayout()
+
+        self.full_monitor_button = QPushButton("Enable Full Monitoring")
+        self.full_monitor_button.setMinimumHeight(36)
+        self.full_monitor_button.setStyleSheet(
+            "QPushButton { background-color: #4158D0; color: white; font-weight: bold; "
+            "border: 1px solid #2e46a9; border-radius: 6px; } "
+            "QPushButton:hover { background-color: #4b6de3; } "
+            "QPushButton:pressed { background-color: #3a55c5; }"
+        )
+
+        self.full_monitor_button.clicked.connect(self.enable_full_monitoring)
+
+        monitor_layout.addWidget(self.full_monitor_button)
+
+        
+        self.sensor_label = QLabel("Monitoring not enabled")
+        monitor_layout.addWidget(self.sensor_label)
+        
+
+        monitor_group.setLayout(monitor_layout)
+        content_layout.addWidget(monitor_group)
+
+
         content_layout.addStretch()
         scroll.setWidget(content)
         layout.addWidget(scroll)
@@ -390,33 +419,101 @@ class GhostyTool(QMainWindow):
     def update_specs(self):
         try:
             import platform
-            
-            # CPU Info - more robust parsing
-            cpu_res = subprocess.run(["wmic", "cpu", "get", "name"], capture_output=True, text=True, creationflags=CREATE_NO_WINDOW)
+
+            cpu_res = subprocess.run(
+                ["wmic", "cpu", "get", "name"],
+                capture_output=True,
+                text=True,
+                creationflags=CREATE_NO_WINDOW
+            )
             cpu_lines = [line.strip() for line in cpu_res.stdout.split('\n') if line.strip()]
             cpu_info = cpu_lines[1] if len(cpu_lines) > 1 else "Unknown CPU"
-            
-            # RAM
+
             mem = psutil.virtual_memory()
-            
-            # GPU Info
-            gpu_res = subprocess.run(["wmic", "path", "win32_VideoController", "get", "name"], capture_output=True, text=True, creationflags=CREATE_NO_WINDOW)
-            gpu_lines = [line.strip() for line in gpu_res.stdout.split('\n') if line.strip()]
-            gpu_info = gpu_lines[1] if len(gpu_lines) > 1 else "Unknown GPU"
-            
-            # Motherboard
-            mobo_res = subprocess.run(["wmic", "baseboard", "get", "product,manufacturer"], capture_output=True, text=True, creationflags=CREATE_NO_WINDOW)
+
+            gpu_res = subprocess.run(
+                ["wmic", "path", "win32_VideoController", "get", "Name,PNPDeviceID,AdapterRAM,DriverVersion", "/format:csv"],
+                capture_output=True,
+                text=True,
+                creationflags=CREATE_NO_WINDOW
+            )
+
+            lines = [l.strip() for l in gpu_res.stdout.split("\n") if l.strip()]
+            if len(lines) < 2:
+                gpu_info = "Unknown GPU"
+            else:
+                header = lines[0].split(",")
+                gpus = []
+
+                for line in lines[1:]:
+                    parts = line.split(",")
+                    row = dict(zip(header, parts))
+
+                    name = row.get("Name", "").strip()
+                    pnp = row.get("PNPDeviceID", "").strip()
+                    vram = row.get("AdapterRAM", "").strip()
+                    driver = row.get("DriverVersion", "").strip()
+
+                    try:
+                        vram_gb = f"{int(vram) / (1024**3):.1f} GB"
+                    except:
+                        vram_gb = "Unknown VRAM"
+
+                    if "PCI\\" in pnp.upper():
+                        gpu_type = "PCIe GPU"
+                    else:
+                        gpu_type = "Integrated GPU"
+
+                    gpus.append(f"{gpu_type}: {name} ({vram_gb}, Driver {driver})")
+
+                gpu_info = "<br>".join(gpus) if gpus else "Unknown GPU"
+
+            mobo_res = subprocess.run(
+                ["wmic", "baseboard", "get", "product,manufacturer"],
+                capture_output=True,
+                text=True,
+                creationflags=CREATE_NO_WINDOW
+            )
             mobo_lines = [line.strip() for line in mobo_res.stdout.split('\n') if line.strip()]
             mobo_info = mobo_lines[1] if len(mobo_lines) > 1 else "Unknown Motherboard"
+
             
-            # OS Version - Windows 11 check
-            win_ver = platform.version()
-            build = int(win_ver.split('.')[-1]) if '.' in win_ver else 0
-            os_name = "Windows 11" if build >= 22000 else "Windows 10"
+            if winreg:
+                try:
+                    key = winreg.OpenKey(
+                        winreg.HKEY_LOCAL_MACHINE,
+                        r"SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+                    )
+
+                    build_number = int(winreg.QueryValueEx(key, "CurrentBuild")[0])
+                    product_name = winreg.QueryValueEx(key, "ProductName")[0]
+               
+                    try:
+                        display_version = winreg.QueryValueEx(key, "DisplayVersion")[0]
+                    except FileNotFoundError:
+                        try:
+                            display_version = winreg.QueryValueEx(key, "ReleaseId")[0]
+                        except FileNotFoundError:
+                            display_version = "Unknown"
+
+                    os_name = "Windows 11" if build_number >= 22000 else "Windows 10"
+
+                    winreg.CloseKey(key)
+
+                except Exception:
+                    os_name = platform.system()
+                    product_name = "Unknown Edition"
+                    display_version = "Unknown"
+                    build_number = 0
+            else:
+                os_name = platform.system()
+                product_name = "Unknown Edition"
+                display_version = "Unknown"
+                build_number = 0
+
             arch = platform.machine()
             arch_bits = platform.architecture()[0]
-            
-            # OS install date (may require admin on some systems)
+
             install_date = ""
             try:
                 ps_cmd = [
@@ -427,21 +524,149 @@ class GhostyTool(QMainWindow):
                 install_date = ins.stdout.strip()
             except Exception:
                 install_date = ""
-            
-            specs = f"<b>OS:</b> {os_name} (Build {win_ver})<br>"
+
+            specs = f"<b>OS:</b> {os_name} (Build {build_number})<br>"
+            specs += f"<b>Edition:</b> {product_name} (Version {display_version})<br>"
             specs += f"<b>Architecture:</b> {arch} ({arch_bits})<br>"
+
             if install_date:
                 specs += f"<b>Installed:</b> {install_date}<br>"
             specs += f"<b>CPU:</b> {cpu_info}<br>"
             specs += f"<b>RAM:</b> {mem.total / (1024**3):.1f} GB Total<br>"
-            specs += f"<b>GPU:</b> {gpu_info}<br>"
+            specs += f"<b>GPU:</b><br>{gpu_info}<br>"
             specs += f"<b>Motherboard:</b> {mobo_info}<br>"
-            
+
             self.specs_label.setText(specs)
             self.specs_label.setTextFormat(Qt.TextFormat.RichText)
+
         except Exception as e:
             logger.error(f"Error gathering specs: {e}")
             self.specs_label.setText(f"Error gathering specs: {e}")
+
+    def get_sensors(self):
+        try:
+            r = requests.get("http://localhost:8085/data.json", timeout=1)
+            data = r.json()
+        except:
+            return None
+
+        sensors = {}
+
+        def walk(node):
+            if "Children" in node:
+                for child in node["Children"]:
+                    walk(child)
+            if "Sensors" in node:
+                for s in node["Sensors"]:
+                    sensors[s["Name"]] = {
+                        "value": s["Value"],
+                        "type": s["SensorType"],
+                        "unit": s["Unit"]
+                    }
+
+        walk(data)
+        return sensors
+
+    def update_sensor_panel(self):
+        sensors = self.get_sensors()
+        if not sensors:
+            self.sensor_label.setText("Sensors unavailable (start LibreHardwareMonitor)")
+            return
+
+        text = ""
+
+        def add(name):
+            if name in sensors:
+                v = sensors[name]
+                return f"{name}: {v['value']} {v['unit']}<br>"
+            return ""
+
+        text += "<b>CPU:</b><br>"
+        text += add("CPU Package")
+        text += add("CPU Core #1 Temperature")
+        text += add("CPU Core #1 Clock")
+
+        text += "<br><b>GPU:</b><br>"
+        text += add("GPU Core")
+        text += add("GPU Memory")
+        text += add("GPU Fan")
+
+        self.sensor_label.setText(text)
+        self.sensor_label.setTextFormat(Qt.TextFormat.RichText)
+
+    def enable_full_monitoring(self):
+
+        self.log_signal.emit("Starting Full Monitoring setup...", "info")
+
+        url = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest/download/LibreHardwareMonitor.zip"
+        install_dir = os.path.join(os.getenv("APPDATA"), "GhostyTools", "LHM")
+        zip_path = os.path.join(install_dir, "lhm.zip")
+
+        os.makedirs(install_dir, exist_ok=True)
+
+        # Download
+        try:
+            self.log_signal.emit("Downloading LibreHardwareMonitor...", "info")
+            r = requests.get(url, timeout=10)
+            if r.status_code != 200:
+                self.log_signal.emit(f"Download failed: HTTP {r.status_code}", "error")
+                return
+
+            with open(zip_path, "wb") as f:
+                f.write(r.content)
+
+            self.log_signal.emit("Download complete.", "success")
+
+        except Exception as e:
+            self.log_signal.emit(f"Download error: {e}", "error")
+            return
+
+        # Extract
+        try:
+            self.log_signal.emit("Extracting ZIP...", "info")
+            with zipfile.ZipFile(zip_path, "r") as z:
+                z.extractall(install_dir)
+            self.log_signal.emit("Extraction complete.", "success")
+
+        except Exception as e:
+            self.log_signal.emit(f"Extraction error: {e}", "error")
+            return
+
+        # Config
+        try:
+            self.log_signal.emit("Writing configuration...", "info")
+            config_path = os.path.join(os.getenv("APPDATA"), "LibreHardwareMonitor", "LibreHardwareMonitor.config")
+            os.makedirs(os.path.dirname(config_path), exist_ok=True)
+
+            config_xml = """<?xml version="1.0" encoding="utf-8"?>
+    <configuration>
+    <RemoteWebServer Enabled="true" Port="8085" />
+    </configuration>
+    """
+            with open(config_path, "w") as f:
+                f.write(config_xml)
+
+            self.log_signal.emit("Configuration written.", "success")
+
+        except Exception as e:
+            self.log_signal.emit(f"Config write error: {e}", "error")
+            return
+
+        # Launch EXE
+        exe_path = os.path.join(install_dir, "LibreHardwareMonitor.exe")
+
+        if not os.path.exists(exe_path):
+            self.log_signal.emit("ERROR: LibreHardwareMonitor.exe not found after extraction!", "error")
+            return
+
+        try:
+            self.log_signal.emit("Launching LibreHardwareMonitor...", "info")
+            subprocess.Popen([exe_path], creationflags=subprocess.CREATE_NO_WINDOW)
+            self.log_signal.emit("LibreHardwareMonitor launched.", "success")
+
+        except Exception as e:
+            self.log_signal.emit(f"Launch error: {e}", "error")
+            return
 
     def setup_maintenance_page(self):
         page = QWidget()
@@ -1127,7 +1352,7 @@ class GhostyTool(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         
-        info_label = QLabel("Ghosty Tool v5.0.5")
+        info_label = QLabel("Ghosty Tool v5.0.6")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         info_label.setStyleSheet("color: #4158D0; margin-top: 20px;")
@@ -1139,7 +1364,7 @@ class GhostyTool(QMainWindow):
         sub_label.setStyleSheet("color: #888; margin-bottom: 20px;")
         layout.addWidget(sub_label)
 
-        features_group = QGroupBox("What's New in v5.0.5")
+        features_group = QGroupBox("What's New in v5.0.6")
         features_layout = QVBoxLayout()
         features_text = QLabel(
             "• 🛡️ <b>Security Hardening:</b> Full audit with Bandit & pip-audit.<br>"
