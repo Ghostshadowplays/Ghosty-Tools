@@ -23,6 +23,7 @@ except Exception:
     winreg = None 
 import pyperclip
 import zipfile
+import requests
 
 # Internal imports
 from src.core.workers import SpeedTestWorker, MaintenanceWorker, GenericCommandWorker, SecurityScanWorker, BloatScanWorker
