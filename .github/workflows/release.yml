@@ -48,32 +48,17 @@ jobs:
             main.py
 
       # -----------------------------
-      # CODE SIGNING SECTION
+      # CODE SIGNING (using action)
       # -----------------------------
 
-      - name: Decode certificate
-        shell: bash
-        run: echo "$CERT_PFX" | base64 -d > cert.pfx
-
       - name: Sign EXE
-        shell: pwsh
-        run: |
-          $password = "$env:CERT_PASSWORD"
-          $exe = "dist/GhostyTools.exe"
-
-          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
-
-          if (Test-Path $exe) {
-            & "$signtool" sign `
-              /f cert.pfx `
-              /p $password `
-              /tr http://timestamp.digicert.com `
-              /td sha256 `
-              /fd sha256 `
-              "$exe"
-          } else {
-            Write-Error "EXE not found: $exe"
-          }
+        uses: markeytos/code-sign-action@v1.01
+        with:
+          certificate: '${{ secrets.CERT_PFX }}'
+          password: '${{ secrets.CERT_PASSWORD }}'
+          folder: 'dist'
+          timestampUrl: 'http://timestamp.digicert.com'
+          recursive: false
 
       # -----------------------------
       # RELEASE UPLOAD
