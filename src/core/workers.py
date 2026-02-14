@@ -3,45 +3,35 @@ import logging
 import json
 import os
 import sys
-import speedtest
 
-# Patch stdout BEFORE importing speedtest
-class DummyStdout:
-    def write(self, *args, **kwargs): pass
-    def flush(self): pass
-    def fileno(self): return 1  # fake FD
-
-if not hasattr(sys.stdout, "fileno"):
-    sys.stdout = DummyStdout()
-
+# speedtest-cli tries to access sys.stdout.fileno() which can be None in noconsole EXE
+try:
+    import speedtest
+except Exception:
+    speedtest = None
 
 from PyQt6.QtCore import QThread, pyqtSignal
 from src.core.security_scanner import SecurityScanner
 
 logger = logging.getLogger(__name__)
 
-
 class SpeedTestWorker(QThread):
     result_ready = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
 
     def run(self):
+        if speedtest is None:
+            self.error_occurred.emit("The 'speedtest-cli' module is not available or failed to load. Please ensure it is installed correctly.")
+            return
+
         try:
             st = speedtest.Speedtest()
             st.get_best_server()
-
             download_speed = st.download() / 1_000_000
             upload_speed = st.upload() / 1_000_000
             ping = st.results.ping
-
-            result_text = (
-                f"Download: {download_speed:.2f} Mbps\n"
-                f"Upload: {upload_speed:.2f} Mbps\n"
-                f"Ping: {ping:.2f} ms"
-            )
-
+            result_text = f"Download: {download_speed:.2f} Mbps\nUpload: {upload_speed:.2f} Mbps\nPing: {ping:.2f} ms"
             self.result_ready.emit(result_text)
-
         except Exception as e:
             self.error_occurred.emit(str(e))
 
