@@ -30,8 +30,9 @@ jobs:
 
       - name: Clean PyInstaller cache
         run: |
-          pyinstaller --clean --noconfirm main.py
-        shell: pwsh
+          rmdir /s /q build
+          rmdir /s /q dist
+          del main.spec
 
       - name: Build with PyInstaller
         shell: pwsh
