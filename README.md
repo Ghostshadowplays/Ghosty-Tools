@@ -3,14 +3,14 @@
 [🚀 **Download Latest Release**](https://github.com/Ghostshadowplays/Ghosty-Tools/releases)
 
 ![Security & Quality Audit](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml/badge.svg)
-[![Lint: flake8](https://img.shields.io/badge/lint-flake8-1f6feb?style=flat-square&logo=python&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml)
-[![Format: black](https://img.shields.io/badge/format-black-000000?style=flat-square&logo=python&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml)
-[![Types: mypy](https://img.shields.io/badge/types-mypy-2d2d2d?style=flat-square&logo=python&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml)
-[![Releases](https://img.shields.io/github/v/release/Ghostshadowplays/Ghosty-Tools?label=Latest%20Release&style=flat-square&logo=github)](https://github.com/Ghostshadowplays/Ghosty-Tools/releases)
-![GitHub Repo stars](https://img.shields.io/github/stars/Ghostshadowplays/Ghosty-Tools?style=flat-square)
-[![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/releases)
-[![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black)](https://github.com/Ghostshadowplays/Ghosty-Tools/releases)
-[![macOS](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/releases)
+[![Lint: flake8](https://img.shields.io/badge/lint-flake8-1f6feb?style=flat&logo=python&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml)
+[![Format: black](https://img.shields.io/badge/format-black-000000?style=flat&logo=python&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml)
+[![Types: mypy](https://img.shields.io/badge/types-mypy-2d2d2d?style=flat&logo=python&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml)
+[![Releases](https://img.shields.io/github/v/release/Ghostshadowplays/Ghosty-Tools?label=Latest%20Release&style=flat&logo=github)](https://github.com/Ghostshadowplays/Ghosty-Tools/releases)
+![GitHub Repo stars](https://img.shields.io/github/stars/Ghostshadowplays/Ghosty-Tools?style=flat)
+[![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat&logo=windows&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/releases)
+[![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat&logo=linux&logoColor=black)](https://github.com/Ghostshadowplays/Ghosty-Tools/releases)
+[![macOS](https://img.shields.io/badge/macOS-000000?style=flat&logo=apple&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/releases)
 
 **The Professional All-in-One Windows Optimization & Security Suite**
 
