@@ -81,21 +81,18 @@ Ghosty Tools is a high-performance, modular utility designed to secure and optim
    ```
 
 ### Running the App
-Launch using the wrapper:
+Launch directly:
 ```bash
-python "Ghosty Tools.py"
-```
-Or directly:
-```bash
-python main.py
+python python-gui/main.py
 ```
 
 ## 📁 Project Structure
-- `src/core/`: Logic engines for scanning, cleaning, and security.
-- `src/gui/`: User interface components built with PyQt6.
-- `src/utils/`: Helper functions and logging configurations.
-- `config/`: JSON configuration files for bloatware and tools.
-- `images/`: Brand assets and icons.
+- `python-gui/core/`: Logic engines for scanning, cleaning, and security.
+- `python-gui/ui/`: User interface components built with PyQt6.
+- `python-gui/utils/`: Helper functions and logging configurations.
+- `python-gui/config/`: JSON configuration files for bloatware and tools.
+- `python-gui/assets/`: Brand assets and icons.
+- `powershell/`: Modular PowerShell backend for system-level tasks.
 
 ## 🔒 Security Policy
 - **No Data Collection:** Ghosty Tools operates entirely locally. No passwords or system data are ever transmitted externally.

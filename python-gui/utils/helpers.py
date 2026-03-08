@@ -1,0 +1,118 @@
+import os
+import sys
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+def get_resource_path(relative_path):
+    """Return absolute path to resource, works for dev and PyInstaller."""
+    if hasattr(sys, "_MEIPASS"):
+        # PyInstaller temp folder
+        base_path = sys._MEIPASS
+    else:
+        # Development mode - we assume we're in 'python-gui/utils'
+        # So we go up two levels to get to the true project root (the folder containing 'python-gui' and 'powershell')
+        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    
+    # Check if the path exists relative to the project root
+    # For bundled EXE, most resources will be at the root of _MEIPASS if added that way.
+    # We try both the root and the full relative path.
+    full_path = os.path.join(base_path, relative_path)
+    if os.path.exists(full_path):
+        return full_path
+    
+    # Try just the filename/last part (useful if PyInstaller flattens directory structure)
+    if hasattr(sys, "_MEIPASS"):
+        fallback_path = os.path.join(sys._MEIPASS, os.path.basename(relative_path))
+        if os.path.exists(fallback_path):
+            return fallback_path
+            
+    return full_path
+
+def get_config_dir():
+    """Get platform-specific configuration directory"""
+    if sys.platform == 'win32':
+        base = os.environ.get('APPDATA', os.path.expanduser('~'))
+        path = os.path.join(base, 'GhostyTools')
+    else:
+        path = os.path.join(os.path.expanduser('~'), '.config', 'ghostytools')
+    
+    if not os.path.exists(path):
+        os.makedirs(path, exist_ok=True)
+        try:
+            if sys.platform != 'win32':
+                os.chmod(path, 0o700)
+        except Exception:
+            pass
+    return path
+
+def is_admin():
+    """Check if the script is running with administrator/root privileges"""
+    if sys.platform == 'win32':
+        import ctypes
+        try:
+            return ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except Exception as e:
+            logger.error(f"Error checking admin privileges: {e}")
+            return False
+    else:
+        # Linux/Mac
+        try:
+            return os.getuid() == 0
+        except AttributeError:
+            return False
+
+def elevate_privileges():
+    """Attempt to elevate privileges. Only implemented for Windows."""
+    if sys.platform != 'win32':
+        logger.warning("Elevation not implemented for this platform.")
+        return
+
+    import ctypes
+    if getattr(sys, 'frozen', False):
+        # Running as compiled EXE
+        executable = sys.executable
+        params = ' '.join([f'"{arg}"' for arg in sys.argv[1:]])
+    else:
+        # Running as Python script
+        executable = sys.executable
+        # Re-run the current script
+        params = ' '.join([f'"{sys.argv[0]}"'] + [f'"{arg}"' for arg in sys.argv[1:]])
+
+    try:
+        # Prepare environment: remove PyInstaller variables to ensure the new process extracts itself correctly
+        # instead of trying to use the current process's temporary directory.
+        for key in list(os.environ.keys()):
+            if key == '_MEIPASS' or key.startswith('PYI'):
+                del os.environ[key]
+        
+        # Clean PATH of any _MEI references to prevent loading DLLs from the wrong temp folder
+        if 'PATH' in os.environ:
+            paths = os.environ['PATH'].split(os.pathsep)
+            os.environ['PATH'] = os.pathsep.join([p for p in paths if '_MEI' not in p])
+            
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", executable, params, None, 1)
+    except Exception as e:
+        logger.error(f"Failed to elevate privileges: {e}")
+    sys.exit()
+
+def ensure_private_file(path: str):
+    """Best-effort to restrict file visibility/permissions for sensitive files.
+    - On Linux/Mac: chmod 600
+    - On Windows: set Hidden attribute (does not enforce ACL, but reduces visibility)
+    """
+    try:
+        if sys.platform == 'win32':
+            try:
+                import ctypes
+                FILE_ATTRIBUTE_HIDDEN = 0x2
+                ctypes.windll.kernel32.SetFileAttributesW(str(path), FILE_ATTRIBUTE_HIDDEN)
+            except Exception:
+                pass
+        else:
+            os.chmod(path, 0o600)
+    except Exception:
+        # Best-effort; ignore failures
+        pass

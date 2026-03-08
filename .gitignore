@@ -148,3 +148,7 @@ cython_debug/
 .vscode/
 *.swp
 *.swo
+
+# Project specific
+logs/
+ghostytools_dev/

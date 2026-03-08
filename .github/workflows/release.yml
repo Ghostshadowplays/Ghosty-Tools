@@ -30,7 +30,7 @@ jobs:
 
       - name: Clean PyInstaller cache
         run: |
-          pyinstaller --clean --noconfirm main.py
+          pyinstaller --clean --noconfirm python-gui/main.py
         shell: pwsh
 
       - name: Build with PyInstaller
@@ -39,13 +39,13 @@ jobs:
           $pythonDll = (python -c "import sys; import pathlib; print(pathlib.Path(sys.executable).with_name('python312.dll'))")
           
           pyinstaller --noconsole --onefile --noupx `
-            --icon="images/ghosty icon.ico" `
-            --add-data "config;config" `
-            --add-data "images;images" `
-            --add-data "src;src" `
+            --icon="python-gui/assets/ghosty icon.ico" `
+            --add-data "python-gui/config;config" `
+            --add-data "python-gui/assets;python-gui/assets" `
+            --add-data "powershell;powershell" `
             --add-binary "$pythonDll;." `
             --name "GhostyTools" `
-            main.py
+            python-gui/main.py
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2

@@ -1,0 +1,9 @@
+PyQt6
+psutil
+speedtest-cli
+cryptography
+pyperclip
+requests
+Pillow
+black
+flake8
