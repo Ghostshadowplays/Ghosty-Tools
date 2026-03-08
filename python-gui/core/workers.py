@@ -40,7 +40,11 @@ class SpeedTestWorker(QThread):
                 return
 
         try:
-            st = speedtest.Speedtest()
+            # Using secure=True and a custom User-Agent to avoid 403 Forbidden errors
+            # speedtest-cli's default user agent is often blocked
+            st = speedtest.Speedtest(secure=True)
+            st.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            
             st.get_best_server()
             download_speed = st.download() / 1_000_000
             upload_speed = st.upload() / 1_000_000
@@ -48,7 +52,10 @@ class SpeedTestWorker(QThread):
             result_text = f"Download: {download_speed:.2f} Mbps\nUpload: {upload_speed:.2f} Mbps\nPing: {ping:.2f} ms"
             self.result_ready.emit(result_text)
         except Exception as e:
-            self.error_occurred.emit(str(e))
+            error_msg = str(e)
+            if "403" in error_msg:
+                error_msg = "HTTP Error 403: Forbidden. This usually means Speedtest.net is blocking the request. Try again later or check for app updates."
+            self.error_occurred.emit(error_msg)
         finally:
             sys.stdout = original_stdout
             if null_file:

@@ -1569,9 +1569,10 @@ class GhostyTool(QMainWindow):
                 return
 
             # Prepare environment without PyInstaller variables to ensure the new process extracts itself correctly
+            # and doesn't try to use the current process's temporary folder.
             env = os.environ.copy()
             for key in list(env.keys()):
-                if key == '_MEIPASS' or key.startswith('PYI'):
+                if key in ('_MEIPASS', '_MEIPASS2', 'PYI_CHILD_PATH', 'PYTHONHOME', 'PYTHONPATH', 'TCL_LIBRARY', 'TK_LIBRARY') or key.startswith('PYI'):
                     env.pop(key, None)
             
             # Clean PATH of any _MEI references to prevent loading DLLs from the wrong temp folder
@@ -1583,6 +1584,7 @@ class GhostyTool(QMainWindow):
             ps_command = (
                 # Explicitly clear all environment variables that PyInstaller uses
                 '$env:_MEIPASS = $null; '
+                '$env:_MEIPASS2 = $null; '
                 '$env:PYI_CHILD_PATH = $null; '
                 '$env:PYTHONHOME = $null; '
                 '$env:PYTHONPATH = $null; '

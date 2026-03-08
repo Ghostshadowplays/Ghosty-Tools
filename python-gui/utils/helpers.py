@@ -82,10 +82,12 @@ def elevate_privileges():
         params = ' '.join([f'"{sys.argv[0]}"'] + [f'"{arg}"' for arg in sys.argv[1:]])
 
     try:
-        # Prepare environment: remove PyInstaller variables to ensure the new process extracts itself correctly
-        # instead of trying to use the current process's temporary directory.
+        # Prepare environment: remove ALL PyInstaller-related variables to ensure the new process 
+        # extracts itself correctly instead of trying to use the current process's temporary directory.
+        # This prevents "Failed to load Python DLL" errors when relaunching after elevation or update.
         for key in list(os.environ.keys()):
-            if key in ('_MEIPASS', 'PYI_CHILD_PATH', 'PYTHONHOME', 'PYTHONPATH', 'TCL_LIBRARY', 'TK_LIBRARY') or key.startswith('PYI'):
+            # _MEIPASS and _MEIPASS2 are critical. Any PYI_* variables should also be cleared.
+            if key in ('_MEIPASS', '_MEIPASS2', 'PYI_CHILD_PATH', 'PYTHONHOME', 'PYTHONPATH', 'TCL_LIBRARY', 'TK_LIBRARY') or key.startswith('PYI'):
                 del os.environ[key]
         
         # Clean PATH of any _MEI references to prevent loading DLLs from the wrong temp folder
@@ -93,7 +95,9 @@ def elevate_privileges():
             paths = os.environ['PATH'].split(os.pathsep)
             os.environ['PATH'] = os.pathsep.join([p for p in paths if '_MEI' not in p])
             
-        ctypes.windll.shell32.ShellExecuteW(None, "runas", executable, params, None, 1)
+        # Using ShellExecuteW with "runas" is the standard way to elevate on Windows.
+        # It inherits the current process's modified environment (with PyInstaller variables removed).
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", str(executable), str(params), None, 1)
     except Exception as e:
         logger.error(f"Failed to elevate privileges: {e}")
     sys.exit()
