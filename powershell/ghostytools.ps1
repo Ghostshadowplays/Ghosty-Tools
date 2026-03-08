@@ -1,5 +1,5 @@
 # GhostyTools PowerShell Backend
-# Version: v5.1.0
+# Version: v5.1.1
 
 Param(
     [Parameter(Mandatory=$false)]
@@ -13,7 +13,7 @@ Param(
     [string]$Message = ""
 )
 
-$Global:GhostyVersion = "v5.1.0"
+$Global:GhostyVersion = "v5.1.1"
 
 # WinForms Helper (for the CTT-style GUI)
 Add-Type -AssemblyName System.Windows.Forms
@@ -47,8 +47,8 @@ function Show-GhostyGUI {
     $BtnSysInfo.Size = New-Object System.Drawing.Size($BtnWidth, $BtnHeight)
     $BtnSysInfo.FlatStyle = "Flat"
     $BtnSysInfo.Add_Click({
-        $info = Get-GhostySystemInfo
-        [System.Windows.Forms.MessageBox]::Show($info | Out-String, "System Info")
+        $infoString = Get-GhostySystemInfo | Out-String
+        [System.Windows.Forms.MessageBox]::Show($infoString, "System Info")
     })
     $Form.Controls.Add($BtnSysInfo)
 

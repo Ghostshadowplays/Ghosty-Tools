@@ -1366,7 +1366,7 @@ class GhostyTool(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         
-        info_label = QLabel("Ghosty Tool v5.1.0")
+        info_label = QLabel("Ghosty Tool v5.1.1")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         info_label.setStyleSheet("color: #4158D0; margin-top: 20px;")
@@ -1378,7 +1378,7 @@ class GhostyTool(QMainWindow):
         sub_label.setStyleSheet("color: #888; margin-bottom: 20px;")
         layout.addWidget(sub_label)
 
-        features_group = QGroupBox("What's New in v5.1.0")
+        features_group = QGroupBox("What's New in v5.1.1")
         features_layout = QVBoxLayout()
         features_text = QLabel(
             "• 🛡️ <b>Security Hardening:</b> Full audit with Bandit & pip-audit.<br>"
