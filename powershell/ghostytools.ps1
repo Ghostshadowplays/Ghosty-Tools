@@ -1,5 +1,5 @@
 # GhostyTools PowerShell Backend
-# Version: v5.0.9
+# Version: v5.1.0
 
 Param(
     [Parameter(Mandatory=$false)]
@@ -13,7 +13,7 @@ Param(
     [string]$Message = ""
 )
 
-$Global:GhostyVersion = "v5.0.9"
+$Global:GhostyVersion = "v5.1.0"
 
 # Logging Function
 function Write-GhostyLog {

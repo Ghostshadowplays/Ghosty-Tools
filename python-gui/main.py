@@ -1,6 +1,14 @@
 import sys
 import os
 import logging
+
+# Handle noconsole mode where sys.stdout/stderr are None
+# This MUST be done before importing any modules that might access them at import time
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, 'w')
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, 'w')
+
 from PyQt6.QtWidgets import QApplication
 from ui.main_window import GhostyTool
 

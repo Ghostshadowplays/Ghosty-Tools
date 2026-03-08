@@ -85,7 +85,7 @@ def elevate_privileges():
         # Prepare environment: remove PyInstaller variables to ensure the new process extracts itself correctly
         # instead of trying to use the current process's temporary directory.
         for key in list(os.environ.keys()):
-            if key == '_MEIPASS' or key.startswith('PYI'):
+            if key in ('_MEIPASS', 'PYI_CHILD_PATH', 'PYTHONHOME', 'PYTHONPATH', 'TCL_LIBRARY', 'TK_LIBRARY') or key.startswith('PYI'):
                 del os.environ[key]
         
         # Clean PATH of any _MEI references to prevent loading DLLs from the wrong temp folder

@@ -5,10 +5,8 @@ import os
 import sys
 
 # speedtest-cli tries to access sys.stdout.fileno() which can be None in noconsole EXE
-try:
-    import speedtest
-except Exception:
-    speedtest = None
+# We will import it inside the worker to ensure sys.stdout is properly handled
+speedtest = None
 
 from PyQt6.QtCore import QThread, pyqtSignal
 from core.security_scanner import SecurityScanner
@@ -20,17 +18,26 @@ class SpeedTestWorker(QThread):
     error_occurred = pyqtSignal(str)
 
     def run(self):
-        if speedtest is None:
-            self.error_occurred.emit("The 'speedtest-cli' module is not available or failed to load. Please ensure it is installed correctly.")
-            return
-
         # speedtest-cli may fail when sys.stdout is None (in noconsole EXE)
-        # We need to ensure it has a valid stream to write to.
+        # We need to ensure it has a valid stream to write to BEFORE importing.
         original_stdout = sys.stdout
         null_file = None
         if sys.stdout is None:
             null_file = open(os.devnull, 'w')
             sys.stdout = null_file
+
+        global speedtest
+        if speedtest is None:
+            try:
+                import speedtest as st_module
+                speedtest = st_module
+            except Exception as e:
+                logger.error(f"Failed to import speedtest: {e}")
+                self.error_occurred.emit(f"The 'speedtest-cli' module failed to load: {e}")
+                sys.stdout = original_stdout
+                if null_file:
+                    null_file.close()
+                return
 
         try:
             st = speedtest.Speedtest()

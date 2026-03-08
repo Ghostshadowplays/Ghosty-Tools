@@ -1366,7 +1366,7 @@ class GhostyTool(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         
-        info_label = QLabel("Ghosty Tool v5.0.9")
+        info_label = QLabel("Ghosty Tool v5.1.0")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         info_label.setStyleSheet("color: #4158D0; margin-top: 20px;")
@@ -1378,7 +1378,7 @@ class GhostyTool(QMainWindow):
         sub_label.setStyleSheet("color: #888; margin-bottom: 20px;")
         layout.addWidget(sub_label)
 
-        features_group = QGroupBox("What's New in v5.0.9")
+        features_group = QGroupBox("What's New in v5.1.0")
         features_layout = QVBoxLayout()
         features_text = QLabel(
             "• 🛡️ <b>Security Hardening:</b> Full audit with Bandit & pip-audit.<br>"
@@ -1579,11 +1579,18 @@ class GhostyTool(QMainWindow):
                 paths = env['PATH'].split(os.pathsep)
                 env['PATH'] = os.pathsep.join([p for p in paths if '_MEI' not in p])
 
-            # Use a more robust PowerShell script that also explicitly clears session variables
+            # Use a more robust PowerShell script that also explicitly clears all PyInstaller environment variables
             ps_command = (
-                f'$env:_MEIPASS = $null; '
-                f'$env:PATH = ($env:PATH -split ";" | Where-Object {{ $_ -notmatch "_MEI" }}) -join ";"; '
-                f'Start-Sleep -Seconds 5; '
+                # Explicitly clear all environment variables that PyInstaller uses
+                '$env:_MEIPASS = $null; '
+                '$env:PYI_CHILD_PATH = $null; '
+                '$env:PYTHONHOME = $null; '
+                '$env:PYTHONPATH = $null; '
+                '$env:TCL_LIBRARY = $null; '
+                '$env:TK_LIBRARY = $null; '
+                # Clean PATH of any _MEI references to prevent loading DLLs from the wrong temp folder
+                '$env:PATH = ($env:PATH -split ";" | Where-Object { $_ -notmatch "_MEI" }) -join ";"; '
+                'Start-Sleep -Seconds 5; '
                 f'if (Test-Path -LiteralPath "{current_file}") {{ Remove-Item -LiteralPath "{current_file}" -Force -ErrorAction SilentlyContinue }}; '
                 f'Move-Item -LiteralPath "{new_file}" -Destination "{current_file}" -Force; '
                 f'Start-Process -FilePath "{current_file}"'
