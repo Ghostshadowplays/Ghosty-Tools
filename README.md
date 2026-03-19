@@ -1,4 +1,4 @@
-# 👻 Ghosty Tools v5.1.1
+# 👻 Ghosty Tools v5.1.2
 
 [🚀 **Download Latest Release**](https://github.com/Ghostshadowplays/Ghosty-Tools/releases)
 
