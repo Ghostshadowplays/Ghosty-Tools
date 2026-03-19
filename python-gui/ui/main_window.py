@@ -877,6 +877,7 @@ class GhostyTool(QMainWindow):
             child = QTreeWidgetItem(categories[cat_name], [item.name, item.description, item.safety_level.value])
             child.setCheckState(0, Qt.CheckState.Unchecked)
             child.setData(0, Qt.ItemDataRole.UserRole, item.id)
+        self.debloat_tree.expandAll()
 
     def scan_bloatware(self):
         try:
@@ -1012,6 +1013,7 @@ class GhostyTool(QMainWindow):
             child = QTreeWidgetItem(categories[cat_name], [tool.name, "Unknown", tool.description])
             child.setCheckState(0, Qt.CheckState.Unchecked)
             child.setData(0, Qt.ItemDataRole.UserRole, tool.id)
+        self.tools_tree.expandAll()
 
     def check_tools_status(self):
         self.log_signal.emit("Checking tools status in background...", "info")
@@ -1688,10 +1690,17 @@ class GhostyTool(QMainWindow):
 
     def refresh_disk_list(self):
         self.disk_combo.clear()
-        disks = self.get_physical_disks()
-        for d in disks:
-            size_gb = int(d['Size']) // (1024**3)
-            self.disk_combo.addItem(f"Disk {d['DeviceID']}: {d['FriendlyName']} ({size_gb}GB, {d['MediaType']})", d['DeviceID'])
+        try:
+            disks = self.get_physical_disks()
+            for d in disks:
+                if isinstance(d, dict) and 'Size' in d and 'DeviceID' in d:
+                    try:
+                        size_gb = int(d['Size']) // (1024**3)
+                        self.disk_combo.addItem(f"Disk {d['DeviceID']}: {d.get('FriendlyName', 'Unknown')} ({size_gb}GB, {d.get('MediaType', 'Unknown')})", d['DeviceID'])
+                    except (ValueError, TypeError) as e:
+                        logger.error(f"Error parsing disk size: {e}")
+        except Exception as e:
+            logger.error(f"Error refreshing disk list: {e}")
 
     def validate_mbr2gpt(self):
         disk_id = self.disk_combo.currentData()
