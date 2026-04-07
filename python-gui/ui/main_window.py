@@ -1368,7 +1368,7 @@ class GhostyTool(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         
-        info_label = QLabel("Ghosty Tool v5.1.2")
+        info_label = QLabel("Ghosty Tool v5.1.3")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         info_label.setStyleSheet("color: #4158D0; margin-top: 20px;")
@@ -1380,16 +1380,14 @@ class GhostyTool(QMainWindow):
         sub_label.setStyleSheet("color: #888; margin-bottom: 20px;")
         layout.addWidget(sub_label)
 
-        features_group = QGroupBox("What's New in v5.1.2")
+        features_group = QGroupBox("What's New in v5.1.3")
         features_layout = QVBoxLayout()
         features_text = QLabel(
+            "• 🛠️ <b>EXE Fixes:</b> Resolved issue where Debloat and System Tools were empty in the compiled version.<br>"
+            "• ⚡ <b>Speedtest Fix:</b> Fixed 'Speedtest' object has no attribute 'headers' error during network tests.<br>"
+            "• 📁 <b>Resource Path:</b> Improved internal resource handling for better portability.<br>"
             "• 🛡️ <b>Security Hardening:</b> Full audit with Bandit & pip-audit.<br>"
-            "• 🔐 <b>ShadowKeys 2.1:</b> Robust SQLite-backed vault with AES-256 encryption, PBKDF2 verification, and automated legacy migration.<br>"
-            "• 👤 <b>Least Privilege:</b> Starts as standard user; elevate only when needed.<br>"
-            "• 🚀 <b>Auto-Deploy:</b> Automated high-performance EXE builds via GitHub Actions.<br>"
-            "• 💻 <b>Cross-Platform:</b> Core logic now safe for Windows, Linux, and macOS.<br>"
-            "• 🧩 <b>New Tweaks:</b> Disable Copilot/News & Interests; show file extensions/hidden files.<br>"
-            "• 📦 <b>Installer:</b> Added 7-Zip, VLC, Brave, Discord, HWiNFO, CPU-Z."
+            "• 🔐 <b>ShadowKeys 2.1:</b> Robust SQLite-backed vault with AES-256 encryption."
         )
         features_text.setTextFormat(Qt.TextFormat.RichText)
         features_text.setWordWrap(True)
