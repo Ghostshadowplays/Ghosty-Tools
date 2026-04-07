@@ -3,6 +3,7 @@ import subprocess
 import json
 import logging
 from enum import Enum
+from utils.helpers import get_resource_path
 
 CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
@@ -34,7 +35,13 @@ class SystemToolsInstaller:
     def __init__(self, config_path=None):
         self.tools = {}
         if config_path is None:
-            config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "system_tools.json")
+            # First try the location relative to python-gui
+            config_path = get_resource_path(os.path.join("python-gui", "config", "system_tools.json"))
+            
+            # If not found, try the root config
+            if not os.path.exists(config_path):
+                config_path = get_resource_path(os.path.join("config", "system_tools.json"))
+        
         self.config_path = config_path
         self._load_config()
 

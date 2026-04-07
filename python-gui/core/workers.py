@@ -41,9 +41,15 @@ class SpeedTestWorker(QThread):
 
         try:
             # Using secure=True and a custom User-Agent to avoid 403 Forbidden errors
-            # speedtest-cli's default user agent is often blocked
+            # speedtest-cli's default user agent is often blocked.
+            # We check for both 'headers' and '_headers' to support different versions.
             st = speedtest.Speedtest(secure=True)
-            st.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            
+            if hasattr(st, 'headers'):
+                st.headers['User-Agent'] = user_agent
+            elif hasattr(st, '_headers'):
+                st._headers['User-Agent'] = user_agent
             
             st.get_best_server()
             download_speed = st.download() / 1_000_000
