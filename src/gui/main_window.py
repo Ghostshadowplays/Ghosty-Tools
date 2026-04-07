@@ -26,7 +26,19 @@ import zipfile
 import requests
 
 # Internal imports
-from src.core.workers import SpeedTestWorker, MaintenanceWorker, GenericCommandWorker, SecurityScanWorker, BloatScanWorker
+from src.core.workers import (
+    SpeedTestWorker,
+    MaintenanceWorker,
+    GenericCommandWorker,
+    SecurityScanWorker,
+    BloatScanWorker,
+    UpdateCheckWorker,
+    ReleaseInfoWorker,
+    SensorWorker,
+    SpecsWorker,
+    MainDiskWorker,
+    MonitoringSetupWorker
+)
 from src.core.password_manager import PasswordManager
 from src.core.bloat_remover import BloatRemover, BloatwareCategory, SafetyLevel
 from src.core.system_tools_installer import SystemToolsInstaller, ToolCategory
@@ -54,8 +66,13 @@ class GhostyTool(QMainWindow):
 
         self.log_signal.connect(self.log_to_terminal)
 
-        self.main_disk = None
-        self.get_main_disk()
+        self.main_disk = "0"
+        self.system_drive = "C"
+        
+        # Async disk identification
+        self.disk_id_worker = MainDiskWorker()
+        self.disk_id_worker.finished.connect(self._on_disk_identified)
+        self.disk_id_worker.start()
 
         config_dir = get_config_dir()
         self.db_path = os.path.join(config_dir, "vault.db")
@@ -78,29 +95,15 @@ class GhostyTool(QMainWindow):
         self.usage_timer = QTimer()
         self.usage_timer.timeout.connect(self.update_system_usage)
         self.usage_timer.start(2000)
+        self.sensor_timer = QTimer()
+        self.sensor_timer.timeout.connect(self.update_sensor_panel)
+        self.sensor_timer.start(2000)
 
-    def get_main_disk(self):
-        try:
-            # Get system drive letter
-            self.system_drive = os.environ.get('SystemDrive', 'C').replace(':', '')
-            
-            # Get the disk number for the system drive
-            powershell_script = f"Get-Partition -DriveLetter {self.system_drive} | Get-Disk | Select-Object -ExpandProperty Number"
-            result = subprocess.run(
-                ["powershell", "-NoProfile", "-Command", powershell_script],
-                capture_output=True,
-                text=True,
-                shell=False,
-                creationflags=CREATE_NO_WINDOW
-            )
-            self.main_disk = result.stdout.strip()
-            if not self.main_disk:
-                self.main_disk = "0"
-            logger.info(f"Main system disk identified as Disk {self.main_disk} (Drive {self.system_drive}:)")
-        except Exception as e:
-            logger.error(f"Error getting main disk: {e}")
-            self.main_disk = "0"
-            self.system_drive = "C"
+    def _on_disk_identified(self, main_disk, system_drive):
+        self.main_disk = main_disk
+        self.system_drive = system_drive
+        logger.info(f"Main system disk identified as Disk {self.main_disk} (Drive {self.system_drive}:)")
+
 
     def init_ui(self):
         central_widget = QWidget()
@@ -415,205 +418,61 @@ class GhostyTool(QMainWindow):
         self.update_specs()
 
     def update_specs(self):
-        try:
-            import platform
+        self.specs_label.setText("Gathering system specifications...")
+        self.specs_worker = SpecsWorker()
+        self.specs_worker.finished.connect(self._on_specs_ready)
+        self.specs_worker.start()
 
-            cpu_res = subprocess.run(
-                ["wmic", "cpu", "get", "name"],
-                capture_output=True,
-                text=True,
-                creationflags=CREATE_NO_WINDOW
-            )
-            cpu_lines = [line.strip() for line in cpu_res.stdout.split('\n') if line.strip()]
-            cpu_info = cpu_lines[1] if len(cpu_lines) > 1 else "Unknown CPU"
+    def _on_specs_ready(self, specs):
+        self.specs_label.setText(specs)
+        self.specs_label.setTextFormat(Qt.TextFormat.RichText)
 
-            mem = psutil.virtual_memory()
+    def update_sensor_panel(self):
+        if hasattr(self, "sensor_worker") and self.sensor_worker.isRunning():
+            return
+        self.sensor_worker = SensorWorker()
+        self.sensor_worker.finished.connect(self._on_sensors_ready)
+        self.sensor_worker.start()
 
-            gpu_res = subprocess.run(
-                ["wmic", "path", "win32_VideoController", "get", "Name,PNPDeviceID,AdapterRAM,DriverVersion", "/format:csv"],
-                capture_output=True,
-                text=True,
-                creationflags=CREATE_NO_WINDOW
-            )
+    def _on_sensors_ready(self, sensors):
+        if not sensors:
+            self.sensor_label.setText("Sensors unavailable (start LibreHardwareMonitor)")
+            return
 
-            lines = [l.strip() for l in gpu_res.stdout.split("\n") if l.strip()]
-            if len(lines) < 2:
-                gpu_info = "Unknown GPU"
-            else:
-                header = lines[0].split(",")
-                gpus = []
+        text = ""
+        def add(name):
+            if name in sensors:
+                v = sensors[name]
+                return f"{name}: {v['value']} {v['unit']}<br>"
+            return ""
 
-                for line in lines[1:]:
-                    parts = line.split(",")
-                    row = dict(zip(header, parts))
+        text += "<b>CPU:</b><br>"
+        text += add("CPU Package")
+        text += add("CPU Core #1 Temperature")
+        text += add("CPU Core #1 Clock")
 
-                    name = row.get("Name", "").strip()
-                    pnp = row.get("PNPDeviceID", "").strip()
-                    vram = row.get("AdapterRAM", "").strip()
-                    driver = row.get("DriverVersion", "").strip()
+        text += "<br><b>GPU:</b><br>"
+        text += add("GPU Core")
+        text += add("GPU Memory")
+        text += add("GPU Fan")
 
-                    try:
-                        vram_gb = f"{int(vram) / (1024**3):.1f} GB"
-                    except:
-                        vram_gb = "Unknown VRAM"
-
-                    if "PCI\\" in pnp.upper():
-                        gpu_type = "PCIe GPU"
-                    else:
-                        gpu_type = "Integrated GPU"
-
-                    gpus.append(f"{gpu_type}: {name} ({vram_gb}, Driver {driver})")
-
-                gpu_info = "<br>".join(gpus) if gpus else "Unknown GPU"
-
-            mobo_res = subprocess.run(
-                ["wmic", "baseboard", "get", "product,manufacturer"],
-                capture_output=True,
-                text=True,
-                creationflags=CREATE_NO_WINDOW
-            )
-            mobo_lines = [line.strip() for line in mobo_res.stdout.split('\n') if line.strip()]
-            mobo_info = mobo_lines[1] if len(mobo_lines) > 1 else "Unknown Motherboard"
-
-            
-            if winreg:
-                try:
-                    key = winreg.OpenKey(
-                        winreg.HKEY_LOCAL_MACHINE,
-                        r"SOFTWARE\Microsoft\Windows NT\CurrentVersion"
-                    )
-
-                    build_number = int(winreg.QueryValueEx(key, "CurrentBuild")[0])
-                    product_name = winreg.QueryValueEx(key, "ProductName")[0]
-               
-                    try:
-                        display_version = winreg.QueryValueEx(key, "DisplayVersion")[0]
-                    except FileNotFoundError:
-                        try:
-                            display_version = winreg.QueryValueEx(key, "ReleaseId")[0]
-                        except FileNotFoundError:
-                            display_version = "Unknown"
-
-                    os_name = "Windows 11" if build_number >= 22000 else "Windows 10"
-
-                    winreg.CloseKey(key)
-
-                except Exception:
-                    os_name = platform.system()
-                    product_name = "Unknown Edition"
-                    display_version = "Unknown"
-                    build_number = 0
-            else:
-                os_name = platform.system()
-                product_name = "Unknown Edition"
-                display_version = "Unknown"
-                build_number = 0
-
-            arch = platform.machine()
-            arch_bits = platform.architecture()[0]
-
-            install_date = ""
-            try:
-                ps_cmd = [
-                    "powershell", "-NoProfile", "-Command",
-                    "(Get-CimInstance Win32_OperatingSystem).InstallDate.ToString('yyyy-MM-dd HH:mm')"
-                ]
-                ins = subprocess.run(ps_cmd, capture_output=True, text=True, creationflags=CREATE_NO_WINDOW)
-                install_date = ins.stdout.strip()
-            except Exception:
-                install_date = ""
-
-            specs = f"<b>OS:</b> {os_name} (Build {build_number})<br>"
-            specs += f"<b>Edition:</b> {product_name} (Version {display_version})<br>"
-            specs += f"<b>Architecture:</b> {arch} ({arch_bits})<br>"
-
-            if install_date:
-                specs += f"<b>Installed:</b> {install_date}<br>"
-            specs += f"<b>CPU:</b> {cpu_info}<br>"
-            specs += f"<b>RAM:</b> {mem.total / (1024**3):.1f} GB Total<br>"
-            specs += f"<b>GPU:</b><br>{gpu_info}<br>"
-            specs += f"<b>Motherboard:</b> {mobo_info}<br>"
-
-            self.specs_label.setText(specs)
-            self.specs_label.setTextFormat(Qt.TextFormat.RichText)
-
-        except Exception as e:
-            logger.error(f"Error gathering specs: {e}")
-            self.specs_label.setText(f"Error gathering specs: {e}")
+        self.sensor_label.setText(text)
+        self.sensor_label.setTextFormat(Qt.TextFormat.RichText)
 
 
     def enable_full_monitoring(self):
-
         self.log_signal.emit("Starting Full Monitoring setup...", "info")
+        self.monitoring_worker = MonitoringSetupWorker()
+        self.monitoring_worker.output.connect(self.log_to_terminal)
+        self.monitoring_worker.finished.connect(self._on_monitoring_setup_finished)
+        self.monitoring_worker.start()
 
-        url = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest/download/LibreHardwareMonitor.zip"
-        install_dir = os.path.join(os.getenv("APPDATA"), "GhostyTools", "LHM")
-        zip_path = os.path.join(install_dir, "lhm.zip")
-
-        os.makedirs(install_dir, exist_ok=True)
-
-        # Download
-        try:
-            self.log_signal.emit("Downloading LibreHardwareMonitor...", "info")
-            r = requests.get(url, timeout=10)
-            if r.status_code != 200:
-                self.log_signal.emit(f"Download failed: HTTP {r.status_code}", "error")
-                return
-
-            with open(zip_path, "wb") as f:
-                f.write(r.content)
-
-            self.log_signal.emit("Download complete.", "success")
-
-        except Exception as e:
-            self.log_signal.emit(f"Download error: {e}", "error")
-            return
-
-        # Extract
-        try:
-            self.log_signal.emit("Extracting ZIP...", "info")
-            with zipfile.ZipFile(zip_path, "r") as z:
-                z.extractall(install_dir)
-            self.log_signal.emit("Extraction complete.", "success")
-
-        except Exception as e:
-            self.log_signal.emit(f"Extraction error: {e}", "error")
-            return
-
-        # Config
-        try:
-            self.log_signal.emit("Writing configuration...", "info")
-            config_path = os.path.join(os.getenv("APPDATA"), "LibreHardwareMonitor", "LibreHardwareMonitor.config")
-            os.makedirs(os.path.dirname(config_path), exist_ok=True)
-
-            config_xml = """<?xml version="1.0" encoding="utf-8"?>
-    <configuration>
-    </configuration>
-    """
-            with open(config_path, "w") as f:
-                f.write(config_xml)
-
-            self.log_signal.emit("Configuration written.", "success")
-
-        except Exception as e:
-            self.log_signal.emit(f"Config write error: {e}", "error")
-            return
-
-        # Launch EXE
-        exe_path = os.path.join(install_dir, "LibreHardwareMonitor.exe")
-
-        if not os.path.exists(exe_path):
-            self.log_signal.emit("ERROR: LibreHardwareMonitor.exe not found after extraction!", "error")
-            return
-
-        try:
-            self.log_signal.emit("Launching LibreHardwareMonitor...", "info")
-            subprocess.Popen([exe_path], creationflags=subprocess.CREATE_NO_WINDOW)
-            self.log_signal.emit("LibreHardwareMonitor launched.", "success")
-
-        except Exception as e:
-            self.log_signal.emit(f"Launch error: {e}", "error")
-            return
+    def _on_monitoring_setup_finished(self, success, message):
+        if success:
+            self.log_signal.emit(message, "success")
+        else:
+            self.log_signal.emit(message, "error")
+            QMessageBox.critical(self, "Setup Error", message)
 
     def setup_maintenance_page(self):
         page = QWidget()
@@ -1359,48 +1218,52 @@ class GhostyTool(QMainWindow):
         
         # If we have a stored version and it's different from current, we just updated
         if last_version and last_version != self.update_manager.current_version:
-            def show_dialog():
-                release_info = self.update_manager.get_release_info()
-                notes = release_info.get("body", "No release notes available.") if release_info else "Check GitHub for full release notes."
-                
-                # Custom dialog for better formatting of release notes
-                dlg = QDialog(self)
-                dlg.setWindowTitle(f"What's New in {self.update_manager.current_version}")
-                dlg.setMinimumSize(500, 400)
-                vbox = QVBoxLayout(dlg)
-                
-                title = QLabel(f"Ghosty Tool updated to {self.update_manager.current_version}!")
-                title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
-                title.setStyleSheet("color: #4158D0;")
-                vbox.addWidget(title)
-                
-                vbox.addWidget(QLabel("Here are the latest changes:"))
-                
-                notes_area = QTextEdit()
-                notes_area.setReadOnly(True)
-                notes_area.setPlainText(notes)
-                vbox.addWidget(notes_area)
-                
-                btn = QPushButton("Got it!")
-                btn.setMinimumHeight(40)
-                btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
-                btn.clicked.connect(dlg.accept)
-                vbox.addWidget(btn)
-                
-                dlg.exec()
-
-            # Run in a small delay to ensure UI is fully up
-            QTimer.singleShot(500, show_dialog)
+            self.release_info_worker = ReleaseInfoWorker(self.update_manager)
+            self.release_info_worker.finished.connect(self._on_release_info_ready)
+            self.release_info_worker.start()
             
         # Always acknowledge the current version so we don't show it again for this version
         self.update_manager.acknowledge_current_version()
 
+    def _on_release_info_ready(self, release_info):
+        notes = release_info.get("body", "No release notes available.") if release_info else "Check GitHub for full release notes."
+        
+        # Custom dialog for better formatting of release notes
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"What's New in {self.update_manager.current_version}")
+        dlg.setMinimumSize(500, 400)
+        vbox = QVBoxLayout(dlg)
+        
+        title = QLabel(f"Ghosty Tool updated to {self.update_manager.current_version}!")
+        title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        title.setStyleSheet("color: #4158D0;")
+        vbox.addWidget(title)
+        
+        vbox.addWidget(QLabel("Here are the latest changes:"))
+        
+        notes_area = QTextEdit()
+        notes_area.setReadOnly(True)
+        notes_area.setPlainText(notes)
+        vbox.addWidget(notes_area)
+        
+        btn = QPushButton("Got it!")
+        btn.setMinimumHeight(40)
+        btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
+        btn.clicked.connect(dlg.accept)
+        vbox.addWidget(btn)
+        
+        dlg.exec()
+
     def check_for_updates(self, manual=False):
-        try:
-            update_info = self.update_manager.check_for_updates()
-        except Exception as e:
-            self.log_signal.emit(f"Update check failed: {e}", "warning")
+        self.update_check_worker = UpdateCheckWorker(self.update_manager)
+        self.update_check_worker.finished.connect(lambda info: self._on_update_check_finished(info, manual))
+        self.update_check_worker.start()
+
+    def _on_update_check_finished(self, update_info, manual):
+        if not update_info:
+            if manual: self.log_signal.emit("Update check failed.", "warning")
             return
+            
         self._latest_update_info = update_info
         if update_info.get("available"):
             # Update available: show subtle red button on Dashboard
