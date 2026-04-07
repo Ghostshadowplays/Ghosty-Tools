@@ -11,12 +11,10 @@ if sys.stderr is None:
 
 from PyQt6.QtWidgets import QApplication
 from ui.main_window import GhostyTool
+from utils.helpers import setup_app_logging
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+setup_app_logging()
 logger = logging.getLogger(__name__)
 
 def main():

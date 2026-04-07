@@ -47,7 +47,9 @@ class SystemToolsInstaller:
 
     def _load_config(self):
         try:
-            if not os.path.exists(self.config_path): return
+            if not os.path.exists(self.config_path):
+                logger.error(f"System tools config not found: {self.config_path}")
+                return
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             

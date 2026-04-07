@@ -3,33 +3,83 @@ import sys
 import logging
 
 # Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+def setup_app_logging():
+    """Configure logging to both console (if available) and a file in the user's data directory."""
+    try:
+        config_dir = get_config_dir()
+        log_dir = os.path.join(config_dir, "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        
+        log_file = os.path.join(log_dir, "app.log")
+        
+        # Max size 1MB, keep 3 backup files
+        from logging.handlers import RotatingFileHandler
+        
+        # Set up root logger
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.INFO)
+        
+        # Formatter
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        
+        # File handler
+        file_handler = RotatingFileHandler(log_file, maxBytes=1024*1024, backupCount=3)
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
+        
+        # Stream handler (console)
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setFormatter(formatter)
+        root_logger.addHandler(stream_handler)
+        
+        logging.info(f"Logging initialized. Log file: {log_file}")
+    except Exception as e:
+        print(f"Failed to initialize logging: {e}", file=sys.stderr)
 
 def get_resource_path(relative_path):
     """Return absolute path to resource, works for dev and PyInstaller."""
+    # Ensure relative_path is using correct separators for the OS
+    relative_path = relative_path.replace('/', os.sep).replace('\\', os.sep)
+    
+    # Locations to search
+    search_paths = []
+    
     if hasattr(sys, "_MEIPASS"):
         # PyInstaller temp folder
         base_path = sys._MEIPASS
+        search_paths.append(os.path.join(base_path, relative_path))
+        
+        # Check if it's flattened
+        search_paths.append(os.path.join(base_path, os.path.basename(relative_path)))
+        
+        # Check for config specifically if it's a config file
+        if "config" in relative_path:
+            search_paths.append(os.path.join(base_path, "config", os.path.basename(relative_path)))
     else:
         # Development mode - we assume we're in 'python-gui/utils'
-        # So we go up two levels to get to the true project root (the folder containing 'python-gui' and 'powershell')
+        # So we go up two levels to get to the true project root
         base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        search_paths.append(os.path.join(base_path, relative_path))
+        
+        # If relative_path starts with python-gui, also try without it
+        if relative_path.startswith(f"python-gui{os.sep}"):
+            shorter_path = relative_path[len(f"python-gui{os.sep}"):]
+            search_paths.append(os.path.join(base_path, shorter_path))
+            # Also try from current directory
+            search_paths.append(os.path.join(os.getcwd(), relative_path))
+            search_paths.append(os.path.join(os.getcwd(), shorter_path))
     
-    # Check if the path exists relative to the project root
-    # For bundled EXE, most resources will be at the root of _MEIPASS if added that way.
-    # We try both the root and the full relative path.
-    full_path = os.path.join(base_path, relative_path)
-    if os.path.exists(full_path):
-        return full_path
-    
-    # Try just the filename/last part (useful if PyInstaller flattens directory structure)
-    if hasattr(sys, "_MEIPASS"):
-        fallback_path = os.path.join(sys._MEIPASS, os.path.basename(relative_path))
-        if os.path.exists(fallback_path):
-            return fallback_path
+    for path in search_paths:
+        if os.path.exists(path):
+            logger.debug(f"Resource found: {path}")
+            return path
             
-    return full_path
+    # If not found in any search path, return the first one as a default
+    default_path = search_paths[0] if search_paths else os.path.join(os.getcwd(), relative_path)
+    logger.warning(f"Resource not found: {relative_path}. Returning default: {default_path}")
+    return default_path
 
 def get_config_dir():
     """Get platform-specific configuration directory"""

@@ -1,5 +1,5 @@
 # GhostyTools PowerShell Backend
-# Version: v5.1.3
+# Version: v6.0
 
 Param(
     [Parameter(Mandatory=$false)]
@@ -13,7 +13,7 @@ Param(
     [string]$Message = ""
 )
 
-$Global:GhostyVersion = "v5.1.3"
+$Global:GhostyVersion = "v6.0"
 
 # WinForms Helper (for the CTT-style GUI)
 Add-Type -AssemblyName System.Windows.Forms
