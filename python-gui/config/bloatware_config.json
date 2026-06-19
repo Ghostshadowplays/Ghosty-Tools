@@ -928,6 +928,393 @@
       "commands": [
         "Get-AppxPackage -Name '*Razer*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
       ]
+    },
+    {
+      "id": "clipchamp",
+      "name": "Clipchamp",
+      "description": "Remove Microsoft Clipchamp video editor",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.Clipchamp' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.Clipchamp' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "msn_apps",
+      "name": "MSN Apps Bundle",
+      "description": "Remove MSN Travel, Sports, Money, and related apps",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.Bing*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.BingTravel' | Remove-AppxPackage -ErrorAction SilentlyContinue",
+        "Get-AppxPackage -Name 'Microsoft.BingSports' | Remove-AppxPackage -ErrorAction SilentlyContinue",
+        "Get-AppxPackage -Name 'Microsoft.BingFoodAndDrink' | Remove-AppxPackage -ErrorAction SilentlyContinue",
+        "Get-AppxPackage -Name 'Microsoft.BingHealthAndFitness' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "paint3d",
+      "name": "Paint 3D",
+      "description": "Remove Paint 3D application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.MSPaint' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.MSPaint' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "alarms_clock",
+      "name": "Alarms & Clock",
+      "description": "Remove Windows Alarms & Clock application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.WindowsAlarms' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.WindowsAlarms' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "camera",
+      "name": "Windows Camera",
+      "description": "Remove Windows Camera application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.WindowsCamera' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.WindowsCamera' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "voice_recorder",
+      "name": "Voice Recorder",
+      "description": "Remove Windows Voice Recorder application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.WindowsSoundRecorder' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.WindowsSoundRecorder' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "samsung_oem",
+      "name": "Samsung OEM Apps",
+      "description": "Remove Samsung pre-installed applications",
+      "category": "OEM Bloatware",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Samsung*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Samsung*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "msi_oem",
+      "name": "MSI OEM Apps",
+      "description": "Remove MSI pre-installed applications",
+      "category": "OEM Bloatware",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*MSI*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*MSI*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "razer_oem",
+      "name": "Razer OEM Apps",
+      "description": "Remove Razer pre-installed applications",
+      "category": "OEM Bloatware",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Razer*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Razer*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "alienware_oem",
+      "name": "Alienware Command Center",
+      "description": "Remove Alienware Command Center and related apps",
+      "category": "OEM Bloatware",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name '*Alienware*' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name '*Alienware*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "windows_hello_face",
+      "name": "Windows Hello Face",
+      "description": "Disable Windows Hello Face recognition feature",
+      "category": "Windows Features",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": true,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsOptionalFeature -Online -FeatureName 'Hello-Face' | Where-Object {$_.State -eq 'Enabled'}",
+      "commands": [
+        "Disable-WindowsOptionalFeature -Online -FeatureName 'Hello-Face' -NoRestart -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "fax_scan",
+      "name": "Fax and Scan",
+      "description": "Disable Windows Fax and Scan feature",
+      "category": "Windows Features",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsOptionalFeature -Online -FeatureName 'FaxServicesClientPackage' | Where-Object {$_.State -eq 'Enabled'}",
+      "commands": [
+        "Disable-WindowsOptionalFeature -Online -FeatureName 'FaxServicesClientPackage' -NoRestart -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "enterprise_cloud_print",
+      "name": "Enterprise Cloud Print",
+      "description": "Disable Enterprise Cloud Print feature",
+      "category": "Windows Features",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsOptionalFeature -Online -FeatureName 'Print-Enterprise-CloudPrint' | Where-Object {$_.State -eq 'Enabled'}",
+      "commands": [
+        "Disable-WindowsOptionalFeature -Online -FeatureName 'Print-Enterprise-CloudPrint' -NoRestart -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "steps_recorder",
+      "name": "Steps Recorder",
+      "description": "Disable Windows Steps Recorder",
+      "category": "Windows Features",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsOptionalFeature -Online -FeatureName 'StepsRecorder' | Where-Object {$_.State -eq 'Enabled'}",
+      "commands": [
+        "Disable-WindowsOptionalFeature -Online -FeatureName 'StepsRecorder' -NoRestart -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "powershell_ise",
+      "name": "PowerShell ISE",
+      "description": "Disable legacy PowerShell ISE",
+      "category": "Windows Features",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-WindowsOptionalFeature -Online -FeatureName 'MicrosoftWindowsPowerShellISE' | Where-Object {$_.State -eq 'Enabled'}",
+      "commands": [
+        "Disable-WindowsOptionalFeature -Online -FeatureName 'MicrosoftWindowsPowerShellISE' -NoRestart -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "retail_demo",
+      "name": "Retail Demo Service",
+      "description": "Disable Retail Demo service",
+      "category": "Windows Services",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-Service -Name 'RetailDemo' | Where-Object {$_.Status -eq 'Running'}",
+      "commands": [
+        "Stop-Service -Name 'RetailDemo' -Force -ErrorAction SilentlyContinue",
+        "Set-Service -Name 'RetailDemo' -StartupType Disabled -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "smart_card",
+      "name": "Smart Card Service",
+      "description": "Disable Smart Card service if not used",
+      "category": "Windows Services",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-Service -Name 'SCardSvr' | Where-Object {$_.Status -eq 'Running'}",
+      "commands": [
+        "Stop-Service -Name 'SCardSvr' -Force -ErrorAction SilentlyContinue",
+        "Set-Service -Name 'SCardSvr' -StartupType Disabled -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "rds_broker",
+      "name": "Remote Desktop Services Broker",
+      "description": "Disable RDS Broker service",
+      "category": "Windows Services",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-Service -Name 'SessionEnv' | Where-Object {$_.Status -eq 'Running'}",
+      "commands": [
+        "Stop-Service -Name 'SessionEnv' -Force -ErrorAction SilentlyContinue",
+        "Set-Service -Name 'SessionEnv' -StartupType Disabled -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "insider_service",
+      "name": "Windows Insider Service",
+      "description": "Disable Windows Insider service",
+      "category": "Windows Services",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-Service -Name 'wisvc' | Where-Object {$_.Status -eq 'Running'}",
+      "commands": [
+        "Stop-Service -Name 'wisvc' -Force -ErrorAction SilentlyContinue",
+        "Set-Service -Name 'wisvc' -StartupType Disabled -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "error_reporting",
+      "name": "Windows Error Reporting",
+      "description": "Disable Windows Error Reporting service",
+      "category": "Windows Services",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-Service -Name 'WerSvc' | Where-Object {$_.Status -eq 'Running'}",
+      "commands": [
+        "Stop-Service -Name 'WerSvc' -Force -ErrorAction SilentlyContinue",
+        "Set-Service -Name 'WerSvc' -StartupType Disabled -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "disable_advertising_id",
+      "name": "Disable Advertising ID",
+      "description": "Disable Windows advertising ID for privacy",
+      "category": "Telemetry And Privacy",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo' -Name 'Enabled' -ErrorAction SilentlyContinue",
+      "commands": [
+        "Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo' -Name 'Enabled' -Value 0 -Type DWord -Force"
+      ]
+    },
+    {
+      "id": "disable_tailored_experiences",
+      "name": "Disable Tailored Experiences",
+      "description": "Disable personalized ads and experiences",
+      "category": "Telemetry And Privacy",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Privacy' -Name 'TailoredExperiencesWithDiagnosticDataEnabled' -ErrorAction SilentlyContinue",
+      "commands": [
+        "Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Privacy' -Name 'TailoredExperiencesWithDiagnosticDataEnabled' -Value 0 -Type DWord -Force"
+      ]
+    },
+    {
+      "id": "disable_location_tracking",
+      "name": "Disable Location Tracking",
+      "description": "Disable Windows location tracking",
+      "category": "Telemetry And Privacy",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location' -Name 'Value' -ErrorAction SilentlyContinue",
+      "commands": [
+        "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location' -Name 'Value' -Value 'Deny' -Force"
+      ]
+    },
+    {
+      "id": "disable_app_launch_tracking",
+      "name": "Disable App Launch Tracking",
+      "description": "Disable Windows app launch tracking for privacy",
+      "category": "Telemetry And Privacy",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'Start_TrackProgs' -ErrorAction SilentlyContinue",
+      "commands": [
+        "Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'Start_TrackProgs' -Value 0 -Type DWord -Force"
+      ]
+    },
+    {
+      "id": "edge_sidebar",
+      "name": "Remove Edge Sidebar Apps",
+      "description": "Remove Microsoft Edge sidebar apps and widgets",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.MicrosoftEdge.Stable' | Select-Object -First 1",
+      "commands": [
+        "Remove-Item -Path \"$env:LOCALAPPDATA\\Microsoft\\Edge\\User Data\\Default\\SidebarApps\" -Recurse -Force -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "disable_bing_search",
+      "name": "Disable Bing Search Integration",
+      "description": "Disable Bing web results in Windows Search",
+      "category": "Telemetry And Privacy",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": true,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'BingSearchEnabled' -ErrorAction SilentlyContinue",
+      "commands": [
+        "Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'BingSearchEnabled' -Value 0 -Type DWord -Force",
+        "Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'AllowSearchToUseLocation' -Value 0 -Type DWord -Force"
+      ]
+    },
+    {
+      "id": "disable_widgets",
+      "name": "Disable Widgets Board",
+      "description": "Disable the Widgets board in Windows 11",
+      "category": "Telemetry And Privacy",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": true,
+      "windows_versions": ["11"],
+      "check_command": "Get-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'TaskbarDa' -ErrorAction SilentlyContinue",
+      "commands": [
+        "Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'TaskbarDa' -Value 0 -Type DWord -Force"
+      ]
     }
   ]
 }

@@ -211,6 +211,435 @@
         "winget install --id CPUID.CPU-Z -e --source winget --accept-package-agreements --accept-source-agreements"
       ],
       "post_install_message": "CPU-Z installed successfully!"
+    },
+    {
+      "id": "github_desktop",
+      "name": "GitHub Desktop",
+      "description": "A graphical Git client for managing repositories, commits, branches, and GitHub workflows with ease.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "github --version",
+      "install_commands": [
+        "winget install --id GitHub.GitHubDesktop -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "GitHub Desktop installed successfully! Launch it from Start menu or use it alongside Git for Windows."
+    },
+    {
+      "id": "github_cli",
+      "name": "GitHub CLI",
+      "description": "Command-line interface for GitHub. Manage pull requests, issues, releases, and repositories directly from the terminal.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "gh --version",
+      "install_commands": [
+        "winget install --id GitHub.cli -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "GitHub CLI installed successfully! Use 'gh auth login' to authenticate."
+    },
+    {
+      "id": "postman",
+      "name": "Postman",
+      "description": "API development and testing platform used by developers worldwide.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Process -Name 'Postman' -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id Postman.Postman -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Postman installed successfully!"
+    },
+    {
+      "id": "notepadpp",
+      "name": "Notepad++",
+      "description": "Lightweight text and code editor with syntax highlighting for many languages.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Command notepad++ -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id Notepad++.Notepad++ -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Notepad++ installed successfully!"
+    },
+    {
+      "id": "sublime_text",
+      "name": "Sublime Text",
+      "description": "High-performance text editor for code, markup, and prose.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "subl --version",
+      "install_commands": [
+        "winget install --id SublimeHQ.SublimeText.4 -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Sublime Text installed successfully!"
+    },
+    {
+      "id": "jetbrains_toolbox",
+      "name": "JetBrains Toolbox",
+      "description": "Installer and manager for JetBrains IDEs like IntelliJ, PyCharm, WebStorm, and more.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Process -Name 'jetbrains-toolbox' -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id JetBrains.Toolbox -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "JetBrains Toolbox installed successfully!"
+    },
+    {
+      "id": "mongodb_compass",
+      "name": "MongoDB Compass",
+      "description": "GUI for MongoDB databases. Visualize, query, and manage collections.",
+      "category": "Database Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Process -Name 'MongoDBCompass' -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id MongoDB.Compass.Full -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "MongoDB Compass installed successfully!"
+    },
+    {
+      "id": "mysql_workbench",
+      "name": "MySQL Workbench",
+      "description": "Visual database design, SQL development, and administration tool for MySQL.",
+      "category": "Database Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Process -Name 'MySQLWorkbench' -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id Oracle.MySQLWorkbench -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "MySQL Workbench installed successfully!"
+    },
+    {
+      "id": "pgadmin",
+      "name": "pgAdmin",
+      "description": "PostgreSQL database management GUI.",
+      "category": "Database Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Process -Name 'pgAdmin' -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id pgAdmin.pgAdmin4 -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "pgAdmin installed successfully!"
+    },
+    {
+      "id": "terraform",
+      "name": "Terraform",
+      "description": "Infrastructure-as-code tool for provisioning cloud resources.",
+      "category": "DevOps Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "terraform --version",
+      "install_commands": [
+        "winget install --id Hashicorp.Terraform -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Terraform installed successfully!"
+    },
+    {
+      "id": "kubectl",
+      "name": "Kubernetes kubectl",
+      "description": "Command-line tool for interacting with Kubernetes clusters.",
+      "category": "DevOps Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "kubectl version --client",
+      "install_commands": [
+        "winget install --id Kubernetes.kubectl -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "kubectl installed successfully!"
+    },
+    {
+      "id": "minikube",
+      "name": "Minikube",
+      "description": "Local Kubernetes cluster for development and testing.",
+      "category": "DevOps Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "minikube version",
+      "install_commands": [
+        "winget install --id Kubernetes.minikube -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Minikube installed successfully!"
+    },
+    {
+      "id": "fiddler",
+      "name": "Fiddler Classic",
+      "description": "HTTP debugging proxy for inspecting traffic.",
+      "category": "Testing Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Process -Name 'Fiddler' -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id Telerik.Fiddler -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Fiddler installed successfully!"
+    },
+    {
+      "id": "wireshark",
+      "name": "Wireshark",
+      "description": "Network protocol analyzer used for packet inspection.",
+      "category": "Testing Tools",
+      "requires_admin": true,
+      "requires_restart": false,
+      "check_command": "wireshark --version",
+      "install_commands": [
+        "winget install --id WiresharkFoundation.Wireshark -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Wireshark installed successfully!"
+    },
+    {
+      "id": "postman_cli",
+      "name": "Postman CLI",
+      "description": "Command-line runner for Postman collections.",
+      "category": "Testing Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "postman --version",
+      "install_commands": [
+        "winget install --id Postman.PostmanCLI -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Postman CLI installed successfully!"
+    },
+    {
+      "id": "insomnia",
+      "name": "Insomnia",
+      "description": "API client for REST, GraphQL, and gRPC.",
+      "category": "Testing Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Process -Name 'Insomnia' -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id Kong.Insomnia -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Insomnia installed successfully!"
+    },
+    {
+      "id": "figma",
+      "name": "Figma Desktop",
+      "description": "UI/UX design tool for collaborative interface design.",
+      "category": "Design Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Process -Name 'Figma' -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id Figma.Figma -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Figma Desktop installed successfully!"
+    },
+    {
+      "id": "gimp",
+      "name": "GIMP",
+      "description": "Open-source image editor similar to Photoshop.",
+      "category": "Design Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "gimp --version",
+      "install_commands": [
+        "winget install --id GIMP.GIMP -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "GIMP installed successfully!"
+    },
+    {
+      "id": "inkscape",
+      "name": "Inkscape",
+      "description": "Vector graphics editor for SVG and illustration.",
+      "category": "Design Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "inkscape --version",
+      "install_commands": [
+        "winget install --id Inkscape.Inkscape -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Inkscape installed successfully!"
+    },
+    {
+      "id": "everything_search",
+      "name": "Everything Search",
+      "description": "Ultra-fast file search engine for Windows.",
+      "category": "System Utilities",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "es.exe -version",
+      "install_commands": [
+        "winget install --id voidtools.Everything -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Everything Search installed successfully!"
+    },
+    {
+      "id": "sharex",
+      "name": "ShareX",
+      "description": "Screenshot and screen recording tool with automation.",
+      "category": "System Utilities",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Process -Name 'ShareX' -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id ShareX.ShareX -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "ShareX installed successfully!"
+    },
+    {
+      "id": "obs",
+      "name": "OBS Studio",
+      "description": "Open-source streaming and recording software.",
+      "category": "System Utilities",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "obs64.exe --version",
+      "install_commands": [
+        "winget install --id OBSProject.OBSStudio -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "OBS Studio installed successfully!"
+    },
+    {
+      "id": "rufus",
+      "name": "Rufus",
+      "description": "Utility for creating bootable USB drives.",
+      "category": "System Utilities",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Command rufus -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id Rufus.Rufus -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Rufus installed successfully!"
+    },
+    {
+      "id": "bleachbit",
+      "name": "BleachBit",
+      "description": "Open-source system cleaner and privacy tool.",
+      "category": "System Utilities",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "bleachbit --version",
+      "install_commands": [
+        "winget install --id BleachBit.BleachBit -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "BleachBit installed successfully!"
+    },
+    {
+      "id": "keepassxc",
+      "name": "KeePassXC",
+      "description": "Open-source password manager with local vaults.",
+      "category": "Security Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "keepassxc --version",
+      "install_commands": [
+        "winget install --id KeePassXCTeam.KeePassXC -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "KeePassXC installed successfully!"
+    },
+    {
+      "id": "bitwarden",
+      "name": "Bitwarden",
+      "description": "Secure, open-source cloud password manager.",
+      "category": "Security Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Process -Name 'Bitwarden' -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id Bitwarden.Bitwarden -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Bitwarden installed successfully!"
+    },
+    {
+      "id": "openssl",
+      "name": "OpenSSL",
+      "description": "Cryptography and SSL/TLS toolkit.",
+      "category": "Security Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "openssl version",
+      "install_commands": [
+        "winget install --id ShiningLight.OpenSSL.Light -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "OpenSSL installed successfully!"
+    },
+    {
+      "id": "gpg4win",
+      "name": "GPG4Win",
+      "description": "Email and file encryption suite using OpenPGP.",
+      "category": "Security Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "gpg --version",
+      "install_commands": [
+        "winget install --id GnuPG.Gpg4win -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "GPG4Win installed successfully!"
+    },
+    {
+      "id": "rust",
+      "name": "Rust",
+      "description": "Systems programming language with cargo package manager.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "rustc --version",
+      "install_commands": [
+        "winget install --id Rustlang.Rustup -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Rust installed successfully! Use 'rustup default stable' to configure."
+    },
+    {
+      "id": "go",
+      "name": "Go",
+      "description": "Go programming language compiler and tools.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "go version",
+      "install_commands": [
+        "winget install --id GoLang.Go -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Go installed successfully!"
+    },
+    {
+      "id": "java_jdk",
+      "name": "Java JDK (Temurin)",
+      "description": "Open-source Java Development Kit from Eclipse Temurin.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "java -version",
+      "install_commands": [
+        "winget install --id EclipseAdoptium.Temurin.21.JDK -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Java JDK installed successfully!"
+    },
+    {
+      "id": "gradle",
+      "name": "Gradle",
+      "description": "Build automation tool for Java and other languages.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "gradle --version",
+      "install_commands": [
+        "winget install --id Gradle.Gradle -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Gradle installed successfully!"
+    },
+    {
+      "id": "maven",
+      "name": "Maven",
+      "description": "Java dependency and build management tool.",
+      "category": "Development Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "mvn --version",
+      "install_commands": [
+        "winget install --id Apache.Maven -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Maven installed successfully!"
     }
   ]
 }
