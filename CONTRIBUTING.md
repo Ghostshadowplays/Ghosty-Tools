@@ -1,4 +1,4 @@
-⭐ GhostyTools Contributing Guide (Your Style)
+⭐ GhostyTools Contributing Guide
 Before You Start
 Keep PRs focused — one feature or fix at a time
 
