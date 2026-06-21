@@ -1,216 +1,2096 @@
 {
-  "version": "1.0",
-  "description": "System Tools Installation Configuration",
+  "version": "1.2",
+  "description": "Ghosty Tools Full Software Catalog",
   "tools": [
     {
-      "id": "wsl",
-      "name": "Windows Subsystem for Linux (WSL)",
-      "description": "Install WSL 2 for running Linux distributions on Windows. Enables seamless Linux development environment.",
-      "category": "Development Environment",
-      "requires_admin": true,
-      "requires_restart": true,
-      "check_command": "wsl --status",
-      "install_commands": [
-        "dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart",
-        "dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart",
-        "wsl --set-default-version 2"
-      ],
-      "post_install_message": "WSL installed successfully! A restart is required. After restarting, install a Linux distribution from the Microsoft Store (e.g., Ubuntu)."
-    },
-    {
-      "id": "git",
-      "name": "Git for Windows",
-      "description": "Install Git version control system with Git Bash, Git GUI, and shell integration.",
-      "category": "Development Tools",
-      "requires_admin": false,
-      "requires_restart": false,
-      "check_command": "git --version",
-      "install_commands": [
-        "winget install --id Git.Git -e --source winget --accept-package-agreements --accept-source-agreements"
-      ],
-      "post_install_message": "Git installed successfully! You may need to restart your terminal or IDE to use git commands."
-    },
-    {
-      "id": "python",
-      "name": "Python (Latest)",
-      "description": "Install the latest Python 3 interpreter with pip package manager and standard library.",
-      "category": "Development Tools",
-      "requires_admin": false,
-      "requires_restart": false,
-      "check_command": "python --version",
-      "install_commands": [
-        "winget install --id Python.Python.3.14 -e --source winget --accept-package-agreements --accept-source-agreements"
-      ],
-      "post_install_message": "Python installed successfully! Restart your terminal to use python and pip commands. Add Python to PATH if not automatically configured."
-    },
-    {
-      "id": "nodejs",
-      "name": "Node.js (LTS)",
-      "description": "Install Node.js LTS version with npm package manager for JavaScript development.",
-      "category": "Development Tools",
-      "requires_admin": false,
-      "requires_restart": false,
-      "check_command": "node --version",
-      "install_commands": [
-        "winget install --id OpenJS.NodeJS.LTS -e --source winget --accept-package-agreements --accept-source-agreements"
-      ],
-      "post_install_message": "Node.js installed successfully! Restart your terminal to use node and npm commands."
-    },
-    {
-      "id": "windows_terminal",
-      "name": "Windows Terminal",
-      "description": "Install modern Windows Terminal with tabs, split panes, and GPU-accelerated text rendering.",
-      "category": "Terminal & Shell",
-      "requires_admin": false,
-      "requires_restart": false,
-      "check_command": "Get-AppxPackage -Name '*WindowsTerminal*' | Select-Object -First 1",
-      "install_commands": [
-        "winget install --id Microsoft.WindowsTerminal -e --source winget --accept-package-agreements --accept-source-agreements"
-      ],
-      "post_install_message": "Windows Terminal installed successfully! Launch it from the Start menu or pin it to your taskbar."
-    },
-    {
-      "id": "vscode",
-      "name": "Visual Studio Code",
-      "description": "Install Visual Studio Code, a lightweight but powerful source code editor with extensive extensions.",
-      "category": "Development Tools",
-      "requires_admin": false,
-      "requires_restart": false,
-      "check_command": "code --version",
-      "install_commands": [
-        "winget install --id Microsoft.VisualStudioCode -e --source winget --accept-package-agreements --accept-source-agreements"
-      ],
-      "post_install_message": "Visual Studio Code installed successfully! Launch from Start menu or use 'code' command in terminal after restart."
-    },
-    {
-      "id": "powershell7",
-      "name": "PowerShell 7",
-      "description": "Install PowerShell 7, the latest cross-platform PowerShell with improved performance and new features.",
-      "category": "Terminal & Shell",
-      "requires_admin": false,
-      "requires_restart": false,
-      "check_command": "pwsh --version",
-      "install_commands": [
-        "winget install --id Microsoft.PowerShell -e --source winget --accept-package-agreements --accept-source-agreements"
-      ],
-      "post_install_message": "PowerShell 7 installed successfully! Use 'pwsh' command to launch PowerShell 7."
-    },
-    {
-      "id": "docker_desktop",
-      "name": "Docker Desktop",
-      "description": "Install Docker Desktop for containerized application development. Requires WSL 2 to be installed first.",
-      "category": "Development Environment",
-      "requires_admin": true,
-      "requires_restart": true,
-      "check_command": "docker --version",
-      "install_commands": [
-        "winget install --id Docker.DockerDesktop -e --source winget --accept-package-agreements --accept-source-agreements"
-      ],
-      "post_install_message": "Docker Desktop installed successfully! A restart is recommended. Make sure WSL 2 is installed and enabled."
-    },
-    {
-      "id": "winget",
-      "name": "Windows Package Manager (winget)",
-      "description": "Update or install Windows Package Manager (winget) - the official Windows package manager.",
-      "category": "Package Managers",
-      "requires_admin": false,
-      "requires_restart": false,
-      "check_command": "winget --version",
-      "install_commands": [
-        "Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe"
-      ],
-      "post_install_message": "Winget updated successfully! Winget is now ready to install and manage packages."
-    },
-    {
-      "id": "chocolatey",
-      "name": "Chocolatey Package Manager",
-      "description": "Install Chocolatey, a popular package manager for Windows with thousands of packages.",
-      "category": "Package Managers",
-      "requires_admin": true,
-      "requires_restart": false,
-      "check_command": "choco --version",
-      "install_commands": [
-        "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
-      ],
-      "post_install_message": "Chocolatey installed successfully! Restart your terminal and use 'choco' command to manage packages."
-    },
-    {
-      "id": "7zip",
-      "name": "7-Zip",
-      "description": "High compression ratio file archiver. Supports most archive formats including 7z, ZIP, RAR, GZIP, and TAR.",
-      "category": "Essential Utilities",
-      "requires_admin": false,
-      "requires_restart": false,
-      "check_command": "7z",
-      "install_commands": [
-        "winget install --id 7zip.7zip -e --source winget --accept-package-agreements --accept-source-agreements"
-      ],
-      "post_install_message": "7-Zip installed successfully!"
-    },
-    {
-      "id": "vlc",
-      "name": "VLC Media Player",
-      "description": "Free and open source cross-platform multimedia player that plays most multimedia files as well as DVDs, Audio CDs, VCDs, and various streaming protocols.",
-      "category": "Essential Utilities",
-      "requires_admin": false,
-      "requires_restart": false,
-      "check_command": "vlc --version",
-      "install_commands": [
-        "winget install --id VideoLAN.VLC -e --source winget --accept-package-agreements --accept-source-agreements"
-      ],
-      "post_install_message": "VLC Media Player installed successfully!"
-    },
-    {
       "id": "brave",
-      "name": "Brave Browser",
-      "description": "Privacy-focused web browser that blocks ads and trackers by default. Fast, secure, and built on Chromium.",
-      "category": "Essential Utilities",
-      "requires_admin": false,
-      "requires_restart": false,
-      "check_command": "Get-AppxPackage -Name '*Brave*' | Select-Object -First 1",
+      "name": "Brave",
+      "description": "Install Brave via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command brave.exe -ErrorAction SilentlyContinue",
+      "executable_name": "brave.exe",
       "install_commands": [
-        "winget install --id Brave.Brave -e --source winget --accept-package-agreements --accept-source-agreements"
-      ],
-      "post_install_message": "Brave Browser installed successfully!"
+        "winget install --id Brave.Brave -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "chrome",
+      "name": "Chrome",
+      "description": "Install Chrome via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command chrome.exe -ErrorAction SilentlyContinue",
+      "executable_name": "chrome.exe",
+      "install_commands": [
+        "winget install --id Google.Chrome -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "chromium",
+      "name": "Chromium",
+      "description": "Install Chromium via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command chromium.exe -ErrorAction SilentlyContinue",
+      "executable_name": "chromium.exe",
+      "install_commands": [
+        "winget install --id Chromium.Chromium -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "edge",
+      "name": "Edge",
+      "description": "Install Edge via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command msedge.exe -ErrorAction SilentlyContinue",
+      "executable_name": "msedge.exe",
+      "install_commands": [
+        "winget install --id Microsoft.Edge -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "firefox",
+      "name": "Firefox",
+      "description": "Install Firefox via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command firefox.exe -ErrorAction SilentlyContinue",
+      "executable_name": "firefox.exe",
+      "install_commands": [
+        "winget install --id Mozilla.Firefox -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "firefox_esr",
+      "name": "Firefox ESR",
+      "description": "Install Firefox ESR via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command firefox.exe -ErrorAction SilentlyContinue",
+      "executable_name": "firefox.exe",
+      "install_commands": [
+        "winget install --id Mozilla.Firefox.ESR -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "floorp",
+      "name": "Floorp",
+      "description": "Install Floorp via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command floorp.exe -ErrorAction SilentlyContinue",
+      "executable_name": "floorp.exe",
+      "install_commands": [
+        "winget install --id Floorp.Floorp -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "helium",
+      "name": "Helium",
+      "description": "Install Helium via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command helium.exe -ErrorAction SilentlyContinue",
+      "executable_name": "helium.exe",
+      "install_commands": [
+        "winget install --id Helium.Helium -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "librewolf",
+      "name": "LibreWolf",
+      "description": "Install LibreWolf via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command librewolf.exe -ErrorAction SilentlyContinue",
+      "executable_name": "librewolf.exe",
+      "install_commands": [
+        "winget install --id LibreWolf.LibreWolf -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "mullvad_browser",
+      "name": "Mullvad Browser",
+      "description": "Install Mullvad Browser via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command mullvad-browser.exe -ErrorAction SilentlyContinue",
+      "executable_name": "mullvad-browser.exe",
+      "install_commands": [
+        "winget install --id Mullvad.MullvadBrowser -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "tor_browser",
+      "name": "Tor Browser",
+      "description": "Install Tor Browser via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command firefox.exe -ErrorAction SilentlyContinue",
+      "executable_name": "firefox.exe",
+      "install_commands": [
+        "winget install --id TorProject.TorBrowser -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "ungoogled",
+      "name": "Ungoogled",
+      "description": "Install Ungoogled via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command chromium.exe -ErrorAction SilentlyContinue",
+      "executable_name": "chromium.exe",
+      "install_commands": [
+        "winget install --id eloston.ungoogled-chromium -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "vivaldi",
+      "name": "Vivaldi",
+      "description": "Install Vivaldi via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command vivaldi.exe -ErrorAction SilentlyContinue",
+      "executable_name": "vivaldi.exe",
+      "install_commands": [
+        "winget install --id VivaldiTechnologies.Vivaldi -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "waterfox",
+      "name": "Waterfox",
+      "description": "Install Waterfox via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command waterfox.exe -ErrorAction SilentlyContinue",
+      "executable_name": "waterfox.exe",
+      "install_commands": [
+        "winget install --id Waterfox.Waterfox -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "zen_browser",
+      "name": "Zen Browser",
+      "description": "Install Zen Browser via Winget.",
+      "category": "Browsers",
+      "check_command": "Get-Command zen.exe -ErrorAction SilentlyContinue",
+      "executable_name": "zen.exe",
+      "install_commands": [
+        "winget install --id Zen-Browser.Zen -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "betterbird",
+      "name": "Betterbird",
+      "description": "Install Betterbird via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command betterbird.exe -ErrorAction SilentlyContinue",
+      "executable_name": "betterbird.exe",
+      "install_commands": [
+        "winget install --id Betterbird.Betterbird -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "chatterino",
+      "name": "Chatterino",
+      "description": "Install Chatterino via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command chatterino.exe -ErrorAction SilentlyContinue",
+      "executable_name": "chatterino.exe",
+      "install_commands": [
+        "winget install --id Chatterino.Chatterino -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
     },
     {
       "id": "discord",
       "name": "Discord",
-      "description": "All-in-one voice and text chat for gamers that's free, secure, and works on both your desktop and phone.",
-      "category": "Essential Utilities",
-      "requires_admin": false,
-      "requires_restart": false,
-      "check_command": "Get-Process -Name 'Discord' -ErrorAction SilentlyContinue",
+      "description": "Install Discord via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command Discord.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Discord.exe",
       "install_commands": [
-        "winget install --id Discord.Discord -e --source winget --accept-package-agreements --accept-source-agreements"
-      ],
-      "post_install_message": "Discord installed successfully!"
+        "winget install --id Discord.Discord -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
     },
     {
-      "id": "hwinfo",
-      "name": "HWiNFO64",
-      "description": "Professional hardware information and diagnostic tool for Windows. Provides detailed hardware analysis, monitoring, and reporting.",
-      "category": "Hardware Tools",
-      "requires_admin": false,
-      "requires_restart": false,
-      "check_command": "Get-Process -Name 'HWiNFO64' -ErrorAction SilentlyContinue",
+      "id": "dorion",
+      "name": "Dorion",
+      "description": "Install Dorion via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command Dorion.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Dorion.exe",
       "install_commands": [
-        "winget install --id REALiX.HWiNFO -e --source winget --accept-package-agreements --accept-source-agreements"
-      ],
-      "post_install_message": "HWiNFO installed successfully!"
+        "winget install --id MaysunDrodik.Dorion -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "element",
+      "name": "Element",
+      "description": "Install Element via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command Element.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Element.exe",
+      "install_commands": [
+        "winget install --id Element.Element -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "proton_mail",
+      "name": "Proton Mail",
+      "description": "Install Proton Mail via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command ProtonMail.exe -ErrorAction SilentlyContinue",
+      "executable_name": "ProtonMail.exe",
+      "install_commands": [
+        "winget install --id Proton.ProtonMail -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "qtox",
+      "name": "qTox",
+      "description": "Install qTox via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command qtox.exe -ErrorAction SilentlyContinue",
+      "executable_name": "qtox.exe",
+      "install_commands": [
+        "winget install --id qTox.qTox -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "signal",
+      "name": "Signal",
+      "description": "Install Signal via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command Signal.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Signal.exe",
+      "install_commands": [
+        "winget install --id OpenWhisperSystems.Signal -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "slack",
+      "name": "Slack",
+      "description": "Install Slack via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command slack.exe -ErrorAction SilentlyContinue",
+      "executable_name": "slack.exe",
+      "install_commands": [
+        "winget install --id SlackTechnologies.Slack -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "teams",
+      "name": "Teams",
+      "description": "Install Teams via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command Teams.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Teams.exe",
+      "install_commands": [
+        "winget install --id Microsoft.Teams -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "teamspeak3",
+      "name": "TeamSpeak 3",
+      "description": "Install TeamSpeak 3 via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command ts3client_win64.exe -ErrorAction SilentlyContinue",
+      "executable_name": "ts3client_win64.exe",
+      "install_commands": [
+        "winget install --id TeamSpeakSystems.TeamSpeakClient -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "telegram",
+      "name": "Telegram",
+      "description": "Install Telegram via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command Telegram.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Telegram.exe",
+      "install_commands": [
+        "winget install --id Telegram.TelegramDesktop -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "thunderbird",
+      "name": "Thunderbird",
+      "description": "Install Thunderbird via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command thunderbird.exe -ErrorAction SilentlyContinue",
+      "executable_name": "thunderbird.exe",
+      "install_commands": [
+        "winget install --id Mozilla.Thunderbird -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "vesktop",
+      "name": "Vesktop",
+      "description": "Install Vesktop via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command Vesktop.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Vesktop.exe",
+      "install_commands": [
+        "winget install --id Vencord.Vesktop -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "viber",
+      "name": "Viber",
+      "description": "Install Viber via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command Viber.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Viber.exe",
+      "install_commands": [
+        "winget install --id Viber.Viber -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "zoom",
+      "name": "Zoom",
+      "description": "Install Zoom via Winget.",
+      "category": "Communications",
+      "check_command": "Get-Command Zoom.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Zoom.exe",
+      "install_commands": [
+        "winget install --id Zoom.Zoom -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "cmake",
+      "name": "CMake",
+      "description": "Install CMake via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command cmake.exe -ErrorAction SilentlyContinue",
+      "executable_name": "cmake.exe",
+      "install_commands": [
+        "winget install --id Kitware.CMake -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "description": "Install Cursor via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command cursor.exe -ErrorAction SilentlyContinue",
+      "executable_name": "cursor.exe",
+      "install_commands": [
+        "winget install --id Anysphere.Cursor -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "git",
+      "name": "Git",
+      "description": "Install Git via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command git.exe -ErrorAction SilentlyContinue",
+      "executable_name": "git.exe",
+      "install_commands": [
+        "winget install --id Git.Git -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "github_desktop",
+      "name": "GitHub Desktop",
+      "description": "Install GitHub Desktop via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command GitHubDesktop.exe -ErrorAction SilentlyContinue",
+      "executable_name": "GitHubDesktop.exe",
+      "install_commands": [
+        "winget install --id GitHub.GitHubDesktop -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "go",
+      "name": "Go",
+      "description": "Install Go via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command go.exe -ErrorAction SilentlyContinue",
+      "executable_name": "go.exe",
+      "install_commands": [
+        "winget install --id Google.Go -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "corretto21",
+      "name": "Amazon Corretto 21",
+      "description": "Install Amazon Corretto 21 via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command java.exe -ErrorAction SilentlyContinue",
+      "executable_name": "java.exe",
+      "install_commands": [
+        "winget install --id Amazon.Corretto.21 -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "corretto25",
+      "name": "Amazon Corretto 25",
+      "description": "Install Amazon Corretto 25 via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command java.exe -ErrorAction SilentlyContinue",
+      "executable_name": "java.exe",
+      "install_commands": [
+        "winget install --id Amazon.Corretto.25 -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "corretto8",
+      "name": "Amazon Corretto 8",
+      "description": "Install Amazon Corretto 8 via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command java.exe -ErrorAction SilentlyContinue",
+      "executable_name": "java.exe",
+      "install_commands": [
+        "winget install --id Amazon.Corretto.8 -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "jetbrains_toolbox",
+      "name": "JetBrains Toolbox",
+      "description": "Install JetBrains Toolbox via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command jetbrains-toolbox.exe -ErrorAction SilentlyContinue",
+      "executable_name": "jetbrains-toolbox.exe",
+      "install_commands": [
+        "winget install --id JetBrains.Toolbox -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "lazygit",
+      "name": "Lazygit",
+      "description": "Install Lazygit via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command lazygit.exe -ErrorAction SilentlyContinue",
+      "executable_name": "lazygit.exe",
+      "install_commands": [
+        "winget install --id JesseDuffield.lazygit -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "lua",
+      "name": "Lua",
+      "description": "Install Lua via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command lua.exe -ErrorAction SilentlyContinue",
+      "executable_name": "lua.exe",
+      "install_commands": [
+        "winget install --id Lua.Lua -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "neovim",
+      "name": "Neovim",
+      "description": "Install Neovim via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command nvim.exe -ErrorAction SilentlyContinue",
+      "executable_name": "nvim.exe",
+      "install_commands": [
+        "winget install --id Neovim.Neovim -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "nodejs",
+      "name": "NodeJS",
+      "description": "Install NodeJS via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command node.exe -ErrorAction SilentlyContinue",
+      "executable_name": "node.exe",
+      "install_commands": [
+        "winget install --id OpenJS.NodeJS -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "nodejs_lts",
+      "name": "NodeJS LTS",
+      "description": "Install NodeJS LTS via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command node.exe -ErrorAction SilentlyContinue",
+      "executable_name": "node.exe",
+      "install_commands": [
+        "winget install --id OpenJS.NodeJS.LTS -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "oh_my_posh",
+      "name": "Oh My Posh",
+      "description": "Install Oh My Posh via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command oh-my-posh.exe -ErrorAction SilentlyContinue",
+      "executable_name": "oh-my-posh.exe",
+      "install_commands": [
+        "winget install --id JanDeDobbeleer.OhMyPosh -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "python3",
+      "name": "Python3",
+      "description": "Install Python3 via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command python.exe -ErrorAction SilentlyContinue",
+      "executable_name": "python.exe",
+      "install_commands": [
+        "winget install --id Python.Python.3.12 -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "ruby",
+      "name": "Ruby",
+      "description": "Install Ruby via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command ruby.exe -ErrorAction SilentlyContinue",
+      "executable_name": "ruby.exe",
+      "install_commands": [
+        "winget install --id RubyInstallerTeam.Ruby.3.3 -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "rust",
+      "name": "Rust",
+      "description": "Install Rust via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command rustc.exe -ErrorAction SilentlyContinue",
+      "executable_name": "rustc.exe",
+      "install_commands": [
+        "winget install --id Rustlang.Rust.MSVC -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "sublime_text",
+      "name": "Sublime Text",
+      "description": "Install Sublime Text via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command sublime_text.exe -ErrorAction SilentlyContinue",
+      "executable_name": "sublime_text.exe",
+      "install_commands": [
+        "winget install --id SublimeHQ.SublimeText.4 -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "system_informer",
+      "name": "System Informer",
+      "description": "Install System Informer via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command SystemInformer.exe -ErrorAction SilentlyContinue",
+      "executable_name": "SystemInformer.exe",
+      "install_commands": [
+        "winget install --id SystemInformer.SystemInformer -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "unity",
+      "name": "Unity Game Engine",
+      "description": "Install Unity Game Engine via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command Unity Hub.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Unity Hub.exe",
+      "install_commands": [
+        "winget install --id Unity.UnityHub -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "uv",
+      "name": "uv",
+      "description": "Install uv via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command uv.exe -ErrorAction SilentlyContinue",
+      "executable_name": "uv.exe",
+      "install_commands": [
+        "winget install --id astral-sh.uv -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "vs2022",
+      "name": "Visual Studio 2022",
+      "description": "Install Visual Studio 2022 via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command devenv.exe -ErrorAction SilentlyContinue",
+      "executable_name": "devenv.exe",
+      "install_commands": [
+        "winget install --id Microsoft.VisualStudio.2022.Community -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "vs2026",
+      "name": "Visual Studio 2026",
+      "description": "Install Visual Studio 2026 via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command devenv.exe -ErrorAction SilentlyContinue",
+      "executable_name": "devenv.exe",
+      "install_commands": [
+        "winget install --id Microsoft.VisualStudio.2026.Community -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "vscode",
+      "name": "VS Code",
+      "description": "Install VS Code via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command code.exe -ErrorAction SilentlyContinue",
+      "executable_name": "code.exe",
+      "install_commands": [
+        "winget install --id Microsoft.VisualStudioCode -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "vscodium",
+      "name": "VS Codium",
+      "description": "Install VS Codium via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command codium.exe -ErrorAction SilentlyContinue",
+      "executable_name": "codium.exe",
+      "install_commands": [
+        "winget install --id VSCodium.VSCodium -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "yarn",
+      "name": "Yarn",
+      "description": "Install Yarn via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command yarn.cmd -ErrorAction SilentlyContinue",
+      "executable_name": "yarn.cmd",
+      "install_commands": [
+        "winget install --id Yarn.Yarn -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "zed",
+      "name": "Zed",
+      "description": "Install Zed via Winget.",
+      "category": "Development",
+      "check_command": "Get-Command zed.exe -ErrorAction SilentlyContinue",
+      "executable_name": "zed.exe",
+      "install_commands": [
+        "winget install --id ZedIndustries.Zed -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "cemu",
+      "name": "Cemu",
+      "description": "Install Cemu via Winget.",
+      "category": "Games",
+      "check_command": "Get-Command Cemu.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Cemu.exe",
+      "install_commands": [
+        "winget install --id Cemu.Cemu -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "ea_app",
+      "name": "EA App",
+      "description": "Install EA App via Winget.",
+      "category": "Games",
+      "check_command": "Get-Command EADesktop.exe -ErrorAction SilentlyContinue",
+      "executable_name": "EADesktop.exe",
+      "install_commands": [
+        "winget install --id ElectronicArts.EADesktop -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "epic_games",
+      "name": "Epic Games Launcher",
+      "description": "Install Epic Games Launcher via Winget.",
+      "category": "Games",
+      "check_command": "Get-Command EpicGamesLauncher.exe -ErrorAction SilentlyContinue",
+      "executable_name": "EpicGamesLauncher.exe",
+      "install_commands": [
+        "winget install --id EpicGames.EpicGamesLauncher -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "geforce_now",
+      "name": "GeForce NOW",
+      "description": "Install GeForce NOW via Winget.",
+      "category": "Games",
+      "check_command": "Get-Command GeForceNOW.exe -ErrorAction SilentlyContinue",
+      "executable_name": "GeForceNOW.exe",
+      "install_commands": [
+        "winget install --id NVIDIA.GeForceNOW -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "gog_galaxy",
+      "name": "GOG Galaxy",
+      "description": "Install GOG Galaxy via Winget.",
+      "category": "Games",
+      "check_command": "Get-Command GalaxyClient.exe -ErrorAction SilentlyContinue",
+      "executable_name": "GalaxyClient.exe",
+      "install_commands": [
+        "winget install --id GOG.Galaxy -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "heroic",
+      "name": "Heroic Games Launcher",
+      "description": "Install Heroic Games Launcher via Winget.",
+      "category": "Games",
+      "check_command": "Get-Command Heroic.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Heroic.exe",
+      "install_commands": [
+        "winget install --id HeroicGamesLauncher.HeroicGamesLauncher -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "itchio",
+      "name": "Itch.io",
+      "description": "Install Itch.io via Winget.",
+      "category": "Games",
+      "check_command": "Get-Command itch.exe -ErrorAction SilentlyContinue",
+      "executable_name": "itch.exe",
+      "install_commands": [
+        "winget install --id ItchIo.Itch -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "modrinth",
+      "name": "Modrinth App",
+      "description": "Install Modrinth App via Winget.",
+      "category": "Games",
+      "check_command": "Get-Command ModrinthApp.exe -ErrorAction SilentlyContinue",
+      "executable_name": "ModrinthApp.exe",
+      "install_commands": [
+        "winget install --id Modrinth.ModrinthApp -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "overwolf",
+      "name": "Overwolf",
+      "description": "Install Overwolf via Winget.",
+      "category": "Games",
+      "check_command": "Get-Command Overwolf.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Overwolf.exe",
+      "install_commands": [
+        "winget install --id Overwolf.Overwolf -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "prism_launcher",
+      "name": "Prism Launcher",
+      "description": "Install Prism Launcher via Winget.",
+      "category": "Games",
+      "check_command": "Get-Command prismlauncher.exe -ErrorAction SilentlyContinue",
+      "executable_name": "prismlauncher.exe",
+      "install_commands": [
+        "winget install --id PrismLauncher.PrismLauncher -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "steam",
+      "name": "Steam",
+      "description": "Install Steam via Winget.",
+      "category": "Games",
+      "check_command": "Get-Command steam.exe -ErrorAction SilentlyContinue",
+      "executable_name": "steam.exe",
+      "install_commands": [
+        "winget install --id Valve.Steam -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "ubisoft_connect",
+      "name": "Ubisoft Connect",
+      "description": "Install Ubisoft Connect via Winget.",
+      "category": "Games",
+      "check_command": "Get-Command UbisoftConnect.exe -ErrorAction SilentlyContinue",
+      "executable_name": "UbisoftConnect.exe",
+      "install_commands": [
+        "winget install --id Ubisoft.Connect -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "virtual_desktop",
+      "name": "Virtual Desktop Streamer",
+      "description": "Install Virtual Desktop Streamer via Winget.",
+      "category": "Games",
+      "check_command": "Get-Command VirtualDesktop.Streamer.exe -ErrorAction SilentlyContinue",
+      "executable_name": "VirtualDesktop.Streamer.exe",
+      "install_commands": [
+        "winget install --id VirtualDesktop.Streamer -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "autoruns",
+      "name": "Autoruns",
+      "description": "Install Autoruns via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "Get-Command autoruns.exe -ErrorAction SilentlyContinue",
+      "executable_name": "autoruns.exe",
+      "install_commands": [
+        "winget install --id Microsoft.Sysinternals.Autoruns -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "dismtools",
+      "name": "DISMTools",
+      "description": "Install DISMTools via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "Get-Command DISMTools.exe -ErrorAction SilentlyContinue",
+      "executable_name": "DISMTools.exe",
+      "install_commands": [
+        "winget install --id Coding_Wiz.DISMTools -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "dotnet_runtime10",
+      "name": ".NET Desktop Runtime 10",
+      "description": "Install .NET Desktop Runtime 10 via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "winget list --id Microsoft.DotNet.DesktopRuntime.10 --exact --source winget",
+      "executable_name": "dotnet_runtime10.exe",
+      "install_commands": [
+        "winget install --id Microsoft.DotNet.DesktopRuntime.10 -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "dotnet_runtime6",
+      "name": ".NET Desktop Runtime 6",
+      "description": "Install .NET Desktop Runtime 6 via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "winget list --id Microsoft.DotNet.DesktopRuntime.6 --exact --source winget",
+      "executable_name": "dotnet_runtime6.exe",
+      "install_commands": [
+        "winget install --id Microsoft.DotNet.DesktopRuntime.6 -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "dotnet_runtime8",
+      "name": ".NET Desktop Runtime 8",
+      "description": "Install .NET Desktop Runtime 8 via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "winget list --id Microsoft.DotNet.DesktopRuntime.8 --exact --source winget",
+      "executable_name": "dotnet_runtime8.exe",
+      "install_commands": [
+        "winget install --id Microsoft.DotNet.DesktopRuntime.8 -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "dotnet_runtime9",
+      "name": ".NET Desktop Runtime 9",
+      "description": "Install .NET Desktop Runtime 9 via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "winget list --id Microsoft.DotNet.DesktopRuntime.9 --exact --source winget",
+      "executable_name": "dotnet_runtime9.exe",
+      "install_commands": [
+        "winget install --id Microsoft.DotNet.DesktopRuntime.9 -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "ntlite",
+      "name": "NTLite",
+      "description": "Install NTLite via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "Get-Command NTLite.exe -ErrorAction SilentlyContinue",
+      "executable_name": "NTLite.exe",
+      "install_commands": [
+        "winget install --id Nollasoft.NTLite -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "nuget",
+      "name": "NuGet",
+      "description": "Install NuGet via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "Get-Command nuget.exe -ErrorAction SilentlyContinue",
+      "executable_name": "nuget.exe",
+      "install_commands": [
+        "winget install --id Microsoft.NuGet -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "onedrive",
+      "name": "OneDrive",
+      "description": "Install OneDrive via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "Get-Command OneDrive.exe -ErrorAction SilentlyContinue",
+      "executable_name": "OneDrive.exe",
+      "install_commands": [
+        "winget install --id Microsoft.OneDrive -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "powershell_v7",
+      "name": "PowerShell",
+      "description": "Install PowerShell via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "Get-Command pwsh.exe -ErrorAction SilentlyContinue",
+      "executable_name": "pwsh.exe",
+      "install_commands": [
+        "winget install --id Microsoft.PowerShell -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "powertoys",
+      "name": "PowerToys",
+      "description": "Install PowerToys via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "Get-Command PowerToys.exe -ErrorAction SilentlyContinue",
+      "executable_name": "PowerToys.exe",
+      "install_commands": [
+        "winget install --id Microsoft.PowerToys -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "process_explorer",
+      "name": "Process Explorer",
+      "description": "Install Process Explorer via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "Get-Command procexp.exe -ErrorAction SilentlyContinue",
+      "executable_name": "procexp.exe",
+      "install_commands": [
+        "winget install --id Microsoft.Sysinternals.ProcessExplorer -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "sysinternals_procmon",
+      "name": "SysInternals Process Monitor",
+      "description": "Install SysInternals Process Monitor via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "Get-Command procmon.exe -ErrorAction SilentlyContinue",
+      "executable_name": "procmon.exe",
+      "install_commands": [
+        "winget install --id Microsoft.Sysinternals.ProcessMonitor -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "rdcman",
+      "name": "RDCMAN",
+      "description": "Install RDCMAN via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "Get-Command RDCMan.exe -ErrorAction SilentlyContinue",
+      "executable_name": "RDCMan.exe",
+      "install_commands": [
+        "winget install --id Microsoft.RemoteDesktopConnectionManager -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "sysinternals_tcpview",
+      "name": "SysInternals TCPView",
+      "description": "Install SysInternals TCPView via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "Get-Command tcpview.exe -ErrorAction SilentlyContinue",
+      "executable_name": "tcpview.exe",
+      "install_commands": [
+        "winget install --id Microsoft.Sysinternals.TCPView -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "windows_terminal",
+      "name": "Windows Terminal",
+      "description": "Install Windows Terminal via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "Get-Command wt.exe -ErrorAction SilentlyContinue",
+      "executable_name": "wt.exe",
+      "install_commands": [
+        "winget install --id Microsoft.WindowsTerminal -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "vcredist_32",
+      "name": "Visual C++ 2015-2022 32-bit",
+      "description": "Install Visual C++ 2015-2022 32-bit via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "winget list --id Microsoft.VCRedist.2015+.x86 --exact --source winget",
+      "executable_name": "vcredist_32.exe",
+      "install_commands": [
+        "winget install --id Microsoft.VCRedist.2015+.x86 -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "vcredist_64",
+      "name": "Visual C++ 2015-2022 64-bit",
+      "description": "Install Visual C++ 2015-2022 64-bit via Winget.",
+      "category": "Microsoft Tools",
+      "check_command": "winget list --id Microsoft.VCRedist.2015+.x64 --exact --source winget",
+      "executable_name": "vcredist_64.exe",
+      "install_commands": [
+        "winget install --id Microsoft.VCRedist.2015+.x64 -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "adobe_reader",
+      "name": "Adobe Acrobat Reader",
+      "description": "Install Adobe Acrobat Reader via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command AcroRd32.exe -ErrorAction SilentlyContinue",
+      "executable_name": "AcroRd32.exe",
+      "install_commands": [
+        "winget install --id Adobe.Acrobat.Reader.64-bit -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "aimp",
+      "name": "AIMP",
+      "description": "Install AIMP via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command AIMP.exe -ErrorAction SilentlyContinue",
+      "executable_name": "AIMP.exe",
+      "install_commands": [
+        "winget install --id AIMP.AIMP -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "audacity",
+      "name": "Audacity",
+      "description": "Install Audacity via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command audacity.exe -ErrorAction SilentlyContinue",
+      "executable_name": "audacity.exe",
+      "install_commands": [
+        "winget install --id Audacity.Audacity -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "blender",
+      "name": "Blender",
+      "description": "Install Blender via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command blender.exe -ErrorAction SilentlyContinue",
+      "executable_name": "blender.exe",
+      "install_commands": [
+        "winget install --id BlenderFoundation.Blender -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "calibre",
+      "name": "Calibre",
+      "description": "Install Calibre via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command calibre.exe -ErrorAction SilentlyContinue",
+      "executable_name": "calibre.exe",
+      "install_commands": [
+        "winget install --id KovidGoyal.Calibre -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "eartrumpet",
+      "name": "EarTrumpet",
+      "description": "Install EarTrumpet via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command EarTrumpet.exe -ErrorAction SilentlyContinue",
+      "executable_name": "EarTrumpet.exe",
+      "install_commands": [
+        "winget install --id EarTrumpet.EarTrumpet -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "gimp",
+      "name": "GIMP",
+      "description": "Install GIMP via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command gimp-2.10.exe -ErrorAction SilentlyContinue",
+      "executable_name": "gimp-2.10.exe",
+      "install_commands": [
+        "winget install --id GIMP.GIMP -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "handbrake",
+      "name": "HandBrake",
+      "description": "Install HandBrake via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command HandBrake.exe -ErrorAction SilentlyContinue",
+      "executable_name": "HandBrake.exe",
+      "install_commands": [
+        "winget install --id HandBrake.HandBrake -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "imageglass",
+      "name": "ImageGlass",
+      "description": "Install ImageGlass via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command ImageGlass.exe -ErrorAction SilentlyContinue",
+      "executable_name": "ImageGlass.exe",
+      "install_commands": [
+        "winget install --id ImageGlass.ImageGlass -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "irfanview",
+      "name": "IrfanView",
+      "description": "Install IrfanView via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command i_view64.exe -ErrorAction SilentlyContinue",
+      "executable_name": "i_view64.exe",
+      "install_commands": [
+        "winget install --id IrfanSkiljan.IrfanView -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "itunes",
+      "name": "iTunes",
+      "description": "Install iTunes via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command iTunes.exe -ErrorAction SilentlyContinue",
+      "executable_name": "iTunes.exe",
+      "install_commands": [
+        "winget install --id Apple.iTunes -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "klite_codec",
+      "name": "K-Lite Codec Standard",
+      "description": "Install K-Lite Codec Standard via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "winget list --id CodecGuide.K-LiteCodecPack.Standard --exact --source winget",
+      "executable_name": "klite_codec.exe",
+      "install_commands": [
+        "winget install --id CodecGuide.K-LiteCodecPack.Standard -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "libreoffice",
+      "name": "LibreOffice",
+      "description": "Install LibreOffice via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command soffice.exe -ErrorAction SilentlyContinue",
+      "executable_name": "soffice.exe",
+      "install_commands": [
+        "winget install --id LibreOffice.LibreOffice -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "mpc_hc",
+      "name": "Media Player Classic - Home Cine",
+      "description": "Install Media Player Classic - Home Cine via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command mpc-hc64.exe -ErrorAction SilentlyContinue",
+      "executable_name": "mpc-hc64.exe",
+      "install_commands": [
+        "winget install --id clsid2.mpc-hc -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "mpc_qt",
+      "name": "mpc-qt",
+      "description": "Install mpc-qt via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command mpc-qt.exe -ErrorAction SilentlyContinue",
+      "executable_name": "mpc-qt.exe",
+      "install_commands": [
+        "winget install --id mpc-qt.mpc-qt -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "naps2",
+      "name": "NAPS2",
+      "description": "Install NAPS2 via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command NAPS2.exe -ErrorAction SilentlyContinue",
+      "executable_name": "NAPS2.exe",
+      "install_commands": [
+        "winget install --id NAPS2.NAPS2 -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "notepad_plus_plus",
+      "name": "Notepad++",
+      "description": "Install Notepad++ via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command notepad++.exe -ErrorAction SilentlyContinue",
+      "executable_name": "notepad++.exe",
+      "install_commands": [
+        "winget install --id Notepad++.Notepad++ -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "obs_studio",
+      "name": "OBS Studio",
+      "description": "Install OBS Studio via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command obs64.exe -ErrorAction SilentlyContinue",
+      "executable_name": "obs64.exe",
+      "install_commands": [
+        "winget install --id OBSProject.OBSStudio -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "obsidian",
+      "name": "Obsidian",
+      "description": "Install Obsidian via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command Obsidian.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Obsidian.exe",
+      "install_commands": [
+        "winget install --id Obsidian.Obsidian -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "onlyoffice",
+      "name": "ONLYOFFICE Desktop",
+      "description": "Install ONLYOFFICE Desktop via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command DesktopEditors.exe -ErrorAction SilentlyContinue",
+      "executable_name": "DesktopEditors.exe",
+      "install_commands": [
+        "winget install --id ONLYOFFICE.DesktopEditors -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "paint_net",
+      "name": "Paint.NET",
+      "description": "Install Paint.NET via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command PaintDotNet.exe -ErrorAction SilentlyContinue",
+      "executable_name": "PaintDotNet.exe",
+      "install_commands": [
+        "winget install --id dotPDN.PaintDotNet -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "sharex",
+      "name": "ShareX",
+      "description": "Install ShareX via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command ShareX.exe -ErrorAction SilentlyContinue",
+      "executable_name": "ShareX.exe",
+      "install_commands": [
+        "winget install --id ShareX.ShareX -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "vlc",
+      "name": "VLC",
+      "description": "Install VLC via Winget.",
+      "category": "Multimedia Tools",
+      "check_command": "Get-Command vlc.exe -ErrorAction SilentlyContinue",
+      "executable_name": "vlc.exe",
+      "install_commands": [
+        "winget install --id VideoLAN.VLC -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "adv_ip_scanner",
+      "name": "Advanced IP Scanner",
+      "description": "Install Advanced IP Scanner via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command advanced_ip_scanner.exe -ErrorAction SilentlyContinue",
+      "executable_name": "advanced_ip_scanner.exe",
+      "install_commands": [
+        "winget install --id Famatech.AdvancedIPScanner -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "angry_ip_scanner",
+      "name": "Angry IP Scanner",
+      "description": "Install Angry IP Scanner via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command ipscan.exe -ErrorAction SilentlyContinue",
+      "executable_name": "ipscan.exe",
+      "install_commands": [
+        "winget install --id AntonKovalenko.AngryIPScanner -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
     },
     {
       "id": "cpuz",
       "name": "CPU-Z",
-      "description": "A freeware that gathers information on some of the main devices of your system (CPU, Motherboard, Memory, etc.).",
-      "category": "Hardware Tools",
-      "requires_admin": false,
-      "requires_restart": false,
-      "check_command": "Get-Process -Name 'cpuz' -ErrorAction SilentlyContinue",
+      "description": "Install CPU-Z via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command cpuz.exe -ErrorAction SilentlyContinue",
+      "executable_name": "cpuz.exe",
       "install_commands": [
-        "winget install --id CPUID.CPU-Z -e --source winget --accept-package-agreements --accept-source-agreements"
+        "winget install --id CPUID.CPU-Z -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "ddu",
+      "name": "Display Driver Uninstaller",
+      "description": "Install Display Driver Uninstaller via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command Display Driver Uninstaller.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Display Driver Uninstaller.exe",
+      "install_commands": [
+        "winget install --id Wagnardsoft.DisplayDriverUninstaller -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "gpuz",
+      "name": "GPU-Z",
+      "description": "Install GPU-Z via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command GPU-Z.exe -ErrorAction SilentlyContinue",
+      "executable_name": "GPU-Z.exe",
+      "install_commands": [
+        "winget install --id TechPowerUp.GPU-Z -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "hwinfo",
+      "name": "HWiNFO",
+      "description": "Install HWiNFO via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command HWiNFO64.exe -ErrorAction SilentlyContinue",
+      "executable_name": "HWiNFO64.exe",
+      "install_commands": [
+        "winget install --id REALiX.HWiNFO -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "hwmonitor",
+      "name": "HWMonitor",
+      "description": "Install HWMonitor via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command HWMonitor.exe -ErrorAction SilentlyContinue",
+      "executable_name": "HWMonitor.exe",
+      "install_commands": [
+        "winget install --id CPUID.HWMonitor -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "mullvad_vpn",
+      "name": "Mullvad VPN",
+      "description": "Install Mullvad VPN via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command mullvad-vpn.exe -ErrorAction SilentlyContinue",
+      "executable_name": "mullvad-vpn.exe",
+      "install_commands": [
+        "winget install --id Mullvad.MullvadVPN -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "nmap",
+      "name": "Nmap",
+      "description": "Install Nmap via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command nmap.exe -ErrorAction SilentlyContinue",
+      "executable_name": "nmap.exe",
+      "install_commands": [
+        "winget install --id Insecure.Nmap -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "openvpn",
+      "name": "OpenVPN Connect",
+      "description": "Install OpenVPN Connect via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command ovpnconnector.exe -ErrorAction SilentlyContinue",
+      "executable_name": "ovpnconnector.exe",
+      "install_commands": [
+        "winget install --id OpenVPNTechnologies.OpenVPNConnect -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "proton_vpn",
+      "name": "Proton VPN",
+      "description": "Install Proton VPN via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command ProtonVPN.exe -ErrorAction SilentlyContinue",
+      "executable_name": "ProtonVPN.exe",
+      "install_commands": [
+        "winget install --id Proton.ProtonVPN -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "putty",
+      "name": "PuTTY",
+      "description": "Install PuTTY via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command putty.exe -ErrorAction SilentlyContinue",
+      "executable_name": "putty.exe",
+      "install_commands": [
+        "winget install --id PuTTY.PuTTY -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "rustdesk",
+      "name": "RustDesk",
+      "description": "Install RustDesk via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command RustDesk.exe -ErrorAction SilentlyContinue",
+      "executable_name": "RustDesk.exe",
+      "install_commands": [
+        "winget install --id RustDesk.RustDesk -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "simplewall",
+      "name": "Simplewall",
+      "description": "Install Simplewall via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command simplewall.exe -ErrorAction SilentlyContinue",
+      "executable_name": "simplewall.exe",
+      "install_commands": [
+        "winget install --id HenryPP.Simplewall -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "ventoy",
+      "name": "Ventoy",
+      "description": "Install Ventoy via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command Ventoy2Disk.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Ventoy2Disk.exe",
+      "install_commands": [
+        "winget install --id Ventoy.Ventoy -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "winscp",
+      "name": "WinSCP",
+      "description": "Install WinSCP via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command WinSCP.exe -ErrorAction SilentlyContinue",
+      "executable_name": "WinSCP.exe",
+      "install_commands": [
+        "winget install --id WinSCP.WinSCP -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "wireguard",
+      "name": "WireGuard",
+      "description": "Install WireGuard via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command wireguard.exe -ErrorAction SilentlyContinue",
+      "executable_name": "wireguard.exe",
+      "install_commands": [
+        "winget install --id WireGuard.WireGuard -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "wireshark",
+      "name": "Wireshark",
+      "description": "Install Wireshark via Winget.",
+      "category": "Pro Tools",
+      "check_command": "Get-Command Wireshark.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Wireshark.exe",
+      "install_commands": [
+        "winget install --id WiresharkFoundation.Wireshark -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "jellyfin_player",
+      "name": "Jellyfin Media Player",
+      "description": "Install Jellyfin Media Player via Winget.",
+      "category": "Selfhosted Tools",
+      "check_command": "Get-Command Jellyfin Media Player.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Jellyfin Media Player.exe",
+      "install_commands": [
+        "winget install --id Jellyfin.MediaPlayer -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "jellyfin_server",
+      "name": "Jellyfin Server",
+      "description": "Install Jellyfin Server via Winget.",
+      "category": "Selfhosted Tools",
+      "check_command": "Get-Command jellyfin.exe -ErrorAction SilentlyContinue",
+      "executable_name": "jellyfin.exe",
+      "install_commands": [
+        "winget install --id Jellyfin.Server -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "kodi",
+      "name": "Kodi Media Center",
+      "description": "Install Kodi Media Center via Winget.",
+      "category": "Selfhosted Tools",
+      "check_command": "Get-Command kodi.exe -ErrorAction SilentlyContinue",
+      "executable_name": "kodi.exe",
+      "install_commands": [
+        "winget install --id XBMCFoundation.Kodi -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "localsend",
+      "name": "LocalSend",
+      "description": "Install LocalSend via Winget.",
+      "category": "Selfhosted Tools",
+      "check_command": "Get-Command LocalSend.exe -ErrorAction SilentlyContinue",
+      "executable_name": "LocalSend.exe",
+      "install_commands": [
+        "winget install --id LocalSend.LocalSend -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "moonlight",
+      "name": "Moonlight",
+      "description": "Install Moonlight via Winget.",
+      "category": "Selfhosted Tools",
+      "check_command": "Get-Command Moonlight.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Moonlight.exe",
+      "install_commands": [
+        "winget install --id MoonlightGameStreamingProject.Moonlight -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "netbird",
+      "name": "NetBird",
+      "description": "Install NetBird via Winget.",
+      "category": "Selfhosted Tools",
+      "check_command": "Get-Command netbird.exe -ErrorAction SilentlyContinue",
+      "executable_name": "netbird.exe",
+      "install_commands": [
+        "winget install --id NetBird.NetBird -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "nextcloud",
+      "name": "Nextcloud Desktop",
+      "description": "Install Nextcloud Desktop via Winget.",
+      "category": "Selfhosted Tools",
+      "check_command": "Get-Command nextcloud.exe -ErrorAction SilentlyContinue",
+      "executable_name": "nextcloud.exe",
+      "install_commands": [
+        "winget install --id Nextcloud.NextcloudDesktop -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "plex_server",
+      "name": "Plex Media Server",
+      "description": "Install Plex Media Server via Winget.",
+      "category": "Selfhosted Tools",
+      "check_command": "Get-Command Plex Media Server.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Plex Media Server.exe",
+      "install_commands": [
+        "winget install --id Plex.PlexMediaServer -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "plex_desktop",
+      "name": "Plex Desktop",
+      "description": "Install Plex Desktop via Winget.",
+      "category": "Selfhosted Tools",
+      "check_command": "Get-Command Plex.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Plex.exe",
+      "install_commands": [
+        "winget install --id Plex.Plex -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "sunshine",
+      "name": "Sunshine",
+      "description": "Install Sunshine via Winget.",
+      "category": "Selfhosted Tools",
+      "check_command": "Get-Command sunshine.exe -ErrorAction SilentlyContinue",
+      "executable_name": "sunshine.exe",
+      "install_commands": [
+        "winget install --id LizardByte.Sunshine -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "1password",
+      "name": "1Password",
+      "description": "Install 1Password via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command 1Password.exe -ErrorAction SilentlyContinue",
+      "executable_name": "1Password.exe",
+      "install_commands": [
+        "winget install --id AgileBits.1Password -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "seven_zip",
+      "name": "7-Zip",
+      "description": "Install 7-Zip via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command 7z.exe -ErrorAction SilentlyContinue",
+      "executable_name": "7z.exe",
+      "install_commands": [
+        "winget install --id 7zip.7zip -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "anydesk",
+      "name": "AnyDesk",
+      "description": "Install AnyDesk via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command AnyDesk.exe -ErrorAction SilentlyContinue",
+      "executable_name": "AnyDesk.exe",
+      "install_commands": [
+        "winget install --id AnyDeskSoftwareGmbH.AnyDesk -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "autohotkey",
+      "name": "AutoHotkey",
+      "description": "Install AutoHotkey via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command AutoHotkey.exe -ErrorAction SilentlyContinue",
+      "executable_name": "AutoHotkey.exe",
+      "install_commands": [
+        "winget install --id AutoHotkey.AutoHotkey -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "bitwarden",
+      "name": "Bitwarden",
+      "description": "Install Bitwarden via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command Bitwarden.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Bitwarden.exe",
+      "install_commands": [
+        "winget install --id 8bitSolutions.Bitwarden -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "blurautoclicker",
+      "name": "BlurAutoClicker",
+      "description": "Install BlurAutoClicker via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command BlurAutoClicker.exe -ErrorAction SilentlyContinue",
+      "executable_name": "BlurAutoClicker.exe",
+      "install_commands": [
+        "winget install --id BlurAutoClicker.BlurAutoClicker -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "bc_uninstaller",
+      "name": "Bulk Crap Uninstaller",
+      "description": "Install Bulk Crap Uninstaller via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command BCUninstaller.exe -ErrorAction SilentlyContinue",
+      "executable_name": "BCUninstaller.exe",
+      "install_commands": [
+        "winget install --id Klocman.BulkCrapUninstaller -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "crystaldiskinfo",
+      "name": "CrystalDiskInfo",
+      "description": "Install CrystalDiskInfo via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command DiskInfo64.exe -ErrorAction SilentlyContinue",
+      "executable_name": "DiskInfo64.exe",
+      "install_commands": [
+        "winget install --id CrystalMarkSoftware.CrystalDiskInfo -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "crystaldiskmark",
+      "name": "CrystalDiskMark",
+      "description": "Install CrystalDiskMark via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command DiskMark64.exe -ErrorAction SilentlyContinue",
+      "executable_name": "DiskMark64.exe",
+      "install_commands": [
+        "winget install --id CrystalMarkSoftware.CrystalDiskMark -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "deskflow",
+      "name": "Deskflow",
+      "description": "Install Deskflow via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command deskflow.exe -ErrorAction SilentlyContinue",
+      "executable_name": "deskflow.exe",
+      "install_commands": [
+        "winget install --id Deskflow.Deskflow -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "ente_auth",
+      "name": "Ente Auth",
+      "description": "Install Ente Auth via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command Ente Auth.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Ente Auth.exe",
+      "install_commands": [
+        "winget install --id Ente.EnteAuth -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "files_app",
+      "name": "Files",
+      "description": "Install Files via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command Files.exe -ErrorAction SilentlyContinue",
+      "executable_name": "Files.exe",
+      "install_commands": [
+        "winget install --id Files-Community.Files -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "flux",
+      "name": "f.lux",
+      "description": "Install f.lux via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command flux.exe -ErrorAction SilentlyContinue",
+      "executable_name": "flux.exe",
+      "install_commands": [
+        "winget install --id flux.flux -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "glazewm",
+      "name": "GlazeWM",
+      "description": "Install GlazeWM via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command glazewm.exe -ErrorAction SilentlyContinue",
+      "executable_name": "glazewm.exe",
+      "install_commands": [
+        "winget install --id GlazeWM.GlazeWM -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "google_drive",
+      "name": "Google Drive",
+      "description": "Install Google Drive via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command GoogleDriveFS.exe -ErrorAction SilentlyContinue",
+      "executable_name": "GoogleDriveFS.exe",
+      "install_commands": [
+        "winget install --id Google.Drive -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "hugo",
+      "name": "Hugo",
+      "description": "Install Hugo via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command hugo.exe -ErrorAction SilentlyContinue",
+      "executable_name": "hugo.exe",
+      "install_commands": [
+        "winget install --id Hugo.Hugo -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "jpegview",
+      "name": "JPEG View",
+      "description": "Install JPEG View via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command JPEGView.exe -ErrorAction SilentlyContinue",
+      "executable_name": "JPEGView.exe",
+      "install_commands": [
+        "winget install --id Sylvanaar.JPEGView -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "msedgeredirect",
+      "name": "MSEdgeRedirect",
+      "description": "Install MSEdgeRedirect via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command MSEdgeRedirect.exe -ErrorAction SilentlyContinue",
+      "executable_name": "MSEdgeRedirect.exe",
+      "install_commands": [
+        "winget install --id RobertMaehl.MSEdgeRedirect -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "msi_afterburner",
+      "name": "MSI Afterburner",
+      "description": "Install MSI Afterburner via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command MSIAfterburner.exe -ErrorAction SilentlyContinue",
+      "executable_name": "MSIAfterburner.exe",
+      "install_commands": [
+        "winget install --id MSI.Afterburner -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "nanazip",
+      "name": "NanaZip",
+      "description": "Install NanaZip via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command NanaZip.exe -ErrorAction SilentlyContinue",
+      "executable_name": "NanaZip.exe",
+      "install_commands": [
+        "winget install --id M365Labs.NanaZip -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "nilesoft_shell",
+      "name": "Nilesoft Shell",
+      "description": "Install Nilesoft Shell via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command shell.exe -ErrorAction SilentlyContinue",
+      "executable_name": "shell.exe",
+      "install_commands": [
+        "winget install --id Nilesoft.Shell -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "nvcleanstall",
+      "name": "NVCleanstall",
+      "description": "Install NVCleanstall via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command NVCleanstall.exe -ErrorAction SilentlyContinue",
+      "executable_name": "NVCleanstall.exe",
+      "install_commands": [
+        "winget install --id TechPowerUp.NVCleanstall -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "ofgb",
+      "name": "OFGB",
+      "description": "Install OFGB via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command OFGB.exe -ErrorAction SilentlyContinue",
+      "executable_name": "OFGB.exe",
+      "install_commands": [
+        "winget install --id Mikaela.OFGB -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "opautoclicker",
+      "name": "OPAutoClicker",
+      "description": "Install OPAutoClicker via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command AutoClicker.exe -ErrorAction SilentlyContinue",
+      "executable_name": "AutoClicker.exe",
+      "install_commands": [
+        "winget install --id OPAutoClicker.OPAutoClicker -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "openrgb",
+      "name": "OpenRGB",
+      "description": "Install OpenRGB via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command OpenRGB.exe -ErrorAction SilentlyContinue",
+      "executable_name": "OpenRGB.exe",
+      "install_commands": [
+        "winget install --id OpenRGB.OpenRGB -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "virtualbox",
+      "name": "Oracle VirtualBox",
+      "description": "Install Oracle VirtualBox via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command VirtualBox.exe -ErrorAction SilentlyContinue",
+      "executable_name": "VirtualBox.exe",
+      "install_commands": [
+        "winget install --id Oracle.VirtualBox -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "parsec",
+      "name": "Parsec",
+      "description": "Install Parsec via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command parsecd.exe -ErrorAction SilentlyContinue",
+      "executable_name": "parsecd.exe",
+      "install_commands": [
+        "winget install --id Parsec.Parsec -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "peazip",
+      "name": "PeaZip",
+      "description": "Install PeaZip via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command peazip.exe -ErrorAction SilentlyContinue",
+      "executable_name": "peazip.exe",
+      "install_commands": [
+        "winget install --id PeaZip.PeaZip -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "policy_plus",
+      "name": "Policy Plus",
+      "description": "Install Policy Plus via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command PolicyPlus.exe -ErrorAction SilentlyContinue",
+      "executable_name": "PolicyPlus.exe",
+      "install_commands": [
+        "winget install --id Fleexy.PolicyPlus -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "process_lasso",
+      "name": "Process Lasso",
+      "description": "Install Process Lasso via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command ProcessLasso.exe -ErrorAction SilentlyContinue",
+      "executable_name": "ProcessLasso.exe",
+      "install_commands": [
+        "winget install --id Bitsum.ProcessLasso -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "proton_auth",
+      "name": "Proton Authenticator",
+      "description": "Install Proton Authenticator via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command ProtonPass.exe -ErrorAction SilentlyContinue",
+      "executable_name": "ProtonPass.exe",
+      "install_commands": [
+        "winget install --id Proton.ProtonPass -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "proton_drive",
+      "name": "Proton Drive",
+      "description": "Install Proton Drive via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command ProtonDrive.exe -ErrorAction SilentlyContinue",
+      "executable_name": "ProtonDrive.exe",
+      "install_commands": [
+        "winget install --id Proton.ProtonDrive -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "proton_pass",
+      "name": "Proton Pass",
+      "description": "Install Proton Pass via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command ProtonPass.exe -ErrorAction SilentlyContinue",
+      "executable_name": "ProtonPass.exe",
+      "install_commands": [
+        "winget install --id Proton.ProtonPass -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "qbittorrent",
+      "name": "qBittorrent",
+      "description": "Install qBittorrent via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command qbittorrent.exe -ErrorAction SilentlyContinue",
+      "executable_name": "qbittorrent.exe",
+      "install_commands": [
+        "winget install --id qBittorrent.qBittorrent -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "revo_uninstaller",
+      "name": "Revo Uninstaller",
+      "description": "Install Revo Uninstaller via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command RevoUninstaller.exe -ErrorAction SilentlyContinue",
+      "executable_name": "RevoUninstaller.exe",
+      "install_commands": [
+        "winget install --id RevoUninstaller.RevoUninstaller -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "rufus",
+      "name": "Rufus",
+      "description": "Install Rufus via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command rufus.exe -ErrorAction SilentlyContinue",
+      "executable_name": "rufus.exe",
+      "install_commands": [
+        "winget install --id PeteBatard.Rufus -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "sdi_origin",
+      "name": "Snappy Driver Installer Origin",
+      "description": "Install Snappy Driver Installer Origin via Winget.",
+      "category": "Utilities",
+      "check_command": "winget list --id SnappyDriverInstallerOrigin.SnappyDriverInstallerOrigin --exact --source winget",
+      "executable_name": "sdi_origin.exe",
+      "install_commands": [
+        "winget install --id SnappyDriverInstallerOrigin.SnappyDriverInstallerOrigin -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "signalrgb",
+      "name": "SignalRGB",
+      "description": "Install SignalRGB via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command SignalRGB.exe -ErrorAction SilentlyContinue",
+      "executable_name": "SignalRGB.exe",
+      "install_commands": [
+        "winget install --id WhirlwindFX.SignalRGB -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "teamviewer",
+      "name": "TeamViewer",
+      "description": "Install TeamViewer via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command TeamViewer.exe -ErrorAction SilentlyContinue",
+      "executable_name": "TeamViewer.exe",
+      "install_commands": [
+        "winget install --id TeamViewer.TeamViewer -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "tightvnc",
+      "name": "TightVNC",
+      "description": "Install TightVNC via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command tvnserver.exe -ErrorAction SilentlyContinue",
+      "executable_name": "tvnserver.exe",
+      "install_commands": [
+        "winget install --id TightVNC.TightVNC -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "total_commander",
+      "name": "Total Commander",
+      "description": "Install Total Commander via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command TOTALCMD64.EXE -ErrorAction SilentlyContinue",
+      "executable_name": "TOTALCMD64.EXE",
+      "install_commands": [
+        "winget install --id Ghisler.TotalCommander -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "treesize",
+      "name": "TreeSize Free",
+      "description": "Install TreeSize Free via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command TreeSizeFree.exe -ErrorAction SilentlyContinue",
+      "executable_name": "TreeSizeFree.exe",
+      "install_commands": [
+        "winget install --id JAMSoftware.TreeSizeFree -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "translucenttb",
+      "name": "TranslucentTB",
+      "description": "Install TranslucentTB via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command TranslucentTB.exe -ErrorAction SilentlyContinue",
+      "executable_name": "TranslucentTB.exe",
+      "install_commands": [
+        "winget install --id TranslucentTB.TranslucentTB -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "unigetui",
+      "name": "UniGetUI",
+      "description": "Install UniGetUI via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command UniGetUI.exe -ErrorAction SilentlyContinue",
+      "executable_name": "UniGetUI.exe",
+      "install_commands": [
+        "winget install --id MartiCliment.UniGetUI -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "winrar",
+      "name": "WinRAR",
+      "description": "Install WinRAR via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command WinRAR.exe -ErrorAction SilentlyContinue",
+      "executable_name": "WinRAR.exe",
+      "install_commands": [
+        "winget install --id RARLab.WinRAR -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "wise_uninstaller",
+      "name": "Wise Program Uninstaller",
+      "description": "Install Wise Program Uninstaller via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command WiseProgramUninstaller.exe -ErrorAction SilentlyContinue",
+      "executable_name": "WiseProgramUninstaller.exe",
+      "install_commands": [
+        "winget install --id WiseCleaner.WiseProgramUninstaller -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "wiztree",
+      "name": "WizTree",
+      "description": "Install WizTree via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command WizTree64.exe -ErrorAction SilentlyContinue",
+      "executable_name": "WizTree64.exe",
+      "install_commands": [
+        "winget install --id AntibodySoftware.WizTree -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "hxd",
+      "name": "HxD Hex Editor",
+      "description": "Install HxD Hex Editor via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command HxD.exe -ErrorAction SilentlyContinue",
+      "executable_name": "HxD.exe",
+      "install_commands": [
+        "winget install --id mhe.HxD -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
+      "id": "ghosttune_converter",
+      "name": "GhostTune Converter",
+      "description": "Professional music conversion utility.",
+      "category": "Ghosty Tools",
+      "check_command": "Test-Path \"$env:USERPROFILE\\Downloads\\GhostTuneConverter.exe\"",
+      "install_commands": [
+        "Invoke-WebRequest -Uri 'https://github.com/Ghostshadowplays/GhostTune-Converter/releases/download/v1.0.1/GhostTuneConverter.exe' -OutFile \"$env:USERPROFILE\\Downloads\\GhostTuneConverter.exe\""
       ],
-      "post_install_message": "CPU-Z installed successfully!"
+      "post_install_message": "GhostTune Converter has been downloaded to your Downloads folder!"
     }
   ]
 }

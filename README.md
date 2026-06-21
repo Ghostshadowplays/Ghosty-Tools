@@ -1,4 +1,5 @@
-# 👻 Ghosty Tools v6.1
+# 👻 Ghosty Tools
+Official Website: [ghostyware.com](https://ghostyware.com)
 
 [🚀 **Download Latest Release**](https://github.com/Ghostshadowplays/Ghosty-Tools/releases)
 
@@ -38,8 +39,8 @@ Ghosty Tools is a high-performance, modular utility designed to secure and optim
 - **Safe Removal:** Categorized removal of pre-installed apps and unnecessary Windows components.
 - **Restore Integration:** Links directly to restore point creation for maximum safety.
 
-### 📦 System Tools Installer
-- **Winget-Powered:** Easily install essential developer tools like WSL, Git, Python, VS Code, Docker, and more.
+### 📦 Install (Software Installer)
+- **Winget-Powered:** Easily install essential apps and tools (Browsers, Dev Tools, Multimedia, Utilities, etc.).
 - **Status Detection:** Automatically detects if tools are already installed.
 - **Now includes Essentials & Hardware Tools:** 7-Zip, VLC, Brave, Discord, HWiNFO, CPU-Z.
 
@@ -92,7 +93,6 @@ python python-gui/main.py
 - `python-gui/utils/`: Helper functions and logging configurations.
 - `python-gui/config/`: JSON configuration files for bloatware and tools.
 - `python-gui/assets/`: Brand assets and icons.
-- `powershell/`: Modular PowerShell backend for system-level tasks.
 
 ## 🔒 Security Policy
 - **No Data Collection:** Ghosty Tools operates entirely locally. No passwords or system data are ever transmitted externally.

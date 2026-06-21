@@ -928,6 +928,90 @@
       "commands": [
         "Get-AppxPackage -Name '*Razer*' | Remove-AppxPackage -ErrorAction SilentlyContinue"
       ]
+    },
+    {
+      "id": "mail_calendar",
+      "name": "Mail and Calendar",
+      "description": "Remove Windows Mail and Calendar application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'microsoft.windowscommunicationsapps' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'microsoft.windowscommunicationsapps' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "calculator",
+      "name": "Windows Calculator",
+      "description": "Remove Windows Calculator application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "moderate",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.WindowsCalculator' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.WindowsCalculator' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "camera",
+      "name": "Windows Camera",
+      "description": "Remove Windows Camera application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.WindowsCamera' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.WindowsCamera' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "paint_3d",
+      "name": "Paint 3D",
+      "description": "Remove Paint 3D application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.MSPaint' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.MSPaint' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "microsoft_pay",
+      "name": "Microsoft Pay",
+      "description": "Remove Microsoft Pay (Wallet) application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.Wallet' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.Wallet' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
+    },
+    {
+      "id": "sound_recorder",
+      "name": "Windows Sound Recorder",
+      "description": "Remove Windows Sound Recorder application",
+      "category": "Microsoft Store Apps",
+      "safety_level": "safe",
+      "requires_admin": true,
+      "requires_restart": false,
+      "windows_versions": ["10", "11"],
+      "check_command": "Get-AppxPackage -Name 'Microsoft.WindowsSoundRecorder' | Select-Object -First 1",
+      "commands": [
+        "Get-AppxPackage -Name 'Microsoft.WindowsSoundRecorder' | Remove-AppxPackage -ErrorAction SilentlyContinue"
+      ]
     }
   ]
 }

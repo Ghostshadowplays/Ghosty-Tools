@@ -9,6 +9,7 @@ import string
 import re
 import logging
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QCheckBox, QGroupBox, 
                              QScrollArea, QMessageBox, QProgressBar, QStackedWidget,
@@ -24,6 +25,7 @@ except Exception:
 import pyperclip
 import zipfile
 import requests
+from PIL import Image
 
 # Internal imports
 from src.core.workers import (
@@ -37,7 +39,8 @@ from src.core.workers import (
     SensorWorker,
     SpecsWorker,
     MainDiskWorker,
-    MonitoringSetupWorker
+    MonitoringSetupWorker,
+    DownloadWorker
 )
 from src.core.password_manager import PasswordManager
 from src.core.bloat_remover import BloatRemover, BloatwareCategory, SafetyLevel
@@ -53,6 +56,11 @@ logger = logging.getLogger(__name__)
 
 class GhostyTool(QMainWindow):
     log_signal = pyqtSignal(str, str)
+    cleanup_item_signal = pyqtSignal(str, dict)
+    status_update_signal = pyqtSignal(object, bool) # (QTreeWidgetItem, is_installed)
+    scan_cleanup_signal = pyqtSignal()
+    check_tools_signal = pyqtSignal(bool) # force
+    finish_cleanup_signal = pyqtSignal(int, int)
 
     def __init__(self):
         super().__init__()
@@ -65,6 +73,11 @@ class GhostyTool(QMainWindow):
             self.setWindowIcon(QIcon(icon_path))
 
         self.log_signal.connect(self.log_to_terminal)
+        self.cleanup_item_signal.connect(self._add_cleanup_item)
+        self.status_update_signal.connect(self._perform_status_update)
+        self.scan_cleanup_signal.connect(self.scan_cleanup_items)
+        self.check_tools_signal.connect(self.check_tools_status)
+        self.finish_cleanup_signal.connect(self._finish_cleanup_scan)
 
         self.main_disk = "0"
         self.system_drive = "C"
@@ -83,11 +96,12 @@ class GhostyTool(QMainWindow):
         self.clipboard_timer.setSingleShot(True)
         self.clipboard_timer.timeout.connect(self.clear_clipboard)
 
-        self.init_ui()
-        
         # Initialize Update Manager
         self.update_manager = UpdateManager()
         self._latest_update_info = None
+
+        self.init_ui()
+        
         QTimer.singleShot(1000, self.check_for_updates)
         QTimer.singleShot(2000, self.check_for_whats_new)
 
@@ -136,11 +150,12 @@ class GhostyTool(QMainWindow):
         self.add_nav_button("Maintenance", 1)
         self.add_nav_button("Security", 2)
         self.add_nav_button("Debloat", 3)
-        self.add_nav_button("System Tools", 4)
-        self.add_nav_button("Password Gen", 5)
-        self.add_nav_button("Password Vault", 6)
-        self.add_nav_button("Tweaks", 7)
-        self.add_nav_button("About", 8)
+        self.add_nav_button("Install", 4)
+        self.add_nav_button("Cleanup", 5)
+        self.add_nav_button("Password Gen", 6)
+        self.add_nav_button("Password Vault", 7)
+        self.add_nav_button("Tweaks", 8)
+        self.add_nav_button("About", 9)
 
         self.sidebar_layout.addStretch()
 
@@ -222,6 +237,27 @@ class GhostyTool(QMainWindow):
 """)
         terminal_layout.addWidget(self.terminal_output)
         
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setFixedHeight(12)
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                background-color: #2a2a2a;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 10px;
+                font-weight: bold;
+            }
+            QProgressBar::chunk {
+                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4158D0, stop:1 #C850C0);
+                border-radius: 6px;
+            }
+        """)
+        self.progress_bar.hide()
+        terminal_layout.addWidget(self.progress_bar)
+        
         self.right_layout.addWidget(self.terminal_container)
         self.main_layout.addWidget(self.right_container)
 
@@ -230,6 +266,7 @@ class GhostyTool(QMainWindow):
         self.setup_security_page()
         self.setup_debloat_page()
         self.setup_tools_page()
+        self.setup_cleanup_page()
         self.setup_passgen_page()
         self.setup_vault_page()
         self.setup_tweaks_page()
@@ -291,6 +328,10 @@ class GhostyTool(QMainWindow):
 
     def log_to_terminal(self, message, level="info"):
         """Logs a message to the live terminal with color coding."""
+        # Pre-clean message from corrupted encoding characters
+        # Common corruption for progress bars in some terminals: â–ˆ (█), â–’ (▒), â–‘ (░)
+        message = message.replace("â–ˆ", "█").replace("â–’", "▒").replace("â–‘", "░").replace("â–“", "▓")
+        
         timestamp = datetime.now().strftime("%H:%M:%S")
         color = "#d4d4d4"
         
@@ -300,9 +341,65 @@ class GhostyTool(QMainWindow):
         elif level == "debug": color = "#808080"
         elif level == "info": color = "#569cd6"
         
-        formatted_message = f'<span style="color: #808080;">[{timestamp}]</span> <span style="color: {color};">{message}</span><br>'
-        self.terminal_output.insertHtml(formatted_message)
+        # Progress/Status indicator detection
+        # Spinners: - \ | /
+        # Bars: █ ▒
+        # Percentage: %
+        is_progress = "%" in message or "█" in message or "▒" in message
+        is_spinner = any(message.endswith(f" {s}") for s in ["-", "\\", "|", "/"])
+        
+        # Clean message from spinner for comparison
+        clean_msg = message
+        if is_spinner:
+            clean_msg = message[:-2]
+
+        should_replace = is_progress or is_spinner
+
+        # Extract percentage for UI progress bar
+        if is_progress:
+            match = re.search(r"(\d+(?:\.\d+)?)%", message)
+            if match:
+                try:
+                    val = float(match.group(1))
+                    self.progress_bar.setValue(int(val))
+                    self.progress_bar.show()
+                except: pass
+
+        # Clean up message for terminal if it's just a progress bar line
+        # If the line is mostly progress bar, we might want to make it cleaner
+        if "█" in message or "▒" in message:
+            # If it's a winget-style progress bar, it often looks like: [Update All] █████░░░░░ 50%
+            # We can leave it but ensure it's on one line.
+            pass
+
+        cursor = self.terminal_output.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        
+        # If last message was progress and this is also progress (and same task prefix), replace
+        last_was_replace = getattr(self, "_last_msg_was_replace", False)
+        last_prefix = getattr(self, "_last_msg_prefix", "")
+        last_clean_msg = getattr(self, "_last_clean_msg", "")
+        
+        current_prefix = ""
+        if "]" in message:
+            current_prefix = message.split("]")[0]
+
+        # Only replace if prefixes match AND it's a progress update OR it's a spinner update for the SAME message
+        if should_replace and last_was_replace and (not current_prefix or current_prefix == last_prefix) and (is_progress or clean_msg == last_clean_msg):
+            # Replace last block
+            cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock, QTextCursor.MoveMode.KeepAnchor)
+            cursor.removeSelectedText()
+            cursor.insertHtml(f'<span style="color: #808080;">[{timestamp}]</span> <span style="color: {color};">{message}</span>')
+        else:
+            if self.terminal_output.toPlainText():
+                cursor.insertBlock()
+            cursor.insertHtml(f'<span style="color: #808080;">[{timestamp}]</span> <span style="color: {color};">{message}</span>')
+            
         self.terminal_output.moveCursor(QTextCursor.MoveOperation.End)
+        
+        self._last_msg_was_replace = should_replace
+        self._last_msg_prefix = current_prefix
+        self._last_clean_msg = clean_msg
         
         if level == "error": logger.error(message)
         elif level == "warning": logger.warning(message)
@@ -313,6 +410,15 @@ class GhostyTool(QMainWindow):
             btn.setChecked(i == index)
         self.content_stack.setCurrentIndex(index)
         self.page_title.setText(self.nav_buttons[index].text())
+        
+        # Auto-trigger checks for certain pages
+        if index == 4: # Install page
+            self.check_tools_status()
+        elif index == 3: # Debloat page
+            # Auto-scan bloatware if not yet scanned
+            if not getattr(self, "_bloat_ever_scanned", False):
+                self.scan_bloatware()
+                self._bloat_ever_scanned = True
 
     def setup_dashboard_page(self):
         page = QWidget()
@@ -745,10 +851,10 @@ class GhostyTool(QMainWindow):
         info_frame = QFrame()
         info_frame.setStyleSheet("background-color: #1e1e1e; border-radius: 5px;")
         info_layout = QVBoxLayout(info_frame)
-        info_label = QLabel("Windows System Tools Installer")
+        info_label = QLabel("Windows Installer")
         info_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         info_layout.addWidget(info_label)
-        info_layout.addWidget(QLabel("Easily install essential developer and system tools using Winget."))
+        info_layout.addWidget(QLabel("Easily install essential apps and system tools using Winget."))
         layout.addWidget(info_frame)
 
         self.tools_tree = QTreeWidget()
@@ -776,15 +882,253 @@ class GhostyTool(QMainWindow):
         check_btn = QPushButton("Refresh Tools Status")
         check_btn.setMinimumHeight(40)
         check_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
-        check_btn.clicked.connect(self.check_tools_status)
+        check_btn.clicked.connect(lambda: self.check_tools_status(force=True))
         install_btn = QPushButton("Install Selected Tools")
         install_btn.setMinimumHeight(40)
         install_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         install_btn.clicked.connect(self.install_tools)
+        uninstall_btn = QPushButton("Uninstall Selected")
+        uninstall_btn.setMinimumHeight(40)
+        uninstall_btn.setStyleSheet("QPushButton { background-color: #f44747; color: white; font-weight: bold; border: 1px solid #c43030; border-radius: 6px; } QPushButton:hover { background-color: #f65d5d; } QPushButton:pressed { background-color: #d13b3b; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
+        uninstall_btn.clicked.connect(self.uninstall_tools)
+        update_all_btn = QPushButton("Update All Apps")
+        update_all_btn.setMinimumHeight(40)
+        update_all_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
+        update_all_btn.clicked.connect(self.update_all_apps)
         btn_layout.addWidget(check_btn)
         btn_layout.addWidget(install_btn)
+        btn_layout.addWidget(uninstall_btn)
+        btn_layout.addWidget(update_all_btn)
         layout.addLayout(btn_layout)
         self.content_stack.addWidget(page)
+
+    def setup_cleanup_page(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        
+        info_frame = QFrame()
+        info_frame.setStyleSheet("background-color: #1e1e1e; border-radius: 5px;")
+        info_layout = QVBoxLayout(info_frame)
+        info_label = QLabel("System Cleanup & Optimization")
+        info_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        info_layout.addWidget(info_label)
+        info_layout.addWidget(QLabel("Identify and remove unused applications and old files to free up space."))
+        layout.addWidget(info_frame)
+
+        self.cleanup_tree = QTreeWidget()
+        self.cleanup_tree.setHeaderLabels(["Item", "Type", "Details", "Actionable"])
+        self.cleanup_tree.setAlternatingRowColors(True)
+        self.cleanup_tree.setColumnWidth(0, 250)
+        self.cleanup_tree.setStyleSheet("QTreeWidget::item { padding: 5px; }")
+        layout.addWidget(self.cleanup_tree)
+
+        btn_layout = QHBoxLayout()
+        scan_btn = QPushButton("Scan for Unused Items")
+        scan_btn.setMinimumHeight(40)
+        scan_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; }")
+        scan_btn.clicked.connect(self.scan_cleanup_items)
+        
+        cleanup_btn = QPushButton("Remove Selected Items")
+        cleanup_btn.setMinimumHeight(40)
+        cleanup_btn.setStyleSheet("QPushButton { background-color: #f44747; color: white; font-weight: bold; border: 1px solid #c43030; border-radius: 6px; } QPushButton:hover { background-color: #f65d5d; } QPushButton:pressed { background-color: #d13b3b; }")
+        cleanup_btn.clicked.connect(self.perform_cleanup)
+        
+        btn_layout.addWidget(scan_btn)
+        btn_layout.addWidget(cleanup_btn)
+        layout.addLayout(btn_layout)
+        
+        self.content_stack.addWidget(page)
+
+    def scan_cleanup_items(self):
+        self.log_signal.emit("Scanning for unused applications and old files...", "info")
+        self.cleanup_tree.clear()
+        
+        # Create category nodes immediately
+        self.file_cat = QTreeWidgetItem(self.cleanup_tree, ["Old Files (>3 months)"])
+        self.app_cat = QTreeWidgetItem(self.cleanup_tree, ["Potentially Unused Apps (>6 months)"])
+        self.cleanup_tree.expandAll()
+        
+        # Show progress bar in indeterminate mode to show activity
+        self.progress_bar.setRange(0, 0)
+        self.progress_bar.show()
+        
+        def run_scan():
+            spinner = ["-", "\\", "|", "/"]
+            spinner_idx = 0
+            
+            def log_step(msg):
+                nonlocal spinner_idx
+                s = spinner[spinner_idx % len(spinner)]
+                spinner_idx += 1
+                self.log_signal.emit(f"{msg} {s}", "info")
+
+            found_files_count = 0
+            found_apps_count = 0
+
+            try:
+                # 1. Scan for old files in Downloads and Temp
+                paths_to_scan = [
+                    os.path.join(os.environ['USERPROFILE'], 'Downloads'),
+                    os.environ.get('TEMP', 'C:\\Windows\\Temp')
+                ]
+                
+                now = datetime.now()
+                for path in paths_to_scan:
+                    if not os.path.exists(path): continue
+                    log_step(f"Scanning directory: {path}")
+                    try:
+                        # Use os.scandir for better performance
+                        with os.scandir(path) as entries:
+                            for entry in entries:
+                                try:
+                                    if entry.is_file():
+                                        stat = entry.stat()
+                                        mtime = datetime.fromtimestamp(stat.st_mtime)
+                                        days_old = (now - mtime).days
+                                        if days_old > 90: # Older than 3 months
+                                            size_mb = stat.st_size / (1024 * 1024)
+                                            item_data = {
+                                                "name": entry.name,
+                                                "path": entry.path,
+                                                "type": "File",
+                                                "details": f"{days_old} days old, {size_mb:.1f} MB"
+                                            }
+                                            found_files_count += 1
+                                            self.cleanup_item_signal.emit("file", item_data)
+                                            if found_files_count % 10 == 0:
+                                                log_step(f"Found {found_files_count} old files so far...")
+                                except: pass
+                    except: pass
+
+                # 2. Scan for apps (Listing apps with install date > 6 months)
+                log_step("Scanning system registry for unused applications...")
+                try:
+                    ps_cmd = '$paths = @("HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*", "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*", "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*"); Get-ItemProperty $paths -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -ne $null } | Select-Object DisplayName, InstallDate | ConvertTo-Json'
+                    res = subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True, text=True, creationflags=CREATE_NO_WINDOW)
+                    if res.stdout:
+                        try:
+                            app_data = json.loads(res.stdout)
+                            if isinstance(app_data, dict): app_data = [app_data]
+                            
+                            seen_names = set()
+                            for app in app_data:
+                                name = app.get("DisplayName")
+                                if not name or name in seen_names: continue
+                                seen_names.add(name)
+                                
+                                try:
+                                    inst_date_str = str(app.get("InstallDate", ""))
+                                    months_old = -1
+                                    details = "Installation date unknown"
+                                    
+                                    if len(inst_date_str) == 8: # YYYYMMDD
+                                        inst_date = datetime.strptime(inst_date_str, "%Y%m%d")
+                                        months_old = (now.year - inst_date.year) * 12 + (now.month - inst_date.month)
+                                        details = f"Installed {months_old} months ago"
+                                    
+                                    # Show if older than 6 months OR if date is unknown (better to show than hide potentially old apps)
+                                    if months_old >= 6 or months_old == -1:
+                                        item_data = {
+                                            "name": name,
+                                            "type": "Application",
+                                            "details": details,
+                                            "id": name
+                                        }
+                                        found_apps_count += 1
+                                        self.cleanup_item_signal.emit("app", item_data)
+                                except: pass
+                        except json.JSONDecodeError: pass
+                except: pass
+
+                self.finish_cleanup_signal.emit(found_files_count, found_apps_count)
+            except Exception as e:
+                self.log_signal.emit(f"Error during cleanup scan: {e}", "error")
+                self.finish_cleanup_signal.emit(0, 0)
+
+        threading.Thread(target=run_scan, daemon=True).start()
+
+    def _add_cleanup_item(self, cat_type, data):
+        parent = self.file_cat if cat_type == "file" else self.app_cat
+        child = QTreeWidgetItem(parent, [data["name"], data["type"], data["details"]])
+        child.setCheckState(0, Qt.CheckState.Unchecked)
+        # Use path for files, name for apps (as ID for uninstallation)
+        child.setData(0, Qt.ItemDataRole.UserRole, data.get("path") or data.get("id"))
+        self.cleanup_tree.expandAll()
+
+    def _finish_cleanup_scan(self, file_count, app_count):
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.hide()
+        self.log_signal.emit(f"Scan complete. Found {file_count} old files and {app_count} potentially unused apps.", "success")
+
+    def perform_cleanup(self):
+        selected_files = []
+        selected_apps = []
+        
+        iterator = QTreeWidgetItemIterator(self.cleanup_tree)
+        while iterator.value():
+            item = iterator.value()
+            if item.checkState(0) == Qt.CheckState.Checked:
+                data = item.data(0, Qt.ItemDataRole.UserRole)
+                if item.text(1) == "File":
+                    selected_files.append(data)
+                elif item.text(1) == "Application":
+                    selected_apps.append(data)
+            iterator += 1
+            
+        if not selected_files and not selected_apps:
+            QMessageBox.information(self, "Selection Required", "Please select items to remove.")
+            return
+            
+        msg = f"Are you sure you want to delete {len(selected_files)} files and attempt to uninstall {len(selected_apps)} applications?"
+        if QMessageBox.question(self, "Confirm Cleanup", msg) != QMessageBox.StandardButton.Yes:
+            return
+            
+        self.log_signal.emit("Starting cleanup process...", "info")
+        
+        def run_cleanup():
+            # Delete files
+            for f_path in selected_files:
+                try:
+                    if os.path.exists(f_path):
+                        os.remove(f_path)
+                        self.log_signal.emit(f"Deleted file: {os.path.basename(f_path)}", "success")
+                except Exception as e:
+                    self.log_signal.emit(f"Failed to delete {f_path}: {e}", "error")
+            
+            # Uninstall apps (Attempt via winget if possible)
+            for app_name in selected_apps:
+                self.log_signal.emit(f"Attempting to uninstall application: {app_name}...", "info")
+                try:
+                    # Search for winget ID first
+                    search_cmd = f'winget search "{app_name}" --exact --source winget'
+                    res = subprocess.run(["powershell", "-NoProfile", "-Command", search_cmd], capture_output=True, text=True, creationflags=CREATE_NO_WINDOW)
+                    
+                    winget_id = None
+                    # Simple parsing of winget search output (first ID column)
+                    lines = res.stdout.splitlines()
+                    for line in lines:
+                        if app_name.lower() in line.lower() and "ID" not in line and "---" not in line:
+                            parts = re.split(r'\s{2,}', line.strip())
+                            if len(parts) >= 2:
+                                winget_id = parts[1]
+                                break
+                    
+                    if winget_id:
+                        uninst_cmd = f'winget uninstall --id {winget_id} --silent --accept-source-agreements'
+                        self.log_signal.emit(f"Found Winget ID: {winget_id}. Running silent uninstall...", "debug")
+                        subprocess.run(["powershell", "-NoProfile", "-Command", uninst_cmd], creationflags=CREATE_NO_WINDOW)
+                        self.log_signal.emit(f"Uninstallation command sent for {app_name}.", "info")
+                    else:
+                        # Fallback to standard control panel uninstall if possible? 
+                        # For now, just inform user.
+                        self.log_signal.emit(f"Could not find Winget ID for {app_name}. Please uninstall manually via Control Panel.", "warning")
+                except Exception as e:
+                    self.log_signal.emit(f"Error during uninstallation of {app_name}: {e}", "error")
+            
+            self.log_signal.emit("Cleanup process finished.", "success")
+            self.scan_cleanup_signal.emit()
+
+        threading.Thread(target=run_cleanup, daemon=True).start()
 
     def toggle_tools_selection(self, checked):
         state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
@@ -797,50 +1141,118 @@ class GhostyTool(QMainWindow):
 
     def populate_tools_tree(self):
         categories = {}
+        icon_path = os.path.join(self.project_root, "images", "ghosty icon.ico")
+        ghosty_icon = QIcon(icon_path) if os.path.exists(icon_path) else QIcon()
+        
         for tool in self.tools_installer.tools.values():
             cat_name = tool.category.value
             if cat_name not in categories:
                 cat_item = QTreeWidgetItem(self.tools_tree, [cat_name])
                 categories[cat_name] = cat_item
             child = QTreeWidgetItem(categories[cat_name], [tool.name, "Unknown", tool.description])
+            child.setIcon(0, ghosty_icon)
             child.setCheckState(0, Qt.CheckState.Unchecked)
             child.setData(0, Qt.ItemDataRole.UserRole, tool.id)
         self.tools_tree.expandAll()
 
-    def check_tools_status(self):
+    def check_tools_status(self, force=False):
+        if getattr(self, "_checking_tools", False):
+            return
+        if not force and getattr(self, "_tools_status_ever_checked", False):
+            return
+            
+        self._tools_status_ever_checked = True
+        self._checking_tools = True
         self.log_signal.emit("Checking tools status in background...", "info")
         
         def run_check():
             try:
-                results = {}
+                items_to_check = []
                 iterator = QTreeWidgetItemIterator(self.tools_tree)
                 while iterator.value():
                     item = iterator.value()
                     tool_id = item.data(0, Qt.ItemDataRole.UserRole)
                     if tool_id in self.tools_installer.tools:
-                        tool = self.tools_installer.tools[tool_id]
-                        is_inst = self.tools_installer.check_tool_status(tool)
-                        results[tool_id] = is_inst
+                        items_to_check.append((item, self.tools_installer.tools[tool_id]))
                     iterator += 1
-                QTimer.singleShot(0, lambda: self._update_tools_tree(results))
+                
+                # Parallel status checking
+                with ThreadPoolExecutor(max_workers=10) as executor:
+                    futures = []
+                    for item, tool in items_to_check:
+                        # Pass a copy of the item and future to lambda
+                        future = executor.submit(self.tools_installer.check_tool_status, tool)
+                        futures.append((item, future))
+                    
+                    for item, future in futures:
+                        is_inst = future.result()
+                        # Use a closure helper to avoid lambda capture issues
+                        self._dispatch_status_update(item, is_inst)
+                
+                self.log_signal.emit("Tools status check complete.", "success")
             except Exception as e:
                 logger.error(f"Error in tools status check: {e}")
+            finally:
+                self._checking_tools = False
 
         threading.Thread(target=run_check, daemon=True).start()
 
+    def _dispatch_status_update(self, item, is_installed):
+        self.status_update_signal.emit(item, is_installed)
+
+    def _perform_status_update(self, item, is_installed):
+        item.setText(1, "Installed" if is_installed else "Not Installed")
+        if is_installed:
+            item.setForeground(1, Qt.GlobalColor.green)
+        else:
+            item.setForeground(1, Qt.GlobalColor.gray)
+
     def _update_tools_tree(self, results):
+        # Legacy method kept for compatibility if called elsewhere, but we prefer incremental updates now
         iterator = QTreeWidgetItemIterator(self.tools_tree)
         while iterator.value():
             item = iterator.value()
             tool_id = item.data(0, Qt.ItemDataRole.UserRole)
             if tool_id in results:
-                item.setText(1, "Installed" if results[tool_id] else "Not Installed")
-                if results[tool_id]:
-                    item.setForeground(1, Qt.GlobalColor.green)
-                else:
-                    item.setForeground(1, Qt.GlobalColor.gray)
+                self._dispatch_status_update(item, results[tool_id])
             iterator += 1
-        self.log_signal.emit("Tools status updated.", "success")
+
+    def update_all_apps(self):
+        self.log_signal.emit("Checking for updates for all installed applications...", "info")
+        
+        def run_update():
+            try:
+                # Use --silent for non-interactive and --accept-* flags for automation
+                cmd = "winget upgrade --all --silent --accept-package-agreements --accept-source-agreements"
+                self.log_signal.emit(f"Executing: {cmd}", "debug")
+                
+                process = subprocess.Popen(["powershell", "-NoProfile", "-Command", cmd], 
+                                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+                                         text=True, shell=False, creationflags=CREATE_NO_WINDOW)
+                
+                for line in process.stdout:
+                    clean_line = line.strip()
+                    if clean_line:
+                        self.log_signal.emit(f"[Update All] {clean_line}", "debug")
+                
+                process.wait()
+                # Winget exit codes: 0 = Success, 0x8A15003B (-1978236869) = No updates found
+                if process.returncode == 0:
+                    self.log_signal.emit("Successfully updated all eligible applications.", "success")
+                elif process.returncode in [0x8A15003B, -1978236869]:
+                    self.log_signal.emit("No updates found. All applications are up to date.", "info")
+                else:
+                    self.log_signal.emit(f"Update all process finished with code {process.returncode}", "info")
+                
+                # Refresh status
+                self.check_tools_signal.emit(True)
+                
+            except Exception as e:
+                self.log_signal.emit(f"Error during update all: {e}", "error")
+            finally:
+                QTimer.singleShot(2000, self.progress_bar.hide)
+
+        threading.Thread(target=run_update, daemon=True).start()
 
     def install_tools(self):
         selected_ids = []
@@ -860,29 +1272,291 @@ class GhostyTool(QMainWindow):
             self.log_signal.emit(f"Queued installation for {tool.name}", "debug")
             threading.Thread(target=self._install_tool_bg, args=(tool,), daemon=True).start()
 
+    def uninstall_tools(self):
+        selected_ids = []
+        iterator = QTreeWidgetItemIterator(self.tools_tree)
+        while iterator.value():
+            item = iterator.value()
+            if item.checkState(0) == Qt.CheckState.Checked:
+                tool_id = item.data(0, Qt.ItemDataRole.UserRole)
+                if tool_id:
+                    selected_ids.append(tool_id)
+            iterator += 1
+        
+        if not selected_ids:
+            QMessageBox.information(self, "Selection Required", "Please select tools to uninstall.")
+            return
+
+        if QMessageBox.question(self, "Confirm Uninstall", f"Uninstall {len(selected_ids)} selected tools?") != QMessageBox.StandardButton.Yes:
+            return
+
+        self.log_signal.emit(f"Starting uninstallation of {len(selected_ids)} tools...", "info")
+        
+        def run_uninstalls():
+            for tid in selected_ids:
+                tool = self.tools_installer.tools.get(tid)
+                if not tool: continue
+                
+                # Extract winget ID if possible
+                winget_id = None
+                for cmd in tool.install_commands:
+                    match = re.search(r'--id\s+([^\s]+)', cmd)
+                    if match:
+                        winget_id = match.group(1)
+                        break
+                
+                if not winget_id:
+                    self.log_signal.emit(f"Could not determine winget ID for {tool.name}. Skipping.", "warning")
+                    continue
+
+                self.log_signal.emit(f"Uninstalling {tool.name} ({winget_id})...", "info")
+                uninst_cmd = f"winget uninstall --id {winget_id} --silent --accept-source-agreements"
+                self.log_signal.emit(f"Executing: {uninst_cmd}", "debug")
+                
+                try:
+                    process = subprocess.Popen(["powershell", "-NoProfile", "-Command", uninst_cmd], 
+                                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+                                             text=True, shell=False, creationflags=CREATE_NO_WINDOW)
+                    
+                    for line in process.stdout:
+                        clean_line = line.strip()
+                        if clean_line:
+                            self.log_signal.emit(f"[{tool.name}] {clean_line}", "debug")
+                    
+                    process.wait()
+                    if process.returncode == 0:
+                        self.log_signal.emit(f"Successfully uninstalled {tool.name}.", "success")
+                    else:
+                        self.log_signal.emit(f"Uninstallation failed for {tool.name} with code {process.returncode}", "error")
+                except Exception as e:
+                    self.log_signal.emit(f"Error uninstalling {tool.name}: {e}", "error")
+            
+            self.check_tools_signal.emit(True)
+
+        threading.Thread(target=run_uninstalls, daemon=True).start()
+
+    def _update_item_status_by_id(self, tool_id, is_installed):
+        iterator = QTreeWidgetItemIterator(self.tools_tree)
+        while iterator.value():
+            item = iterator.value()
+            if item.data(0, Qt.ItemDataRole.UserRole) == tool_id:
+                self._dispatch_status_update(item, is_installed)
+                break
+            iterator += 1
+
     def _install_tool_bg(self, tool):
         self.log_signal.emit(f"Installing {tool.name}...", "info")
         for cmd in tool.install_commands:
+            # Check for download command to show progress bar (flexible detection)
+            uri_match = re.search(r'-Uri\s+["\']?([^"\']+)["\']?', cmd, re.IGNORECASE)
+            outfile_match = re.search(r'-OutFile\s+["\']?([^"\']+)["\']?', cmd, re.IGNORECASE)
+            
+            if "Invoke-WebRequest" in cmd and uri_match and outfile_match:
+                url = uri_match.group(1)
+                dest = outfile_match.group(1).replace('$env:USERPROFILE', os.environ['USERPROFILE'])
+                dest = os.path.expandvars(dest)
+                
+                self.log_signal.emit(f"Starting prioritized download for {tool.name}...", "info")
+                
+                is_done = threading.Event()
+                worker = DownloadWorker(url, dest, tool_name=tool.name)
+                worker.output.connect(self.log_to_terminal)
+                
+                def on_finish(success, msg):
+                    if not success:
+                        self.log_signal.emit(f"Download failed for {tool.name}: {msg}", "error")
+                    is_done.set()
+                
+                worker.finished.connect(on_finish)
+                worker.start()
+                is_done.wait()
+                QTimer.singleShot(2000, self.progress_bar.hide)
+                continue
+
             self.log_signal.emit(f"Executing: {cmd}", "debug")
             try:
                 process = subprocess.Popen(["powershell", "-NoProfile", "-Command", cmd], 
                                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
                                          text=True, shell=False, creationflags=CREATE_NO_WINDOW)
+                
+                output_captured = []
                 for line in process.stdout:
-                    if line.strip():
-                        self.log_signal.emit(f"[{tool.name}] {line.strip()}", "debug")
+                    clean_line = line.strip()
+                    if clean_line:
+                        output_captured.append(clean_line)
+                        self.log_signal.emit(f"[{tool.name}] {clean_line}", "debug")
+                
                 process.wait()
                 if process.returncode != 0:
-                    self.log_signal.emit(f"Command failed for {tool.name} with code {process.returncode}", "error")
+                    # Check for winget "already installed" or "no upgrade available" which can return code 1 or 0x8A15003B
+                    is_winget = "winget" in cmd.lower()
+                    already_installed = any("already installed" in l.lower() or "no newer package versions" in l.lower() or "no available upgrade" in l.lower() for l in output_captured)
+                    
+                    if is_winget and already_installed:
+                        self.log_signal.emit(f"[{tool.name}] Package is already installed and up to date.", "info")
+                    else:
+                        self.log_signal.emit(f"Command failed for {tool.name} with code {process.returncode}", "error")
             except Exception as e:
                 self.log_signal.emit(f"Error installing {tool.name}: {e}", "error")
+        self.log_signal.emit(f"Verifying installation for {tool.name}...", "info")
         self.tools_installer.check_tool_status(tool)
         if tool.is_installed:
+            self._update_item_status_by_id(tool.id, True)
+            self._brand_tool_installation(tool)
             self.log_signal.emit(f"Successfully installed {tool.name}", "success")
         else:
+            self._update_item_status_by_id(tool.id, False)
             self.log_signal.emit(f"Installation of {tool.name} may have failed or requires restart.", "warning")
         if tool.post_install_message:
             self.log_signal.emit(f"[{tool.name}] {tool.post_install_message}", "info")
+
+    def _brand_tool_installation(self, tool):
+        """Creates a branded shortcut for the installed tool with icon overlay."""
+        try:
+            self.log_signal.emit(f"Applying Ghosty branding to {tool.name}...", "info")
+            # 1. Determine EXE path
+            self.log_signal.emit(f"Locating executable for {tool.name}...", "debug")
+            exe_path = None
+            
+            # Use executable_name if available, fallback to tool name
+            lookup_names = []
+            if getattr(tool, 'executable_name', None):
+                lookup_names.append(tool.executable_name)
+            lookup_names.append(tool.name)
+            if not tool.name.lower().endswith(".exe"):
+                lookup_names.append(f"{tool.name}.exe")
+
+            # A. Look for -OutFile patterns in install commands (manual downloads)
+            for cmd in tool.install_commands:
+                match = re.search(r'-OutFile\s+["\']?([^"\']+\.exe)["\']?', cmd, re.IGNORECASE)
+                if match:
+                    potential_path = match.group(1).replace('$env:USERPROFILE', os.environ['USERPROFILE'])
+                    potential_path = os.path.expandvars(potential_path)
+                    if os.path.exists(potential_path):
+                        exe_path = potential_path
+                        break
+            
+            # B. Try Get-Command via PowerShell for each lookup name
+            if not exe_path:
+                for name in lookup_names:
+                    try:
+                        ps_cmd = ["powershell.exe", "-NoProfile", "-Command", f"Write-Host (Get-Command '{name}' -ErrorAction SilentlyContinue).Source"]
+                        res = subprocess.run(ps_cmd, capture_output=True, text=True, timeout=5, shell=False, creationflags=CREATE_NO_WINDOW)
+                        if res.stdout.strip() and os.path.exists(res.stdout.strip()):
+                            exe_path = res.stdout.strip()
+                            break
+                    except:
+                        continue
+            
+            # C. Robust search in common directories
+            if not exe_path:
+                common_roots = [
+                    os.environ.get('ProgramFiles', 'C:\\Program Files'),
+                    os.environ.get('ProgramFiles(x86)', 'C:\\Program Files (x86)'),
+                    os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Programs')
+                ]
+                
+                for root in common_roots:
+                    if not os.path.exists(root): continue
+                    for name in lookup_names:
+                        # Try exact match in root (unlikely but possible)
+                        # More likely: root/ToolName/ToolName.exe or root/Manufacturer/ToolName.exe
+                        # We'll search one level deep for performance
+                        try:
+                            for item in os.listdir(root):
+                                item_path = os.path.join(root, item)
+                                if os.path.isdir(item_path):
+                                    # Check if name is in this folder
+                                    target = os.path.join(item_path, name if name.lower().endswith(".exe") else f"{name}.exe")
+                                    if os.path.exists(target):
+                                        exe_path = target
+                                        break
+                            if exe_path: break
+                        except:
+                            continue
+                    if exe_path: break
+
+            if not exe_path:
+                self.log_signal.emit(f"Could not find executable for {tool.name} to create branded shortcut.", "debug")
+                return
+
+            self.log_signal.emit(f"Found executable at: {exe_path}", "debug")
+
+            # 2. Find Ghosty Icon
+            ghosty_icon_path = os.path.join(self.project_root, "images", "ghosty icon.ico")
+            if not os.path.exists(ghosty_icon_path):
+                self.log_signal.emit("Ghosty icon not found, skipping branding.", "debug")
+                return
+
+            # 3. Create branded icon (Overlay)
+            branded_icon_path = ghosty_icon_path
+            
+            try:
+                temp_dir = os.path.join(os.environ['TEMP'], 'GhostyBranding')
+                os.makedirs(temp_dir, exist_ok=True)
+                # Use a unique name to avoid conflicts
+                clean_tool_name = "".join([c for c in tool.name if c.isalnum()])
+                original_icon_png = os.path.join(temp_dir, f"{clean_tool_name}_orig.png")
+                final_icon_ico = os.path.join(temp_dir, f"{clean_tool_name}_branded.ico")
+                
+                # Extract original icon via PowerShell
+                ps_extract_cmd = f"""
+                Add-Type -AssemblyName System.Drawing
+                [System.Drawing.Icon]::ExtractAssociatedIcon('{exe_path}').ToBitmap().Save('{original_icon_png}', [System.Drawing.Imaging.ImageFormat]::Png)
+                """
+                
+                subprocess.run(["powershell.exe", "-NoProfile", "-Command", ps_extract_cmd], 
+                             shell=False, capture_output=True, creationflags=CREATE_NO_WINDOW)
+                
+                if os.path.exists(original_icon_png):
+                    # Load images
+                    base = Image.open(original_icon_png).convert("RGBA")
+                    overlay = Image.open(ghosty_icon_path).convert("RGBA")
+                    
+                    # Resize overlay (small in top right)
+                    w, h = base.size
+                    # User requested "small in the top right corner"
+                    ov_w = int(w * 0.4)
+                    ov_h = int(h * 0.4)
+                    overlay = overlay.resize((ov_w, ov_h), Image.Resampling.LANCZOS)
+                    
+                    # Paste in top right
+                    # (w - ov_w) is the X coordinate for top-right
+                    base.paste(overlay, (w - ov_w, 0), overlay)
+                    
+                    # Save as ICO (keeping original size)
+                    base.save(final_icon_ico, format="ICO", sizes=[(w, h)])
+                    branded_icon_path = final_icon_ico
+                    self.log_signal.emit("Created composite branded icon with Ghosty overlay.", "debug")
+            except Exception as e:
+                logger.error(f"Failed to create composite icon: {e}")
+                self.log_signal.emit(f"Using standard Ghosty icon (Overlay failed: {e})", "debug")
+
+            # 4. Create Shortcut
+            self.log_signal.emit(f"Creating branded desktop shortcut for {tool.name}...", "info")
+            desktop = os.path.join(os.environ['USERPROFILE'], 'Desktop')
+            # Sanitize name for filename
+            safe_name = "".join([c for c in tool.name if c.isalnum() or c in (' ', '.', '_', '-')]).strip()
+            shortcut_name = f"{safe_name}.lnk"
+            shortcut_path = os.path.join(desktop, shortcut_name)
+            
+            # Using PowerShell to create the COM object and shortcut
+            ps_shortcut_cmd = f"""
+            $WshShell = New-Object -ComObject WScript.Shell
+            $Shortcut = $WshShell.CreateShortcut('{shortcut_path}')
+            $Shortcut.TargetPath = '{exe_path}'
+            $Shortcut.IconLocation = '{branded_icon_path}'
+            $Shortcut.Description = 'Installed via Ghosty Tools'
+            $Shortcut.Save()
+            """
+            
+            subprocess.run(["powershell.exe", "-NoProfile", "-Command", ps_shortcut_cmd], 
+                         shell=False, creationflags=CREATE_NO_WINDOW)
+            self.log_signal.emit(f"Created branded shortcut for {tool.name} on Desktop.", "success")
+            
+        except Exception as e:
+            logger.error(f"Branding failed for {tool.name}: {e}")
+            self.log_signal.emit(f"Ghosty branding failed for {tool.name}: {e}", "warning")
 
     def setup_passgen_page(self):
         page = QWidget()
@@ -1114,13 +1788,19 @@ class GhostyTool(QMainWindow):
             "disable_news": QCheckBox("Disable News and Interests"),
             "show_file_ext": QCheckBox("Show file extensions"),
             "show_hidden": QCheckBox("Show hidden files (incl. protected)"),
+            "disable_game_mode": QCheckBox("Disable Game Mode"),
+            "disable_background_apps": QCheckBox("Disable Background Apps"),
+            "disable_reserved_storage": QCheckBox("Disable Reserved Storage"),
+            "disable_fast_startup": QCheckBox("Disable Fast Startup"),
+            "disable_search_indexing": QCheckBox("Disable Search Indexing"),
+            "disable_sysmain": QCheckBox("Disable Superfetch (SysMain)"),
         }
 
         # Categories mapping
         categories = {
-            "Privacy & Security": ["disable_telemetry", "disable_activity", "disable_location", "disable_wifi_sense", "disable_web_search", "disable_ad_id", "disable_spotlight"],
-            "System Performance": ["delete_temp", "disable_gamedvr", "disable_hibernation", "disable_storage_sense", "prefer_ipv4", "ultimate_performance"],
-            "Interface & Services": ["enable_end_task", "disable_homegroup", "set_services_manual", "classic_context_menu", "disable_copilot", "disable_news", "show_file_ext", "show_hidden"]
+            "Privacy & Security": ["disable_telemetry", "disable_activity", "disable_location", "disable_wifi_sense", "disable_web_search", "disable_ad_id", "disable_spotlight", "disable_background_apps"],
+            "System Performance": ["delete_temp", "disable_gamedvr", "disable_hibernation", "disable_storage_sense", "prefer_ipv4", "ultimate_performance", "disable_game_mode", "disable_reserved_storage", "disable_fast_startup", "disable_sysmain"],
+            "Interface & Services": ["enable_end_task", "disable_homegroup", "set_services_manual", "classic_context_menu", "disable_copilot", "disable_news", "show_file_ext", "show_hidden", "disable_search_indexing"]
         }
 
         for cat_name, tweak_keys in categories.items():
@@ -1160,7 +1840,8 @@ class GhostyTool(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         
-        info_label = QLabel("Ghosty Tool v6.1")
+        ver = self.update_manager.current_version
+        info_label = QLabel(f"Ghosty Tool {ver}")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         info_label.setStyleSheet("color: #4158D0; margin-top: 20px;")
@@ -1172,10 +1853,16 @@ class GhostyTool(QMainWindow):
         sub_label.setStyleSheet("color: #888; margin-bottom: 20px;")
         layout.addWidget(sub_label)
 
-        features_group = QGroupBox("What's New in v6.1")
+        site_label = QLabel('Official Website: <a href="https://ghostyware.com" style="color: #4158D0; text-decoration: none;">ghostyware.com</a>')
+        site_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        site_label.setFont(QFont("Segoe UI", 11))
+        site_label.setOpenExternalLinks(True)
+        layout.addWidget(site_label)
+
+        features_group = QGroupBox(f"What's New in {ver}")
         features_layout = QVBoxLayout()
         features_text = QLabel(
-            "• 🚀 <b>V6.1 Milestone:</b> A major leap forward in stability and performance.<br>"
+            f"• 🚀 <b>{ver} Milestone:</b> A major leap forward in stability and performance.<br>"
             "• 🛠️ <b>EXE Engine:</b> Rewritten resource handling to eliminate missing components in bundled builds.<br>"
             "• ⚡ <b>Speedtest:</b> Fully restored and compatible with the latest speedtest-cli API.<br>"
             "• 📁 <b>Unified Core:</b> Streamlined backend modules for faster execution.<br>"
@@ -1519,6 +2206,7 @@ class GhostyTool(QMainWindow):
 
     def _on_maintenance_finished(self, res):
         self.log_signal.emit(res, "success")
+        QTimer.singleShot(2000, self.progress_bar.hide)
         QMessageBox.information(self, "Maintenance", res)
 
     def run_disk_cleanup(self):
@@ -1604,6 +2292,12 @@ class GhostyTool(QMainWindow):
                 elif name == "disable_news": self._disable_news_and_interests()
                 elif name == "show_file_ext": self._show_file_extensions()
                 elif name == "show_hidden": self._show_hidden_files()
+                elif name == "disable_game_mode": self._disable_game_mode()
+                elif name == "disable_background_apps": self._disable_background_apps()
+                elif name == "disable_reserved_storage": self._disable_reserved_storage()
+                elif name == "disable_fast_startup": self._disable_fast_startup()
+                elif name == "disable_search_indexing": self._disable_search_indexing()
+                elif name == "disable_sysmain": self._disable_sysmain()
                 elif name == "set_services_manual": 
                     self._set_services_to_manual(["DiagTrack", "dmwappushservice", "RemoteRegistry"])
             self.log_signal.emit("Selected tweaks applied successfully.", "success")
@@ -1791,3 +2485,44 @@ class GhostyTool(QMainWindow):
             winreg.CloseKey(key)
         except Exception as e:
             logger.error(f"Show hidden files tweak failed: {e}")
+
+    def _disable_game_mode(self):
+        try:
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\GameBar")
+            winreg.SetValueEx(key, "AllowAutoGameMode", 0, winreg.REG_DWORD, 0)
+            winreg.CloseKey(key)
+        except Exception as e: logger.error(f"Game Mode tweak failed: {e}")
+
+    def _disable_background_apps(self):
+        try:
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications")
+            winreg.SetValueEx(key, "GlobalUserDisabled", 0, winreg.REG_DWORD, 1)
+            winreg.CloseKey(key)
+            key2 = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Search")
+            winreg.SetValueEx(key2, "BackgroundAppGlobalToggle", 0, winreg.REG_DWORD, 0)
+            winreg.CloseKey(key2)
+        except Exception as e: logger.error(f"Background Apps tweak failed: {e}")
+
+    def _disable_reserved_storage(self):
+        try:
+            subprocess.run(["DISM.exe", "/Online", "/Set-ReservedStorageState", "/State:Disabled"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
+        except Exception as e: logger.error(f"Reserved Storage tweak failed: {e}")
+
+    def _disable_fast_startup(self):
+        try:
+            key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Power")
+            winreg.SetValueEx(key, "HiberbootEnabled", 0, winreg.REG_DWORD, 0)
+            winreg.CloseKey(key)
+        except Exception as e: logger.error(f"Fast Startup tweak failed: {e}")
+
+    def _disable_search_indexing(self):
+        try:
+            subprocess.run(["sc", "stop", "WSearch"], shell=False, check=False, creationflags=CREATE_NO_WINDOW)
+            subprocess.run(["sc", "config", "WSearch", "start=", "disabled"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
+        except Exception as e: logger.error(f"Search Indexing tweak failed: {e}")
+
+    def _disable_sysmain(self):
+        try:
+            subprocess.run(["sc", "stop", "SysMain"], shell=False, check=False, creationflags=CREATE_NO_WINDOW)
+            subprocess.run(["sc", "config", "SysMain", "start=", "disabled"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
+        except Exception as e: logger.error(f"SysMain tweak failed: {e}")

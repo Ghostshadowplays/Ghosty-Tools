@@ -10,6 +10,14 @@ from src.utils.helpers import get_config_dir
 logger = logging.getLogger(__name__)
 
 CURRENT_VERSION = "v6.1"
+try:
+    _version_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config", "version.json")
+    if os.path.exists(_version_path):
+        with open(_version_path, "r") as _f:
+            CURRENT_VERSION = json.load(_f).get("version", "v6.1")
+except:
+    pass
+
 REPO_URL = "https://api.github.com/repos/Ghostshadowplays/Ghosty-Tools/releases/latest"
 
 class UpdateManager:

@@ -437,3 +437,50 @@ class MonitoringSetupWorker(QThread):
             self.finished.emit(True, "LibreHardwareMonitor launched successfully.")
         except Exception as e:
             self.finished.emit(False, f"Launch error: {e}")
+            return
+
+class DownloadWorker(QThread):
+    finished = pyqtSignal(bool, str) # success, message
+    output = pyqtSignal(str, str) # message, level
+    
+    def __init__(self, url, dest_path, tool_name=None):
+        super().__init__()
+        self.url = url
+        self.dest_path = dest_path
+        self.tool_name = tool_name
+
+    def run(self):
+        try:
+            # Ensure destination directory exists
+            dest_dir = os.path.dirname(self.dest_path)
+            if dest_dir:
+                os.makedirs(dest_dir, exist_ok=True)
+
+            prefix = f"[{self.tool_name}] " if self.tool_name else ""
+            self.output.emit(f"{prefix}Downloading from {self.url}...", "info")
+            
+            # Use a realistic User-Agent to avoid blocks
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+            
+            response = requests.get(self.url, stream=True, headers=headers, timeout=30)
+            response.raise_for_status()
+            
+            total_size = int(response.headers.get('content-length', 0))
+            downloaded = 0
+            
+            with open(self.dest_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total_size > 0:
+                            percent = (downloaded / total_size) * 100
+                            self.output.emit(f"{prefix}Download Progress: {percent:.1f}%", "debug")
+            
+            self.finished.emit(True, f"Download completed: {self.dest_path}")
+            
+        except Exception as e:
+            logger.error(f"Download error: {e}")
+            self.finished.emit(False, str(e))

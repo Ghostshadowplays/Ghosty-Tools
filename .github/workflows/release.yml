@@ -42,7 +42,6 @@ jobs:
             --icon="python-gui/assets/ghosty icon.ico" `
             --add-data "python-gui/config;config" `
             --add-data "python-gui/assets;python-gui/assets" `
-            --add-data "powershell;powershell" `
             --add-binary "$pythonDll;." `
             --name "GhostyTools" `
             python-gui/main.py
