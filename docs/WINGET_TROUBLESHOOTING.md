@@ -39,7 +39,7 @@ Go to your Pull Request on GitHub. Look for comments from the **WinGet Bot** or 
 ## 3. How to Update Your Submission
 If you used `wingetcreate`:
 1. Update your local manifest with the latest fixes.
-2. Run: `wingetcreate submit manifests\g\Ghostshadowplays\GhostyTools\7.0.0\Ghostshadowplays.GhostyTools.yaml` again.
+2. Run: `wingetcreate submit manifests\g\Ghostshadowplays\GhostyTools\7.0\Ghostshadowplays.GhostyTools.yaml` again.
 
 If you submitted manually:
 1. Update the file in your fork.
@@ -51,7 +51,7 @@ If you see a link to the "Validation Guide" in the PR, it usually refers to this
 ### Important: Folder Structure & Case Sensitivity
 The WinGet bot is extremely strict about the folder structure in the `microsoft/winget-pkgs` repository. Your manifest MUST be placed in exactly this path:
 
-`manifests/g/Ghostshadowplays/GhostyTools/7.0.0/Ghostshadowplays.GhostyTools.yaml`
+`manifests/g/Ghostshadowplays/GhostyTools/7.0/Ghostshadowplays.GhostyTools.yaml`
 
 **Common Mistakes:**
 1. **Wrong Folder Name:** The folder must be `GhostyTools` (no hyphen, matching the ID).
