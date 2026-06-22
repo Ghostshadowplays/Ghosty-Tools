@@ -34,7 +34,7 @@ class UpdateManager:
             data = response.json()
             latest_version = data.get("tag_name", "")
             
-            if latest_version and latest_version != self.current_version:
+            if latest_version and self._is_newer(latest_version, self.current_version):
                 return {
                     "available": True,
                     "latest_version": latest_version,
@@ -46,6 +46,29 @@ class UpdateManager:
             logger.error(f"Failed to check for updates: {e}")
         
         return {"available": False}
+
+    def _is_newer(self, remote, local):
+        """Returns True if remote version is strictly newer than local."""
+        def normalize(v):
+            if not v: return [0]
+            # Remove 'v' and suffixes like '-beta'
+            v_clean = v.lower().lstrip('v').split('-')[0]
+            return [int(x) for x in v_clean.split('.') if x.isdigit()]
+        
+        try:
+            r_parts = normalize(remote)
+            l_parts = normalize(local)
+            
+            # Compare part by part
+            for i in range(max(len(r_parts), len(l_parts))):
+                rv = r_parts[i] if i < len(r_parts) else 0
+                lv = l_parts[i] if i < len(l_parts) else 0
+                if rv > lv: return True
+                if rv < lv: return False
+            return False
+        except Exception:
+            # Fallback to simple inequality if parsing fails
+            return remote != local
 
     def get_last_seen_version(self):
         """Returns the version the user last acknowledged."""
