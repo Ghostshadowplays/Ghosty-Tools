@@ -38,8 +38,8 @@ Go to your Pull Request on GitHub. Look for comments from the **WinGet Bot** or 
 
 ## 3. How to Update Your Submission
 If you used `wingetcreate`:
-1. Update your local manifest with the latest fixes.
-2. Run: `wingetcreate submit manifests\g\Ghostshadowplays\GhostyTools\7.0\Ghostshadowplays.GhostyTools.yaml` again.
+1. Update your local manifest files with the latest fixes.
+2. Run: `wingetcreate submit manifests\g\Ghostshadowplays\GhostyTools\7.0\` again.
 
 If you submitted manually:
 1. Update the file in your fork.
@@ -49,15 +49,19 @@ If you submitted manually:
 If you see a link to the "Validation Guide" in the PR, it usually refers to this: [WinGet Manifest Validation Guide](https://github.com/microsoft/winget-pkgs/blob/master/doc/validation.md).
 
 ### Important: Folder Structure & Case Sensitivity
-The WinGet bot is extremely strict about the folder structure in the `microsoft/winget-pkgs` repository. Your manifest MUST be placed in exactly this path:
+The WinGet bot is extremely strict about the folder structure and multi-file requirements in the `microsoft/winget-pkgs` repository. Your manifest MUST be split into 3 files and placed in exactly this path:
 
-`manifests/g/Ghostshadowplays/GhostyTools/7.0/Ghostshadowplays.GhostyTools.yaml`
+`manifests/g/Ghostshadowplays/GhostyTools/7.0/`
+- `Ghostshadowplays.GhostyTools.yaml` (Version)
+- `Ghostshadowplays.GhostyTools.installer.yaml` (Installer)
+- `Ghostshadowplays.GhostyTools.locale.en-US.yaml` (Locale)
 
 **Common Mistakes:**
 1. **Wrong Folder Name:** The folder must be `GhostyTools` (no hyphen, matching the ID).
 2. **Case Sensitivity:** `Ghostshadowplays` and `GhostyTools` must have the exact same casing as the `PackageIdentifier`.
-3. **Wrong File Name:** The file must be named `Ghostshadowplays.GhostyTools.yaml`, not `manifest.yml`.
-4. **Wrong Partition:** The `g` folder is correct because the publisher starts with `G`.
+3. **Wrong File Names:** The files must follow the `<Publisher>.<AppName>.<Type>.yaml` naming convention.
+4. **Missing Files:** All three manifests (version, installer, and locale) must be present for schema 1.12.0.
+5. **Wrong Partition:** The `g` folder is correct because the publisher starts with `G`.
 
 ### Manifest Version
 Ensure you are using `ManifestVersion: 1.12.0` (or newer) as required by the latest WinGet validation pipelines.
