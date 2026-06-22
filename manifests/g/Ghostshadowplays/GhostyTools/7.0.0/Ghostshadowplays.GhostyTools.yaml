@@ -1,7 +1,8 @@
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.6.0.schema.json
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.12.0.schema.json
 
 PackageIdentifier: Ghostshadowplays.GhostyTools
 PackageVersion: 7.0.0
+PackageLocale: en-US
 PackageName: Ghosty Tools
 Publisher: Ghostshadowplays
 PublisherUrl: https://github.com/Ghostshadowplays
@@ -9,12 +10,14 @@ PublisherSupportUrl: https://github.com/Ghostshadowplays/Ghosty-Tools/issues
 Author: Ghostshadowplays
 PackageUrl: https://github.com/Ghostshadowplays/Ghosty-Tools
 License: GPL-3.0
-LicenseUrl: https://github.com/Ghostshadowplays/Ghosty-Tools/blob/main/LICENSE
+LicenseUrl: https://raw.githubusercontent.com/Ghostshadowplays/Ghosty-Tools/main/LICENSE
 Copyright: Copyright (c) 2026 Ghostshadowplays
+
 ShortDescription: Professional All-in-One Cross-Platform Optimization & Security Suite
 Description: |
-  Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows and Linux environments. 
+  Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows and Linux environments.
   Built with a focus on Security First, it combines system maintenance, security auditing, and professional-grade password management into a single, sleek interface.
+
 Moniker: ghosty-tools
 Tags:
   - optimization
@@ -23,11 +26,23 @@ Tags:
   - debloat
   - password-manager
   - system-tools
+
+ReleaseDate: 2026-06-22
+
 Installers:
   - Architecture: x64
-    InstallerType: portable
+    InstallerType: exe
     InstallerUrl: https://github.com/Ghostshadowplays/Ghosty-Tools/releases/download/v7.0/GhostyTools.exe
     InstallerSha256: D7E40050621824C5A1A1BA056E53EA3DC11C15A70C8BA35EEEFDFBEB16D43FA3
+    InstallerSwitches:
+      Silent: ""
+      SilentWithProgress: ""
     UpgradeBehavior: install
+    ElevationRequirement: elevatesSelf
+    AppsAndFeaturesEntries:
+      - DisplayName: Ghosty Tools
+        Publisher: Ghostshadowplays
+        DisplayVersion: 7.0.0
+
 ManifestType: singleton
-ManifestVersion: 1.6.0
+ManifestVersion: 1.12.0
