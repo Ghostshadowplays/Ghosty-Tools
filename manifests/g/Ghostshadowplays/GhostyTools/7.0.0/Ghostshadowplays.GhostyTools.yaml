@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.12.0.schema.json
 
 PackageIdentifier: Ghostshadowplays.GhostyTools
-PackageVersion: 7.0
+PackageVersion: 7.0.0
 PackageLocale: en-US
 PackageName: Ghosty Tools
 Publisher: Ghostshadowplays
@@ -31,13 +31,12 @@ ReleaseDate: 2026-06-22
 
 Installers:
   - Architecture: x64
-    InstallerType: exe
+    InstallerType: portable
     InstallerUrl: https://github.com/Ghostshadowplays/Ghosty-Tools/releases/download/v7.0/GhostyTools.exe
     InstallerSha256: D7E40050621824C5A1A1BA056E53EA3DC11C15A70C8BA35EEEFDFBEB16D43FA3
-    InstallerSwitches:
-      Silent: ""
-      SilentWithProgress: ""
     UpgradeBehavior: install
+    Commands:
+      - GhostyTools
     ElevationRequirement: elevatesSelf
     AppsAndFeaturesEntries:
       - DisplayName: Ghosty Tools
