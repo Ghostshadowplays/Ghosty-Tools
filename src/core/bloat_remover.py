@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import json
 import logging
@@ -86,6 +87,8 @@ class BloatRemover:
             logger.error(f"Failed to load bloatware config: {e}")
 
     def execute_powershell(self, command, timeout=300):
+        if sys.platform != 'win32':
+            return False, "", "PowerShell is not available on this platform."
         try:
             ps_command = ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command]
             result = subprocess.run(ps_command, capture_output=True, text=True, timeout=timeout, shell=False, creationflags=CREATE_NO_WINDOW)

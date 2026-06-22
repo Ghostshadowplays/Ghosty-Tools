@@ -6,7 +6,10 @@ import sys
 
 import requests
 import zipfile
-import winreg
+try:
+    import winreg
+except ImportError:
+    winreg = None
 import platform
 import psutil
 
@@ -84,19 +87,30 @@ class MaintenanceWorker(QThread):
 
     def run(self):
         try:
-            commands = [
-                ("DISM CheckHealth", "DISM.exe /Online /Cleanup-Image /CheckHealth"),
-                ("DISM ScanHealth", "DISM.exe /Online /Cleanup-Image /ScanHealth"),
-                ("DISM RestoreHealth", "DISM.exe /Online /Cleanup-Image /RestoreHealth"),
-                ("SFC Scan", "sfc /scannow"),
-                ("GPUpdate", "gpupdate /force"),
-                ("CHKDSK", f"echo y | chkdsk {self.drive_letter}: /f /r")
-            ]
+            if sys.platform == 'win32':
+                commands = [
+                    ("DISM CheckHealth", "DISM.exe /Online /Cleanup-Image /CheckHealth"),
+                    ("DISM ScanHealth", "DISM.exe /Online /Cleanup-Image /ScanHealth"),
+                    ("DISM RestoreHealth", "DISM.exe /Online /Cleanup-Image /RestoreHealth"),
+                    ("SFC Scan", "sfc /scannow"),
+                    ("GPUpdate", "gpupdate /force"),
+                    ("CHKDSK", f"echo y | chkdsk {self.drive_letter}: /f /r")
+                ]
+                cmd_prefix = ["powershell", "-NoProfile", "-Command"]
+            else:
+                commands = [
+                    ("APT Update", "apt update"),
+                    ("APT Upgrade", "apt upgrade -y"),
+                    ("APT Autoremove", "apt autoremove -y"),
+                    ("APT Clean", "apt clean"),
+                    ("Journal Cleanup", "journalctl --vacuum-time=1d")
+                ]
+                cmd_prefix = ["bash", "-c"]
             
             for name, cmd in commands:
                 self.output.emit(f"Running {name}...", "info")
                 process = subprocess.Popen(
-                    ["powershell", "-NoProfile", "-Command", cmd],
+                    cmd_prefix + [cmd],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
@@ -130,8 +144,9 @@ class GenericCommandWorker(QThread):
 
     def run(self):
         try:
+            cmd_prefix = ["powershell", "-NoProfile", "-Command"] if sys.platform == 'win32' else ["bash", "-c"]
             process = subprocess.Popen(
-                ["powershell", "-NoProfile", "-Command", self.command],
+                cmd_prefix + [self.command],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,

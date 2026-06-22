@@ -1165,7 +1165,7 @@ class GhostyTool(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         
-        info_label = QLabel("Ghosty Tool v6.2")
+        info_label = QLabel("Ghosty Tool v7.0")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         info_label.setStyleSheet("color: #4158D0; margin-top: 20px;")
@@ -1177,15 +1177,15 @@ class GhostyTool(QMainWindow):
         sub_label.setStyleSheet("color: #888; margin-bottom: 20px;")
         layout.addWidget(sub_label)
 
-        features_group = QGroupBox("What's New in v6.2")
+        features_group = QGroupBox("What's New in v7.0")
         features_layout = QVBoxLayout()
         features_text = QLabel(
-            "• 🚀 <b>V6.2 Milestone:</b> A major leap forward in stability and performance.<br>"
-            "• 🛠️ <b>EXE Engine:</b> Rewritten resource handling to eliminate missing components in bundled builds.<br>"
-            "• ⚡ <b>Speedtest:</b> Fully restored and compatible with the latest speedtest-cli API.<br>"
-            "• 📁 <b>Unified Core:</b> Streamlined backend modules for faster execution.<br>"
-            "• 🛡️ <b>Security Hardening:</b> Continuous auditing and improved encryption for ShadowKeys.<br>"
-            "• 🧩 <b>Stability:</b> Fixed several UI freezing issues and improved error logging."
+            "• 🐧 <b>V7.0 Milestone:</b> The Linux Era - Experimental support for Linux systems!<br>"
+            "• 🌐 <b>Cross-Platform:</b> New architecture allowing Ghosty Tools to run on Windows and Linux.<br>"
+            "• 🏗️ <b>Unified Build System:</b> Automated GitHub Actions for both .exe and Linux binaries.<br>"
+            "• 🛡️ <b>Linux Security:</b> New security scanner checks for UFW, SSH, and root login on Linux.<br>"
+            "• 🔧 <b>Linux Maintenance:</b> Integrated apt and journalctl cleanup tools.<br>"
+            "• 🧩 <b>Dynamic UI:</b> Interface now adapts its layout and features based on the detected OS."
         )
         features_text.setTextFormat(Qt.TextFormat.RichText)
         features_text.setWordWrap(True)

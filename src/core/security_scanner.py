@@ -1,8 +1,50 @@
 import subprocess
+import sys
+import os
 
 CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
 class SecurityScanner:
+    def get_report(self):
+        issues = []
+        if sys.platform == 'win32':
+            issues.append(self._check_windows_defender())
+            issues.append(self._check_firewall())
+            issues.append(self._check_uac())
+            issues.append(self._check_smbv1())
+            issues.append(self._check_shares())
+        else:
+            issues.append(self._check_linux_firewall())
+            issues.append(self._check_ssh_status())
+            issues.append(self._check_root_login())
+        return issues
+
+    def _check_linux_firewall(self):
+        try:
+            res = subprocess.run(["ufw", "status"], capture_output=True, text=True)
+            if "inactive" in res.stdout.lower():
+                return "UFW Firewall is Inactive", "High"
+            return "UFW Firewall is Active", "Low"
+        except: return "ufw firewall not found", "Medium"
+
+    def _check_ssh_status(self):
+        try:
+            res = subprocess.run(["systemctl", "is-active", "ssh"], capture_output=True, text=True)
+            if "active" in res.stdout.lower():
+                return "SSH Service is Active (Ensure it's needed)", "Medium"
+            return "SSH Service is Inactive", "Low"
+        except: return "SSH service not found", "Low"
+
+    def _check_root_login(self):
+        try:
+            if os.path.exists("/etc/ssh/sshd_config"):
+                with open("/etc/ssh/sshd_config", "r") as f:
+                    content = f.read()
+                    if "PermitRootLogin yes" in content:
+                        return "SSH Root Login is Enabled", "High"
+            return "SSH Root Login is Disabled/Default", "Low"
+        except: return "Could not check SSH config", "Low"
+
     def _check_windows_defender(self):
         try:
             ps_cmd = 'Get-MpComputerStatus | Select-Object AntivirusEnabled, RealTimeProtectionEnabled'
@@ -47,11 +89,3 @@ class SecurityScanner:
             return "No Active Network Shares", "Low"
         except: return "Error checking Shares", "Low"
 
-    def get_report(self):
-        issues = []
-        issues.append(self._check_windows_defender())
-        issues.append(self._check_firewall())
-        issues.append(self._check_uac())
-        issues.append(self._check_smbv1())
-        issues.append(self._check_shares())
-        return issues

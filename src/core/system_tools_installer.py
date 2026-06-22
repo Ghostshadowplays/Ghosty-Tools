@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import json
 import logging
@@ -105,6 +106,26 @@ class SystemToolsInstaller:
             logger.error(f"Failed to load system tools config: {e}")
 
     def check_tool_status(self, tool):
+        if sys.platform != 'win32':
+            try:
+                # On Linux, try 'which' or 'command -v'
+                exec_name = tool.executable_name or tool.name.lower().replace(" ", "-")
+                if exec_name.endswith(".exe"): exec_name = exec_name[:-4]
+                
+                res = subprocess.run(["which", exec_name], capture_output=True, text=True)
+                if res.returncode == 0:
+                    tool.is_installed = True
+                    return True
+                
+                # Check for common linux names
+                for alt in [tool.name.lower(), tool.name.lower().replace(" ", "")]:
+                    if subprocess.run(["which", alt], capture_output=True).returncode == 0:
+                        tool.is_installed = True
+                        return True
+            except: pass
+            
+            tool.is_installed = False
+            return False
         try:
             # 1. Try defined check_command
             ps_cmd = ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", tool.check_command]

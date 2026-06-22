@@ -23,6 +23,8 @@ try:
 except Exception:
     winreg = None 
 import pyperclip
+
+CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 import zipfile
 import requests
 from PIL import Image
@@ -163,6 +165,21 @@ class GhostyTool(QMainWindow):
         self.dark_mode_btn = QPushButton("Toggle Theme")
         self.dark_mode_btn.clicked.connect(self.toggle_windows_theme)
         self.sidebar_layout.addWidget(self.dark_mode_btn)
+
+        # Platform check - Custom Linux GUI
+        if sys.platform != 'win32':
+            # Hide Debloat, Tweaks and theme toggle as they are currently Windows-specific
+            for i in [3, 8]:
+                self.nav_buttons[i].setVisible(False)
+            
+            self.dark_mode_btn.setVisible(False)
+            
+            # Update labels for Linux to be more generic
+            self.nav_buttons[1].setText("System Maintenance")
+            self.nav_buttons[5].setText("System Cleanup")
+            
+            # Branding update for Linux
+            title_label.setText("GHOSTY TOOLS 🐧")
 
         self.main_layout.addWidget(self.sidebar)
 
@@ -584,7 +601,12 @@ class GhostyTool(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         
-        maint_btn = QPushButton("Run Full System Maintenance (SFC, DISM, CHKDSK)")
+        maint_btn = QPushButton("Run Full System Maintenance")
+        if sys.platform == 'win32':
+            maint_btn.setText("Run Full System Maintenance (SFC, DISM, CHKDSK)")
+        else:
+            maint_btn.setText("Run Full System Maintenance (APT Update/Upgrade)")
+
         maint_btn.setMinimumHeight(40)
         maint_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         maint_btn.clicked.connect(self.run_system_maintenance)
@@ -596,13 +618,14 @@ class GhostyTool(QMainWindow):
         dns_btn.clicked.connect(self.flush_dns)
         layout.addWidget(dns_btn)
 
-        cleanup_btn = QPushButton("Run Disk Cleanup")
+        cleanup_btn = QPushButton("Run System Cleanup")
         cleanup_btn.setMinimumHeight(40)
         cleanup_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
         cleanup_btn.clicked.connect(self.run_disk_cleanup)
         layout.addWidget(cleanup_btn)
 
-        update_group = QGroupBox("Windows Updates")
+        update_group_title = "System Updates" if sys.platform != 'win32' else "Windows Updates"
+        update_group = QGroupBox(update_group_title)
         update_layout = QVBoxLayout()
         self.update_status = QLabel("Status: Idle")
         check_update_btn = QPushButton("Check for Updates")
@@ -619,37 +642,38 @@ class GhostyTool(QMainWindow):
         update_group.setLayout(update_layout)
         layout.addWidget(update_group)
 
-        restore_btn = QPushButton("Create System Restore Point")
-        restore_btn.setMinimumHeight(40)
-        restore_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
-        restore_btn.clicked.connect(self.create_restore_point)
-        layout.addWidget(restore_btn)
+        if sys.platform == 'win32':
+            restore_btn = QPushButton("Create System Restore Point")
+            restore_btn.setMinimumHeight(40)
+            restore_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
+            restore_btn.clicked.connect(self.create_restore_point)
+            layout.addWidget(restore_btn)
 
-        disk_tools_group = QGroupBox("Advanced Disk Tools")
-        disk_tools_layout = QVBoxLayout()
-        disk_selection_layout = QHBoxLayout()
-        disk_selection_layout.addWidget(QLabel("Select Disk:"))
-        self.disk_combo = QComboBox()
-        disk_selection_layout.addWidget(self.disk_combo)
-        refresh_disks_btn = QPushButton("Refresh List")
-        refresh_disks_btn.setFixedWidth(100)
-        refresh_disks_btn.clicked.connect(self.refresh_disk_list)
-        disk_selection_layout.addWidget(refresh_disks_btn)
-        disk_tools_layout.addLayout(disk_selection_layout)
-        
-        mbr2gpt_btn_layout = QHBoxLayout()
-        validate_mbr2gpt_btn = QPushButton("1. Validate Disk for GPT")
-        validate_mbr2gpt_btn.setToolTip("Checks if the selected disk can be converted to GPT.")
-        validate_mbr2gpt_btn.clicked.connect(self.validate_mbr2gpt)
-        convert_mbr2gpt_btn = QPushButton("2. Convert Disk to GPT")
-        convert_mbr2gpt_btn.setToolTip("Converts the selected disk from MBR to GPT.")
-        convert_mbr2gpt_btn.clicked.connect(self.convert_mbr2gpt)
-        mbr2gpt_btn_layout.addWidget(validate_mbr2gpt_btn)
-        mbr2gpt_btn_layout.addWidget(convert_mbr2gpt_btn)
-        disk_tools_layout.addLayout(mbr2gpt_btn_layout)
-        
-        disk_tools_group.setLayout(disk_tools_layout)
-        layout.addWidget(disk_tools_group)
+            disk_tools_group = QGroupBox("Advanced Disk Tools")
+            disk_tools_layout = QVBoxLayout()
+            disk_selection_layout = QHBoxLayout()
+            disk_selection_layout.addWidget(QLabel("Select Disk:"))
+            self.disk_combo = QComboBox()
+            disk_selection_layout.addWidget(self.disk_combo)
+            refresh_disks_btn = QPushButton("Refresh List")
+            refresh_disks_btn.setFixedWidth(100)
+            refresh_disks_btn.clicked.connect(self.refresh_disk_list)
+            disk_selection_layout.addWidget(refresh_disks_btn)
+            disk_tools_layout.addLayout(disk_selection_layout)
+            
+            mbr2gpt_btn_layout = QHBoxLayout()
+            validate_mbr2gpt_btn = QPushButton("1. Validate Disk for GPT")
+            validate_mbr2gpt_btn.setToolTip("Checks if the selected disk can be converted to GPT.")
+            validate_mbr2gpt_btn.clicked.connect(self.validate_mbr2gpt)
+            convert_mbr2gpt_btn = QPushButton("2. Convert Disk to GPT")
+            convert_mbr2gpt_btn.setToolTip("Converts the selected disk from MBR to GPT.")
+            convert_mbr2gpt_btn.clicked.connect(self.convert_mbr2gpt)
+            mbr2gpt_btn_layout.addWidget(validate_mbr2gpt_btn)
+            mbr2gpt_btn_layout.addWidget(convert_mbr2gpt_btn)
+            disk_tools_layout.addLayout(mbr2gpt_btn_layout)
+            
+            disk_tools_group.setLayout(disk_tools_layout)
+            layout.addWidget(disk_tools_group)
 
         layout.addStretch()
         self.content_stack.addWidget(page)
@@ -1373,11 +1397,33 @@ class GhostyTool(QMainWindow):
                 QTimer.singleShot(2000, self.progress_bar.hide)
                 continue
 
+            # Platform translation for Linux
+            if sys.platform != 'win32':
+                if "winget install" in cmd.lower():
+                    pkg = tool.id
+                    # Basic mapping for common tools in the catalog
+                    mapping = {
+                        "brave": "brave-browser", 
+                        "vscode": "code", 
+                        "7zip": "p7zip-full", 
+                        "git": "git", 
+                        "python": "python3", 
+                        "vlc": "vlc",
+                        "chrome": "google-chrome-stable",
+                        "discord": "discord"
+                    }
+                    pkg = mapping.get(tool.id, tool.id)
+                    cmd = f"sudo apt-get install -y {pkg}"
+                elif ".exe" in cmd.lower() or "powershell" in cmd.lower() or "msiexec" in cmd.lower():
+                    self.log_signal.emit(f"Skipping Windows-only command for {tool.name}", "debug")
+                    continue
+
             self.log_signal.emit(f"Executing: {cmd}", "debug")
             try:
-                process = subprocess.Popen(["powershell", "-NoProfile", "-Command", cmd], 
+                cmd_prefix = ["powershell", "-NoProfile", "-Command"] if sys.platform == 'win32' else ["bash", "-c"]
+                process = subprocess.Popen(cmd_prefix + [cmd], 
                                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
-                                         text=True, shell=False, creationflags=CREATE_NO_WINDOW)
+                                         text=True, shell=False, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
                 
                 output_captured = []
                 for line in process.stdout:
@@ -1412,6 +1458,8 @@ class GhostyTool(QMainWindow):
 
     def _brand_tool_installation(self, tool):
         """Creates a branded shortcut for the installed tool with icon overlay."""
+        if sys.platform != 'win32':
+            return # Branding/Shortcuts are currently Windows-only
         try:
             self.log_signal.emit(f"Applying Ghosty branding to {tool.name}...", "info")
             # 1. Determine EXE path
@@ -1847,7 +1895,10 @@ class GhostyTool(QMainWindow):
         info_label.setStyleSheet("color: #4158D0; margin-top: 20px;")
         layout.addWidget(info_label)
 
-        sub_label = QLabel("The Ultimate Windows Optimization & Security Suite")
+        sub_label_text = "The Ultimate Windows Optimization & Security Suite"
+        if sys.platform != 'win32':
+            sub_label_text = "The Ultimate Cross-Platform Optimization & Security Suite"
+        sub_label = QLabel(sub_label_text)
         sub_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sub_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Medium))
         sub_label.setStyleSheet("color: #888; margin-bottom: 20px;")
@@ -1862,12 +1913,12 @@ class GhostyTool(QMainWindow):
         features_group = QGroupBox(f"What's New in {ver}")
         features_layout = QVBoxLayout()
         features_text = QLabel(
-            f"• 🚀 <b>{ver} Milestone:</b> A major leap forward in stability and performance.<br>"
-            "• 🛠️ <b>EXE Engine:</b> Rewritten resource handling to eliminate missing components in bundled builds.<br>"
-            "• ⚡ <b>Speedtest:</b> Fully restored and compatible with the latest speedtest-cli API.<br>"
-            "• 📁 <b>Unified Core:</b> Streamlined backend modules for faster execution.<br>"
-            "• 🛡️ <b>Security Hardening:</b> Continuous auditing and improved encryption for ShadowKeys.<br>"
-            "• 🧩 <b>Stability:</b> Fixed several UI freezing issues and improved error logging."
+            f"• 🐧 <b>{ver} Milestone:</b> The Linux Era - Experimental support for Linux systems!<br>"
+            "• 🌐 <b>Cross-Platform:</b> New architecture allowing Ghosty Tools to run on Windows and Linux.<br>"
+            "• 🏗️ <b>Unified Build System:</b> Automated GitHub Actions for both .exe and Linux binaries.<br>"
+            "• 🛡️ <b>Linux Security:</b> New security scanner checks for UFW, SSH, and root login on Linux.<br>"
+            "• 🔧 <b>Linux Maintenance:</b> Integrated apt and journalctl cleanup tools.<br>"
+            "• 🧩 <b>Dynamic UI:</b> Interface now adapts its layout and features based on the detected OS."
         )
         features_text.setTextFormat(Qt.TextFormat.RichText)
         features_text.setWordWrap(True)
@@ -2147,7 +2198,14 @@ class GhostyTool(QMainWindow):
     def flush_dns(self):
         self.log_signal.emit("Flushing DNS cache...", "info")
         try:
-            subprocess.run(["ipconfig", "/flushdns"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
+            if sys.platform == 'win32':
+                subprocess.run(["ipconfig", "/flushdns"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
+            else:
+                # Common linux ways to flush DNS
+                subprocess.run(["resolvectl", "flush-caches"], shell=False)
+                # Fallback for older systems
+                subprocess.run(["sudo", "systemd-resolve", "--flush-caches"], shell=False)
+            
             self.log_signal.emit("DNS Cache flushed successfully.", "success")
             QMessageBox.information(self, "DNS Flush", "DNS Cache flushed successfully.")
         except Exception as e:
@@ -2214,32 +2272,48 @@ class GhostyTool(QMainWindow):
         QMessageBox.information(self, "Maintenance", res)
 
     def run_disk_cleanup(self):
-        self.log_signal.emit("Launching Disk Cleanup...", "info")
+        self.log_signal.emit("Launching System Cleanup...", "info")
         try:
-            subprocess.Popen(["cleanmgr", "/d", "C"], shell=False, creationflags=CREATE_NO_WINDOW)
+            if sys.platform == 'win32':
+                subprocess.Popen(["cleanmgr", "/d", "C"], shell=False, creationflags=CREATE_NO_WINDOW)
+            else:
+                self.log_signal.emit("Running Linux APT cleanup...", "info")
+                # Use a simple popen to avoid blocking GUI
+                subprocess.Popen(["bash", "-c", "sudo apt-get clean && sudo apt-get autoremove -y"], shell=False)
+                self.log_signal.emit("Linux cleanup started in background.", "success")
         except Exception as e:
-            logger.error(f"Error launching disk cleanup: {e}")
-            self.log_signal.emit(f"Failed to launch Disk Cleanup: {e}", "error")
+            logger.error(f"Error launching cleanup: {e}")
+            self.log_signal.emit(f"Failed to launch Cleanup: {e}", "error")
 
     def run_windows_update_check(self):
-        self.log_signal.emit("Checking for Windows Updates...", "info")
-        self.update_status.setText("Status: Checking...")
-        threading.Thread(target=self._update_check_thread, daemon=True).start()
+        if sys.platform == 'win32':
+            self.log_signal.emit("Checking for Windows Updates...", "info")
+            self.update_status.setText("Status: Checking...")
+            threading.Thread(target=self._update_check_thread, daemon=True).start()
+        else:
+            self.log_signal.emit("Checking for Linux Updates...", "info")
+            self.update_status.setText("Status: Checking...")
+            threading.Thread(target=self._linux_update_check_thread, daemon=True).start()
 
-    def _update_check_thread(self):
+    def _linux_update_check_thread(self):
         try:
-            ps_script = "$UpdateSession = New-Object -ComObject Microsoft.Update.Session; $UpdateSearcher = $UpdateSession.CreateUpdateSearcher(); $SearchResult = $UpdateSearcher.Search('IsInstalled=0 and IsHidden=0'); $SearchResult.Updates.Count"
-            res = subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], capture_output=True, text=True, shell=False, creationflags=CREATE_NO_WINDOW)
-            count = res.stdout.strip()
+            res = subprocess.run(["apt", "list", "--upgradable"], capture_output=True, text=True)
+            lines = [l for l in res.stdout.split('\n') if l and '/' in l]
+            count = len(lines)
             self.update_status.setText(f"Status: {count} updates found")
-            self.log_signal.emit(f"Windows update check finished: {count} updates found.", "info")
+            self.log_signal.emit(f"Linux update check finished: {count} updates found.", "info")
         except Exception as e:
             logger.error(f"Error checking updates: {e}")
-            self.log_signal.emit(f"Windows update check failed: {e}", "error")
+            self.log_signal.emit(f"Linux update check failed: {e}", "error")
 
     def install_windows_updates(self):
-        self.log_signal.emit("Initiating Windows Update installation (GUI)...", "info")
-        subprocess.run(["control", "update"], shell=False, creationflags=CREATE_NO_WINDOW)
+        if sys.platform == 'win32':
+            self.log_signal.emit("Initiating Windows Update installation (GUI)...", "info")
+            subprocess.run(["control", "update"], shell=False, creationflags=CREATE_NO_WINDOW)
+        else:
+            self.log_signal.emit("Initiating Linux Update installation...", "info")
+            self.log_signal.emit("Running 'apt upgrade'...", "info")
+            subprocess.Popen(["bash", "-c", "sudo apt-get upgrade -y"], shell=False)
 
     def create_restore_point(self):
         self.log_signal.emit("Creating System Restore Point...", "info")

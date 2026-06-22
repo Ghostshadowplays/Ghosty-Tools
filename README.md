@@ -9,9 +9,9 @@ Official Website: [ghostyware.com](https://ghostyware.com)
 [![Types: mypy](https://img.shields.io/badge/types-mypy-2d2d2d?logo=python&logoColor=white)](https://github.com/Ghostshadowplays/Ghosty-Tools/actions/workflows/security-audit.yml)
 [![Releases](https://img.shields.io/github/v/release/Ghostshadowplays/Ghosty-Tools?label=Latest%20Release&logo=github)](https://github.com/Ghostshadowplays/Ghosty-Tools/releases)
 
-**The Professional All-in-One Windows Optimization & Security Suite**
+**The Professional All-in-One Cross-Platform Optimization & Security Suite**
 
-Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows environment. Built with a focus on **Security First**, it combines system maintenance, bloatware removal, and professional-grade password management into a single, sleek interface.
+Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows and Linux environments. Built with a focus on **Security First**, it combines system maintenance, security auditing, and professional-grade password management into a single, sleek interface.
 
 ## ✨ Features
 
@@ -52,6 +52,17 @@ Ghosty Tools is a high-performance, modular utility designed to secure and optim
 - **Performance & Privacy:** Categorized registry optimizations for Telemetry, Activity History, GameDVR, and more.
 - **Bulk Application:** Select multiple tweaks and apply them all at once.
 - **New in this build:** Disable Windows Copilot, disable News & Interests, and quickly show file extensions and hidden files.
+
+## 🐧 Linux Support (BETA)
+Ghosty Tools v7.0 introduces expanded support for Linux systems!
+Features now available on Linux:
+- **Dashboard & Monitoring:** System usage, specifications, and speed test.
+- **System Maintenance:** Automated cleanup and updates via `apt`.
+- **Security Scanner:** Auditing for `ufw` firewall, `ssh` status, and root login.
+- **Password Management:** ShadowKeys Vault and Password Generator.
+- **Software Installer:** Automated tool installation using `apt-get`.
+
+See [LINUX_SUPPORT.md](LINUX_SUPPORT.md) for build instructions.
 
 ## 🚀 Quick Start
 
