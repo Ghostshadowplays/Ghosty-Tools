@@ -5,18 +5,19 @@ import sys
 import json
 import subprocess
 from PyQt6.QtCore import QThread, pyqtSignal
-from src.utils.helpers import get_config_dir
+from src.utils.helpers import get_config_dir, get_resource_path
 
 logger = logging.getLogger(__name__)
 
+# Use get_resource_path to ensure we read the bundled version.json in frozen EXEs
 CURRENT_VERSION = "v6.1"
 try:
-    _version_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config", "version.json")
+    _version_path = get_resource_path(os.path.join("config", "version.json"))
     if os.path.exists(_version_path):
         with open(_version_path, "r") as _f:
             CURRENT_VERSION = json.load(_f).get("version", "v6.1")
-except:
-    pass
+except Exception as e:
+    logger.error(f"Failed to load version: {e}")
 
 REPO_URL = "https://api.github.com/repos/Ghostshadowplays/Ghosty-Tools/releases/latest"
 
@@ -29,7 +30,8 @@ class UpdateManager:
     def check_for_updates(self):
         """Checks GitHub API for the latest release."""
         try:
-            response = requests.get(REPO_URL, timeout=10)
+            headers = {'User-Agent': 'GhostyTools/1.0'}
+            response = requests.get(REPO_URL, timeout=10, headers=headers)
             response.raise_for_status()
             data = response.json()
             latest_version = data.get("tag_name", "")
@@ -93,7 +95,8 @@ class UpdateManager:
         """Fetches info for a specific version or latest."""
         try:
             # For simplicity, we usually want the latest info if it matches current_version
-            response = requests.get(REPO_URL, timeout=10)
+            headers = {'User-Agent': 'GhostyTools/1.0'}
+            response = requests.get(REPO_URL, timeout=10, headers=headers)
             response.raise_for_status()
             data = response.json()
             return data
@@ -112,11 +115,17 @@ class UpdateWorker(QThread):
 
     def run(self):
         try:
-            response = requests.get(self.download_url, stream=True, timeout=30)
+            headers = {
+                'User-Agent': 'GhostyTools-Updater/1.0 (Windows NT 10.0; Win64; x64)'
+            }
+            response = requests.get(self.download_url, stream=True, timeout=30, headers=headers)
             response.raise_for_status()
             total_size = int(response.headers.get('content-length', 0))
             
             downloaded = 0
+            # Ensure target directory exists
+            os.makedirs(os.path.dirname(self.target_path), exist_ok=True)
+            
             with open(self.target_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
@@ -127,4 +136,5 @@ class UpdateWorker(QThread):
             
             self.finished.emit(True, self.target_path)
         except Exception as e:
+            logger.error(f"Update download failed: {e}")
             self.finished.emit(False, str(e))

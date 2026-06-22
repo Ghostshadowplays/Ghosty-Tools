@@ -2016,15 +2016,19 @@ class GhostyTool(QMainWindow):
         self.update_worker = UpdateWorker(download_url, target_path)
         self.update_worker.progress.connect(self.update_progress.setValue)
         self.update_worker.finished.connect(self._on_update_download_finished)
+        
+        self.log_signal.emit(f"Downloading update from {download_url}...", "info")
         self.update_worker.start()
         self.update_dialog.exec()
 
     def _on_update_download_finished(self, success, result):
         self.update_dialog.close()
         if success:
+            self.log_signal.emit(f"Update downloaded to {result}", "success")
             QMessageBox.information(self, "Download Complete", "Update downloaded. The application will now close to apply the update.")
             self.apply_update(result)
         else:
+            self.log_signal.emit(f"Download failed: {result}", "error")
             QMessageBox.critical(self, "Update Error", f"Failed to download update: {result}")
 
     def apply_update(self, new_file):
