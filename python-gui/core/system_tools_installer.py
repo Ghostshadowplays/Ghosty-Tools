@@ -16,6 +16,14 @@ class ToolCategory(Enum):
     PACKAGE_MGR = "Package Managers"
     ESSENTIAL_UTILS = "Essential Utilities"
     HARDWARE_TOOLS = "Hardware Tools"
+    SYSTEM_UTILS = "System Utilities"
+    SECURITY_TOOLS = "Security Tools"
+    DESIGN_TOOLS = "Design Tools"
+    BROWSERS = "Browsers"
+    COMMUNICATIONS = "Communications"
+    MULTIMEDIA = "Multimedia Tools"
+    GAMING = "Gaming"
+    GHOSTY_TOOLS = "Ghosty Tools"
 
 class SystemTool:
     def __init__(self, tool_id, name, description, category, install_commands, 
@@ -59,7 +67,15 @@ class SystemToolsInstaller:
                 "Terminal & Shell": ToolCategory.TERMINAL,
                 "Package Managers": ToolCategory.PACKAGE_MGR,
                 "Essential Utilities": ToolCategory.ESSENTIAL_UTILS,
-                "Hardware Tools": ToolCategory.HARDWARE_TOOLS
+                "Hardware Tools": ToolCategory.HARDWARE_TOOLS,
+                "System Utilities": ToolCategory.SYSTEM_UTILS,
+                "Security Tools": ToolCategory.SECURITY_TOOLS,
+                "Design Tools": ToolCategory.DESIGN_TOOLS,
+                "Browsers": ToolCategory.BROWSERS,
+                "Communications": ToolCategory.COMMUNICATIONS,
+                "Multimedia Tools": ToolCategory.MULTIMEDIA,
+                "Gaming": ToolCategory.GAMING,
+                "Ghosty Tools": ToolCategory.GHOSTY_TOOLS
             }
             
             for tool_data in config.get("tools", []):

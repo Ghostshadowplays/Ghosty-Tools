@@ -1,0 +1,43 @@
+name: ghosty-tools
+base: core22
+version: '7.0'
+summary: Professional All-in-One Cross-Platform Optimization & Security Suite
+description: |
+  Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows and Linux environments.
+  Built with a focus on Security First, it combines system maintenance, security auditing, and professional-grade password management into a single, sleek interface.
+
+grade: stable
+confinement: strict
+
+parts:
+  ghosty-tools:
+    plugin: python
+    source: .
+    python-requirements:
+      - requirements.txt
+    stage-packages:
+      - libxcb-cursor0
+      - xclip
+      - xsel
+      - libpulse0
+      - libasound2
+      - libnss3
+      - libxcomposite1
+      - libxdamage1
+      - libxrandr2
+      - libxtst6
+      - libxkbcommon0
+      - libpango-1.0-0
+      - libcairo2
+
+apps:
+  ghosty-tools:
+    command: bin/python3 main.py
+    extensions: [gnome]
+    plugs:
+      - home
+      - network
+      - system-observe
+      - hardware-observe
+      - mount-observe
+      - removable-media

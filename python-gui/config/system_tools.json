@@ -473,6 +473,19 @@
       "post_install_message": "Everything Search installed successfully!"
     },
     {
+      "id": "radmin_vpn",
+      "name": "Radmin VPN",
+      "description": "Fast and secure VPN for gaming and work.",
+      "category": "System Utilities",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Get-Command RadminVPN.exe -ErrorAction SilentlyContinue",
+      "install_commands": [
+        "winget install --id Famatech.RadminVPN -e --source winget --accept-package-agreements --accept-source-agreements"
+      ],
+      "post_install_message": "Radmin VPN installed successfully!"
+    },
+    {
       "id": "sharex",
       "name": "ShareX",
       "description": "Screenshot and screen recording tool with automation.",
@@ -640,6 +653,19 @@
         "winget install --id Apache.Maven -e --source winget --accept-package-agreements --accept-source-agreements"
       ],
       "post_install_message": "Maven installed successfully!"
+    },
+    {
+      "id": "ghosttune_converter",
+      "name": "GhostTune Converter",
+      "description": "Professional music conversion utility for Ghostyware.",
+      "category": "Ghosty Tools",
+      "requires_admin": false,
+      "requires_restart": false,
+      "check_command": "Test-Path \"$env:USERPROFILE\\Downloads\\GhostTuneConverter.exe\"",
+      "install_commands": [
+        "Invoke-WebRequest -Uri 'https://github.com/Ghostshadowplays/GhostTune-Converter/releases/download/v1.0.1/GhostTuneConverter.exe' -OutFile \"$env:USERPROFILE\\Downloads\\GhostTuneConverter.exe\""
+      ],
+      "post_install_message": "GhostTune Converter has been downloaded to your Downloads folder!"
     }
   ]
 }

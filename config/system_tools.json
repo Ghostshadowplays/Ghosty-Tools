@@ -1928,6 +1928,17 @@
       ]
     },
     {
+      "id": "radmin_vpn",
+      "name": "Radmin VPN",
+      "description": "Install Radmin VPN via Winget.",
+      "category": "Utilities",
+      "check_command": "Get-Command RadminVPN.exe -ErrorAction SilentlyContinue",
+      "executable_name": "RadminVPN.exe",
+      "install_commands": [
+        "winget install --id Famatech.RadminVPN -e --source winget --silent --accept-package-agreements --accept-source-agreements"
+      ]
+    },
+    {
       "id": "revo_uninstaller",
       "name": "Revo Uninstaller",
       "description": "Install Revo Uninstaller via Winget.",

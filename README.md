@@ -98,6 +98,13 @@ Launch directly:
 python python-gui/main.py
 ```
 
+## 📦 Publishing
+Ghosty Tools can be published to official package managers:
+- **WinGet (Windows):** Uses `manifest.yml`.
+- **Snap Store (Linux):** Uses `snapcraft.yaml`.
+
+See [docs/PUBLISHING.md](docs/PUBLISHING.md) for detailed instructions.
+
 ## 📁 Project Structure
 - `python-gui/core/`: Logic engines for scanning, cleaning, and security.
 - `python-gui/ui/`: User interface components built with PyQt6.
