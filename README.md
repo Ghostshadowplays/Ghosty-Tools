@@ -100,14 +100,14 @@ python python-gui/main.py
 
 ## 📦 Publishing
 Ghosty Tools can be published to official package managers:
-- **WinGet (Windows):** Uses the manifest in `manifests/g/Ghostshadowplays/GhostyTools/7.0.0/`.
+- **WinGet (Windows):** Uses the manifest in `manifests/g/Ghostshadowplays/GhostyTools/7.0/`.
 - **Snap Store (Linux):** Uses `snapcraft.yaml`.
 
 See [docs/PUBLISHING.md](docs/PUBLISHING.md) for detailed instructions.
 
 To test the Windows installation locally:
 ```powershell
-winget install --manifest manifests\g\Ghostshadowplays\GhostyTools\7.0.0\Ghostshadowplays.GhostyTools.yaml
+winget install --manifest manifests\g\Ghostshadowplays\GhostyTools\7.0\Ghostshadowplays.GhostyTools.yaml
 ```
 
 ## 📁 Project Structure
