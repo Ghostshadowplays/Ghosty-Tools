@@ -1165,7 +1165,7 @@ class GhostyTool(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         
-        info_label = QLabel("Ghosty Tool v6.1")
+        info_label = QLabel("Ghosty Tool v6.2")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         info_label.setStyleSheet("color: #4158D0; margin-top: 20px;")
@@ -1177,10 +1177,10 @@ class GhostyTool(QMainWindow):
         sub_label.setStyleSheet("color: #888; margin-bottom: 20px;")
         layout.addWidget(sub_label)
 
-        features_group = QGroupBox("What's New in v6.1")
+        features_group = QGroupBox("What's New in v6.2")
         features_layout = QVBoxLayout()
         features_text = QLabel(
-            "• 🚀 <b>V6.1 Milestone:</b> A major leap forward in stability and performance.<br>"
+            "• 🚀 <b>V6.2 Milestone:</b> A major leap forward in stability and performance.<br>"
             "• 🛠️ <b>EXE Engine:</b> Rewritten resource handling to eliminate missing components in bundled builds.<br>"
             "• ⚡ <b>Speedtest:</b> Fully restored and compatible with the latest speedtest-cli API.<br>"
             "• 📁 <b>Unified Core:</b> Streamlined backend modules for faster execution.<br>"
