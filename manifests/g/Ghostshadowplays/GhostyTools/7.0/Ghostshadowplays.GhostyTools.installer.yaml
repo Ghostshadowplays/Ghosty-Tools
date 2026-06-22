@@ -3,19 +3,22 @@
 PackageIdentifier: Ghostshadowplays.GhostyTools
 PackageVersion: 7.0
 InstallerLocale: en-US
-InstallerType: portable
-Commands:
-  - GhostyTools
+InstallerType: exe
 ReleaseDate: 2026-06-22
+
 Installers:
   - Architecture: x64
     InstallerUrl: https://github.com/Ghostshadowplays/Ghosty-Tools/releases/download/v7.0/GhostyTools.exe
     InstallerSha256: D7E40050621824C5A1A1BA056E53EA3DC11C15A70C8BA35EEEFDFBEB16D43FA3
+    InstallerSwitches:
+      Silent: ""
+      SilentWithProgress: ""
     UpgradeBehavior: install
     ElevationRequirement: elevatesSelf
     AppsAndFeaturesEntries:
       - DisplayName: Ghosty Tools
         Publisher: Ghostshadowplays
         DisplayVersion: 7.0
+
 ManifestType: installer
 ManifestVersion: 1.12.0

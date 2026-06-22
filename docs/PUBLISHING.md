@@ -23,7 +23,15 @@ Before submitting, you must have a public release on GitHub (or another host) wi
    - `Ghostshadowplays.GhostyTools.yaml`: Ensure `PackageVersion` is correct.
 
 ### 3. Test Locally
-You can test the installation on your machine before submitting by pointing to the directory:
+**IMPORTANT:** Multi-file manifests MUST be validated as a directory.
+
+If you are inside the `7.0` folder:
+```powershell
+winget validate .
+winget install --manifest .
+```
+
+If you are at the project root:
 ```powershell
 winget validate manifests\g\Ghostshadowplays\GhostyTools\7.0\
 winget install --manifest manifests\g\Ghostshadowplays\GhostyTools\7.0\

@@ -105,9 +105,19 @@ Ghosty Tools can be published to official package managers:
 
 See [docs/PUBLISHING.md](docs/PUBLISHING.md) for detailed instructions.
 
-To test the Windows installation locally:
+### Local WinGet Testing
+**IMPORTANT:** WinGet multi-file manifests must be validated as a **directory**, not a single file.
+
+If you are at the project root:
 ```powershell
+winget validate manifests\g\Ghostshadowplays\GhostyTools\7.0\
 winget install --manifest manifests\g\Ghostshadowplays\GhostyTools\7.0\
+```
+
+If you are inside the `7.0` folder:
+```powershell
+winget validate .
+winget install --manifest .
 ```
 
 ## 📁 Project Structure

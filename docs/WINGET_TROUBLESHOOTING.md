@@ -36,6 +36,24 @@ Go to your Pull Request on GitHub. Look for comments from the **WinGet Bot** or 
 - This often happens with new tools or those that perform system optimizations (like registry tweaks).
 - **What to do:** Respond to the PR comment stating that the tool is open-source and performs system maintenance. Provide a link to the source code.
 
+### E. Multi-file Manifest Errors (FAST FIX)
+**Error:** `The multi file manifest is incomplete. A multi file manifest must contain at least version, installer and defaultLocale manifest.`
+
+**The Problem:** You are trying to validate just one file (e.g., `Ghostshadowplays.GhostyTools.yaml`). WinGet 1.12.0 requires you to validate the **entire folder**.
+
+**The Fix:** 
+If you are inside the `7.0` folder:
+```powershell
+winget validate .
+```
+
+If you are at the project root:
+```powershell
+winget validate manifests\g\Ghostshadowplays\GhostyTools\7.0\
+```
+
+**Never run `winget validate` on a single file if you have a multi-file manifest.**
+
 ## 3. How to Update Your Submission
 If you used `wingetcreate`:
 1. Update your local manifest files with the latest fixes.
