@@ -30,7 +30,7 @@ jobs:
 
       - name: Clean PyInstaller cache
         run: |
-          pyinstaller --clean --noconfirm python-gui/main.py
+          pyinstaller --clean --noconfirm main.py
         shell: pwsh
 
       - name: Build with PyInstaller
@@ -39,17 +39,18 @@ jobs:
           $pythonDll = (python -c "import sys; import pathlib; print(pathlib.Path(sys.executable).with_name('python312.dll'))")
           
           pyinstaller --noconsole --onefile --noupx `
-            --icon="python-gui/assets/ghosty icon.ico" `
-            --add-data "python-gui/config;config" `
-            --add-data "python-gui/assets;python-gui/assets" `
+            --icon="images/ghosty icon.ico" `
+            --add-data "config;config" `
+            --add-data "images;images" `
             --add-binary "$pythonDll;." `
             --name "GhostyTools" `
-            python-gui/main.py
+            main.py
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release'
         with:
           files: dist/GhostyTools.exe
+          tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

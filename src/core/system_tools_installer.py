@@ -4,6 +4,7 @@ import json
 import logging
 import re
 from enum import Enum
+from src.utils.helpers import get_resource_path
 
 CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
@@ -57,7 +58,7 @@ class SystemToolsInstaller:
     def __init__(self, config_path=None):
         self.tools = {}
         if config_path is None:
-            config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config", "system_tools.json")
+            config_path = get_resource_path(os.path.join("config", "system_tools.json"))
         self.config_path = config_path
         self._load_config()
 

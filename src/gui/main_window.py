@@ -48,7 +48,7 @@ from src.core.system_tools_installer import SystemToolsInstaller, ToolCategory
 from src.core.security_scanner import SecurityScanner
 from src.core.update_manager import UpdateManager, UpdateWorker
 from src.gui.dialogs import MasterPasswordDialog
-from src.utils.helpers import is_admin, elevate_privileges, get_config_dir, ensure_private_file
+from src.utils.helpers import is_admin, elevate_privileges, get_config_dir, ensure_private_file, get_resource_path
 
 CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
@@ -64,7 +64,7 @@ class GhostyTool(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        self.project_root = get_resource_path("")
         self.setWindowTitle("Ghosty Tool - Professional System Utility")
         self.setGeometry(100, 100, 900, 750)
         

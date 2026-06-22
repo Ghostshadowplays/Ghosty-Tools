@@ -4,6 +4,7 @@ import json
 import logging
 from enum import Enum
 from typing import Optional, Dict, List, Tuple, Callable, Any
+from src.utils.helpers import get_resource_path
 
 CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
@@ -42,7 +43,7 @@ class BloatRemover:
         self.items = {}
         if config_path is None:
             # Assume it's in the project root/config/
-            config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config", "bloatware_config.json")
+            config_path = get_resource_path(os.path.join("config", "bloatware_config.json"))
         self.config_path = config_path
         self._load_config()
         
