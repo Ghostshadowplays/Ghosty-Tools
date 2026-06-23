@@ -54,7 +54,7 @@ Ghosty Tools is a high-performance, modular utility designed to secure and optim
 - **New in this build:** Disable Windows Copilot, disable News & Interests, and quickly show file extensions and hidden files.
 
 ## 🐧 Linux Support (BETA)
-Ghosty Tools v7.1 introduces expanded support for Linux systems!
+Ghosty Tools v7.2 introduces expanded support for Linux systems!
 Features now available on Linux:
 - **Dashboard & Monitoring:** System usage, specifications, and speed test.
 - **System Maintenance:** Automated cleanup and updates via `apt`.
@@ -95,15 +95,15 @@ See [LINUX_SUPPORT.md](LINUX_SUPPORT.md) for build instructions.
 ### Running the App
 Launch directly:
 ```bash
-python python-gui/main.py
+python main.py
 ```
 
 ## 📁 Project Structure
-- `python-gui/core/`: Logic engines for scanning, cleaning, and security.
-- `python-gui/ui/`: User interface components built with PyQt6.
-- `python-gui/utils/`: Helper functions and logging configurations.
-- `python-gui/config/`: JSON configuration files for bloatware and tools.
-- `python-gui/assets/`: Brand assets and icons.
+- `src/core/`: Logic engines for scanning, cleaning, and security.
+- `src/gui/`: User interface components built with PyQt6.
+- `src/utils/`: Helper functions and logging configurations.
+- `config/`: JSON configuration files for bloatware and tools.
+- `images/`: Brand assets and icons.
 
 ## 🔒 Security Policy
 - **No Data Collection:** Ghosty Tools operates entirely locally. No passwords or system data are ever transmitted externally.

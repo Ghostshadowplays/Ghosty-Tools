@@ -4,18 +4,20 @@ import os
 import sys
 import json
 import subprocess
+import shutil
+from datetime import datetime
 from PyQt6.QtCore import QThread, pyqtSignal
-from src.utils.helpers import get_config_dir, get_resource_path
+from src.utils.helpers import get_config_dir, get_resource_path, get_logs_dir
 
 logger = logging.getLogger(__name__)
 
 # Use get_resource_path to ensure we read the bundled version.json in frozen EXEs
-CURRENT_VERSION = "v7.1"
+CURRENT_VERSION = "v7.2"
 try:
     _version_path = get_resource_path(os.path.join("config", "version.json"))
     if os.path.exists(_version_path):
         with open(_version_path, "r") as _f:
-            CURRENT_VERSION = json.load(_f).get("version", "v7.1")
+            CURRENT_VERSION = json.load(_f).get("version", "v7.2")
 except Exception as e:
     logger.error(f"Failed to load version: {e}")
 
@@ -72,6 +74,35 @@ class UpdateManager:
             # Fallback to simple inequality if parsing fails
             return remote != local
 
+    def backup_current_binary(self):
+        """Creates a backup of the current binary before update."""
+        try:
+            current_exe = sys.executable
+            backup_path = current_exe + ".bak"
+            shutil.copy2(current_exe, backup_path)
+            logger.info(f"Created backup of current binary at {backup_path}")
+            return backup_path
+        except Exception as e:
+            logger.error(f"Failed to create backup: {e}")
+            return None
+
+    def rollback(self, backup_path):
+        """Restores the backup binary if update fails."""
+        try:
+            current_exe = sys.executable
+            if os.path.exists(backup_path):
+                # This might need to be done by the external updater if the main EXE is replaced but corrupted
+                # But if it's just a download failure, we still have the original EXE.
+                # If we are here, it means the update process (download/prepare) failed.
+                logger.warning(f"Update failed. Rollback initiated from {backup_path}")
+                log_file = os.path.join(get_logs_dir(), "rollback.log")
+                with open(log_file, "a") as f:
+                    f.write(f"{datetime.now().isoformat()} - Rollback due to update failure\n")
+                return True
+        except Exception as e:
+            logger.error(f"Rollback failed: {e}")
+        return False
+
     def get_last_seen_version(self):
         """Returns the version the user last acknowledged."""
         if os.path.exists(self.version_file):
@@ -107,16 +138,29 @@ class UpdateManager:
 class UpdateWorker(QThread):
     finished = pyqtSignal(bool, str)
     progress = pyqtSignal(int)
+    status = pyqtSignal(str)
 
-    def __init__(self, download_url, target_path):
+    def __init__(self, download_url, target_path, delta_url=None):
         super().__init__()
         self.download_url = download_url
         self.target_path = target_path
+        self.delta_url = delta_url
 
     def run(self):
         try:
+            # Try delta patching first if supported/available
+            if self.delta_url:
+                self.status.emit("Attempting delta update...")
+                if self._apply_delta_update():
+                    self.status.emit("Delta update applied successfully.")
+                    self.finished.emit(True, self.target_path)
+                    return
+                else:
+                    self.status.emit("Delta update failed. Falling back to full download.")
+
+            self.status.emit("Downloading full update...")
             headers = {
-                'User-Agent': 'GhostyTools-Updater/1.0 (Windows NT 10.0; Win64; x64)'
+                'User-Agent': 'GhostyTools-Updater/1.0'
             }
             response = requests.get(self.download_url, stream=True, timeout=30, headers=headers)
             response.raise_for_status()
@@ -134,7 +178,18 @@ class UpdateWorker(QThread):
                         if total_size > 0:
                             self.progress.emit(int(downloaded * 100 / total_size))
             
+            self.status.emit("Download complete. Preparing to apply update...")
             self.finished.emit(True, self.target_path)
         except Exception as e:
             logger.error(f"Update download failed: {e}")
+            self.status.emit(f"Update failed: {str(e)}")
             self.finished.emit(False, str(e))
+
+    def _apply_delta_update(self):
+        """
+        Placeholder for delta update logic.
+        In a real scenario, this would download a binary diff and apply it to the current EXE.
+        """
+        # For now, we return False to trigger full download, 
+        # as we don't have a delta generation system in place yet.
+        return False

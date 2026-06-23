@@ -51,8 +51,9 @@ from src.core.bloat_remover import BloatRemover, BloatwareCategory, SafetyLevel
 from src.core.system_tools_installer import SystemToolsInstaller, ToolCategory
 from src.core.security_scanner import SecurityScanner
 from src.core.update_manager import UpdateManager, UpdateWorker
+from src.core.diagnostics import Diagnostics
 from src.gui.dialogs import MasterPasswordDialog
-from src.utils.helpers import is_admin, elevate_privileges, get_config_dir, ensure_private_file, get_resource_path
+from src.utils.helpers import is_admin, elevate_privileges, get_config_dir, ensure_private_file, get_resource_path, get_logs_dir, get_os_info
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,7 @@ class GhostyTool(QMainWindow):
 
         # Initialize Update Manager
         self.update_manager = UpdateManager()
+        self.diagnostics = Diagnostics(self.update_manager.current_version)
         self._latest_update_info = None
 
         self.init_ui()
@@ -1913,12 +1915,12 @@ class GhostyTool(QMainWindow):
         features_group = QGroupBox(f"What's New in {ver}")
         features_layout = QVBoxLayout()
         features_text = QLabel(
-            f"• 🐧 <b>{ver} Milestone:</b> The Linux Era - Experimental support for Linux systems!<br>"
-            "• 🌐 <b>Cross-Platform:</b> New architecture allowing Ghosty Tools to run on Windows and Linux.<br>"
-            "• 🏗️ <b>Unified Build System:</b> Automated GitHub Actions for both .exe and Linux binaries.<br>"
-            "• 🛡️ <b>Linux Security:</b> New security scanner checks for UFW, SSH, and root login on Linux.<br>"
-            "• 🔧 <b>Linux Maintenance:</b> Integrated apt and journalctl cleanup tools.<br>"
-            "• 🧩 <b>Dynamic UI:</b> Interface now adapts its layout and features based on the detected OS."
+            f"• 🚀 <b>{ver} Milestone:</b> Multi-Platform & Diagnostic Update!<br>"
+            "• 🌐 <b>Cross-Platform:</b> Improved architecture for Windows, macOS, and Linux.<br>"
+            "• 🩺 <b>Self-Diagnostics:</b> New diagnostic system to check system health and app status.<br>"
+            "• 🛡️ <b>Advanced Security:</b> Enhanced security scanner with more granular Linux auditing.<br>"
+            "• 🛠️ <b>Rollback Support:</b> Automatic backup and rollback for failed updates.<br>"
+            "• 📊 <b>UX Improvements:</b> Progress bars for downloads and clearer status messages."
         )
         features_text.setTextFormat(Qt.TextFormat.RichText)
         features_text.setWordWrap(True)
@@ -1942,13 +1944,76 @@ class GhostyTool(QMainWindow):
         twitch_btn.clicked.connect(lambda _: webbrowser.open("https://www.twitch.tv/ghostshadow_plays"))
         update_btn = QPushButton("Check for Updates")
         update_btn.clicked.connect(lambda _: self.check_for_updates(True))
+        
+        diag_btn = QPushButton("Run Diagnostics")
+        diag_btn.clicked.connect(self.run_diagnostics)
+        
+        logs_btn = QPushButton("Open Logs Folder")
+        logs_btn.clicked.connect(self.open_logs_folder)
+        
         links_layout.addWidget(github_btn)
         links_layout.addWidget(twitch_btn)
         links_layout.addWidget(update_btn)
+        links_layout.addWidget(diag_btn)
+        links_layout.addWidget(logs_btn)
         layout.addLayout(links_layout)
         layout.addStretch()
         self.content_stack.addWidget(page)
 
+
+    def run_diagnostics(self):
+        """Runs self-diagnostics and shows results."""
+        self.log_signal.emit("Running self-diagnostics...", "info")
+        results = self.diagnostics.run_all()
+        
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Ghosty Tools - Self-Diagnostics")
+        dlg.setMinimumSize(600, 450)
+        vbox = QVBoxLayout(dlg)
+        
+        title = QLabel("Diagnostics Results")
+        title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        vbox.addWidget(title)
+        
+        table = QTreeWidget()
+        table.setHeaderLabels(["Check", "Status", "Message"])
+        table.setColumnWidth(0, 150)
+        table.setColumnWidth(1, 80)
+        
+        for res in results:
+            item = QTreeWidgetItem([res["name"], res["status"], res["message"]])
+            if res["status"] == "PASS":
+                item.setForeground(1, QColor("#2ecc71"))
+            elif res["status"] == "FAIL":
+                item.setForeground(1, QColor("#e74c3c"))
+            elif res["status"] == "WARNING":
+                item.setForeground(1, QColor("#f39c12"))
+            table.addTopLevelItem(item)
+            
+        vbox.addWidget(table)
+        
+        btn_layout = QHBoxLayout()
+        open_log_btn = QPushButton("Open Detailed Log")
+        open_log_btn.clicked.connect(lambda: self.open_logs_folder())
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dlg.accept)
+        btn_layout.addWidget(open_log_btn)
+        btn_layout.addStretch()
+        btn_layout.addWidget(close_btn)
+        vbox.addLayout(btn_layout)
+        
+        self.log_signal.emit("Diagnostics complete. Detailed log saved to logs folder.", "success")
+        dlg.exec()
+
+    def open_logs_folder(self):
+        """Opens the platform-specific logs folder."""
+        logs_dir = get_logs_dir()
+        if sys.platform == 'win32':
+            os.startfile(logs_dir)
+        elif sys.platform == 'darwin':
+            subprocess.Popen(["open", logs_dir])
+        else:
+            subprocess.Popen(["xdg-open", logs_dir])
 
     def check_for_whats_new(self):
         """Shows a one-time 'What's New' popup after an update."""
@@ -2061,30 +2126,47 @@ class GhostyTool(QMainWindow):
         target_path = os.path.join(update_dir, "GhostyTools_new.exe")
         
         self.update_dialog = QDialog(self)
-        self.update_dialog.setWindowTitle("Downloading Update")
-        self.update_dialog.setFixedSize(300, 100)
+        self.update_dialog.setWindowTitle("Ghosty Tools Update")
+        self.update_dialog.setFixedSize(400, 150)
         vbox = QVBoxLayout(self.update_dialog)
+        
+        self.update_status_label = QLabel("Initializing update...")
+        self.update_status_label.setWordWrap(True)
+        vbox.addWidget(self.update_status_label)
+        
         self.update_progress = QProgressBar()
-        vbox.addWidget(QLabel("Downloading latest version..."))
         vbox.addWidget(self.update_progress)
         
-        self.update_worker = UpdateWorker(download_url, target_path)
+        # Determine if we should look for delta
+        delta_url = None
+        # Logic to find delta asset if available...
+        
+        self.update_worker = UpdateWorker(download_url, target_path, delta_url)
+        self.update_worker.status.connect(self.update_status_label.setText)
         self.update_worker.progress.connect(self.update_progress.setValue)
         self.update_worker.finished.connect(self._on_update_download_finished)
         
-        self.log_signal.emit(f"Downloading update from {download_url}...", "info")
+        self.log_signal.emit(f"Starting update process...", "info")
         self.update_worker.start()
         self.update_dialog.exec()
 
     def _on_update_download_finished(self, success, result):
         self.update_dialog.close()
         if success:
-            self.log_signal.emit(f"Update downloaded to {result}", "success")
-            QMessageBox.information(self, "Download Complete", "Update downloaded. The application will now close to apply the update.")
-            self.apply_update(result)
+            self.log_signal.emit(f"Update prepared: {result}", "success")
+            
+            res = QMessageBox.question(self, "Restart Required", 
+                                     "The update has been downloaded and is ready to be applied.\n\n"
+                                     "Do you want to restart now to apply the update?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            
+            if res == QMessageBox.StandardButton.Yes:
+                # Backup before applying
+                self.update_manager.backup_current_binary()
+                self.apply_update(result)
         else:
-            self.log_signal.emit(f"Download failed: {result}", "error")
-            QMessageBox.critical(self, "Update Error", f"Failed to download update: {result}")
+            self.log_signal.emit(f"Update failed: {result}", "error")
+            QMessageBox.critical(self, "Update Error", f"Failed to complete update: {result}")
 
     def apply_update(self, new_file):
         is_frozen = getattr(sys, 'frozen', False)
@@ -2163,6 +2245,9 @@ class GhostyTool(QMainWindow):
             logger.error(f"Error checking battery: {e}")
 
     def check_disk_health(self):
+        if sys.platform != 'win32':
+            self.disk_label.setText("Disk health check only available on Windows.")
+            return
         if not self.main_disk:
             self.disk_label.setText("Main disk ID not found.")
             return
@@ -2218,6 +2303,8 @@ class GhostyTool(QMainWindow):
             self.log_signal.emit(f"Failed to flush DNS: {e}", "error")
 
     def get_physical_disks(self):
+        if sys.platform != 'win32':
+            return []
         try:
             ps_command = "Get-PhysicalDisk | Select-Object DeviceID, FriendlyName, Size, MediaType | ConvertTo-Json"
             result = subprocess.run(["powershell", "-NoProfile", "-Command", ps_command], capture_output=True, text=True, shell=False, creationflags=CREATE_NO_WINDOW)
@@ -2229,6 +2316,8 @@ class GhostyTool(QMainWindow):
             return []
 
     def refresh_disk_list(self):
+        if not hasattr(self, 'disk_combo'):
+            return
         self.disk_combo.clear()
         try:
             disks = self.get_physical_disks()
@@ -2243,6 +2332,8 @@ class GhostyTool(QMainWindow):
             logger.error(f"Error refreshing disk list: {e}")
 
     def validate_mbr2gpt(self):
+        if not hasattr(self, 'disk_combo'):
+            return
         disk_id = self.disk_combo.currentData()
         if disk_id is None: return
         self.log_signal.emit(f"Starting MBR2GPT Validation for Disk {disk_id}...", "info")
@@ -2253,6 +2344,8 @@ class GhostyTool(QMainWindow):
         self.maint_worker.start()
 
     def convert_mbr2gpt(self):
+        if not hasattr(self, 'disk_combo'):
+            return
         disk_id = self.disk_combo.currentData()
         if disk_id is None: return
         reply = QMessageBox.critical(self, "WARNING", f"Are you sure you want to CONVERT Disk {disk_id} to GPT?\n\nThis is a high-risk operation. Backup your data first!", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)

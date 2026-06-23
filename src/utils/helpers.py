@@ -21,7 +21,8 @@ def get_config_dir():
         base = os.environ.get('APPDATA', os.path.expanduser('~'))
         path = os.path.join(base, 'GhostyTools')
     else:
-        path = os.path.join(os.path.expanduser('~'), '.config', 'ghostytools')
+        # Linux/macOS
+        path = os.path.join(os.path.expanduser('~'), '.config', 'GhostyTools')
     
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
@@ -31,6 +32,25 @@ def get_config_dir():
         except Exception:
             pass
     return path
+
+def get_logs_dir():
+    """Get platform-specific logs directory"""
+    config_dir = get_config_dir()
+    logs_dir = os.path.join(config_dir, 'logs')
+    if not os.path.exists(logs_dir):
+        os.makedirs(logs_dir, exist_ok=True)
+    return logs_dir
+
+def get_os_info():
+    """Return a dictionary with OS information"""
+    import platform
+    return {
+        "os": sys.platform,
+        "platform": platform.system(),
+        "release": platform.release(),
+        "version": platform.version(),
+        "architecture": platform.machine()
+    }
 
 def is_admin():
     """Check if the script is running with administrator/root privileges"""

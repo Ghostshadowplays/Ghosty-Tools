@@ -340,12 +340,21 @@ class SpecsWorker(QThread):
                 build_number = 0
 
             # Install Date
-            try:
-                ps_cmd = ["powershell", "-NoProfile", "-Command", "(Get-CimInstance Win32_OperatingSystem).InstallDate.ToString('yyyy-MM-dd HH:mm')"]
-                ins = subprocess.run(ps_cmd, capture_output=True, text=True, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-                install_date = ins.stdout.strip()
-            except Exception:
-                install_date = ""
+            install_date = ""
+            if sys.platform == 'win32':
+                try:
+                    ps_cmd = ["powershell", "-NoProfile", "-Command", "(Get-CimInstance Win32_OperatingSystem).InstallDate.ToString('yyyy-MM-dd HH:mm')"]
+                    ins = subprocess.run(ps_cmd, capture_output=True, text=True, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+                    install_date = ins.stdout.strip()
+                except Exception:
+                    install_date = ""
+            else:
+                try:
+                    # Linux install date (approximate by checking oldest file in /var/log or similar)
+                    res = subprocess.run(["ls", "-ld", "/var/log/installer"], capture_output=True, text=True)
+                    if res.returncode == 0:
+                        install_date = " ".join(res.stdout.split()[5:8])
+                except: pass
 
             specs = f"<b>OS:</b> {os_name} (Build {build_number})<br>"
             specs += f"<b>Edition:</b> {product_name} (Version {display_version})<br>"
@@ -363,6 +372,10 @@ class MainDiskWorker(QThread):
     finished = pyqtSignal(str, str) # main_disk, system_drive
     
     def run(self):
+        if sys.platform != 'win32':
+            # For non-Windows, we return dummy values or could implement lsblk/df later
+            self.finished.emit("0", "/")
+            return
         try:
             system_drive = os.environ.get('SystemDrive', 'C').replace(':', '')
             powershell_script = f"Get-Partition -DriveLetter {system_drive} | Get-Disk | Select-Object -ExpandProperty Number"

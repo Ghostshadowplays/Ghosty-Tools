@@ -38,7 +38,7 @@ Run the following command in the root of the project:
 ```bash
 snapcraft
 ```
-This will create a `.snap` file (e.g., `ghosty-tools_7.1_amd64.snap`).
+This will create a `.snap` file (e.g., `ghosty-tools_7.2_amd64.snap`).
 
 ### 3. Test the Snap
 Install the generated snap locally to verify it works:

@@ -34,14 +34,54 @@ jobs:
           pyinstaller src/core/updater.py --onefile --noconfirm --name GhostyUpdater --clean
           # Build main app
           pyinstaller ghosty_tools.spec --clean --noconfirm
+          mv dist/GhostyTools.exe dist/GhostyTools-Windows-x64.exe
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release'
         with:
           files: |
-            dist/GhostyTools.exe
+            dist/GhostyTools-Windows-x64.exe
             dist/GhostyUpdater.exe
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    name: Build macOS App
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            os: macos-13
+          - arch: arm64
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade pyinstaller
+          pip install -r requirements.txt
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller ghosty_tools.spec --clean --noconfirm --name GhostyTools-macOS-${{ matrix.arch }}
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'release'
+        with:
+          files: dist/GhostyTools-macOS-${{ matrix.arch }}
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -70,18 +110,18 @@ jobs:
       - name: Build Linux Binary
         run: |
           pyinstaller ghosty_tools.spec --clean --noconfirm
-          mv dist/GhostyTools dist/ghostytools
+          mv dist/GhostyTools dist/GhostyTools-Linux-x64
 
       - name: Create DEB structure
         run: |
           mkdir -p ghostytools_amd64/DEBIAN
           mkdir -p ghostytools_amd64/usr/bin
-          cp dist/ghostytools ghostytools_amd64/usr/bin/ghostytools
+          cp dist/GhostyTools-Linux-x64 ghostytools_amd64/usr/bin/ghostytools
           chmod +x ghostytools_amd64/usr/bin/ghostytools
 
           cat <<EOF > ghostytools_amd64/DEBIAN/control
           Package: ghostytools
-          Version: 7.1
+          Version: 7.2
           Section: utils
           Priority: optional
           Architecture: amd64
@@ -93,12 +133,13 @@ jobs:
       - name: Build DEB package
         run: |
           dpkg-deb --build ghostytools_amd64
+          mv ghostytools_amd64.deb GhostyTools-Linux-x64.deb
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release'
         with:
-          files: ghostytools_amd64.deb
+          files: GhostyTools-Linux-x64.deb
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
