@@ -30,8 +30,6 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          # Build updater first so it can be bundled into the main EXE
-          pyinstaller src/core/updater.py --onefile --noconfirm --name GhostyUpdater --clean
           # Build main app
           pyinstaller ghosty_tools.spec --clean --noconfirm
           mv dist/GhostyTools.exe dist/GhostyTools-Windows-x64.exe
@@ -42,7 +40,6 @@ jobs:
         with:
           files: |
             dist/GhostyTools-Windows-x64.exe
-            dist/GhostyUpdater.exe
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,8 +51,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: x86_64
-            python-arch: x64
           - arch: arm64
             python-arch: arm64
     

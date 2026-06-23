@@ -28,6 +28,7 @@ except Exception:
 import pyperclip
 
 CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+CREATE_NEW_CONSOLE = 0x00000010
 import zipfile
 import requests
 from PIL import Image
@@ -2774,47 +2775,152 @@ class GhostyTool(QMainWindow):
                 pass
             return
 
-        # Launch the standalone GhostyUpdater.exe for frozen installations
-        if is_frozen:
+        # Automatic update for Windows EXE
+        if is_frozen and sys.platform == 'win32':
             if not new_file.lower().endswith(".exe"):
                 QMessageBox.warning(self, "Update Error", "The downloaded update is not an executable file. Please update manually.")
                 return
 
-            # Determine where the updater should be
-            local_app_data = os.environ.get('LOCALAPPDATA', os.environ.get('APPDATA', get_config_dir()))
-            updater_dir = os.path.join(local_app_data, "GhostyTools")
-            os.makedirs(updater_dir, exist_ok=True)
-            updater_exe = os.path.join(updater_dir, "GhostyUpdater.exe")
-
-            # Extract/Ensure updater exists
-            # In a frozen EXE, we bundle GhostyUpdater.exe as a resource
-            bundled_updater = get_resource_path("GhostyUpdater.exe")
+            # Create a dynamic batch script to handle the update
+            # This avoids needing a separate GhostyUpdater.exe
+            update_dir = os.path.dirname(new_file)
+            script_path = os.path.join(update_dir, "apply_update.bat")
+            current_pid = os.getpid()
             
-            try:
-                if os.path.exists(bundled_updater):
-                    # Copy bundled updater to the stable location if it's different or doesn't exist
-                    # Use a simple copy to ensure we don't lock the bundled one
-                    shutil.copy2(bundled_updater, updater_exe)
-                
-                if not os.path.exists(updater_exe):
-                    raise FileNotFoundError("GhostyUpdater.exe not found in resources or stable location.")
+            # Use short paths or quotes to handle spaces in filenames
+            safe_new = new_file
+            safe_current = current_file
+            
+            # The batch script will:
+            # 1. Wait for the main app to close
+            # 2. Delete the old EXE
+            # 3. Move the new EXE to the old location
+            # 4. Restart the app
+            # 5. Delete itself
+            batch_content = f"""@echo off
+setlocal enabledelayedexpansion
+title Ghosty Tools Update Assistant
 
-                self.log_signal.emit(f"Launching updater: {updater_exe}", "info")
+echo.
+echo ==========================================
+echo    Ghosty Tools Update Assistant
+echo ==========================================
+echo.
+echo Waiting for Ghosty Tools (PID {current_pid}) to close...
+
+:wait_loop
+tasklist /FI "PID eq {current_pid}" 2>NUL | find /I "{current_pid}" >NUL
+if "%ERRORLEVEL%"=="0" (
+    timeout /t 1 /nobreak >nul
+    goto wait_loop
+)
+
+echo.
+echo Applying update...
+echo Source: "{safe_new}"
+echo Target: "{safe_current}"
+echo.
+
+:: We use a loop for deletion too, in case of lingering locks
+set /a retry=0
+:delete_loop
+del /f /q "{safe_current}" >nul 2>&1
+if exist "{safe_current}" (
+    set /a retry+=1
+    if !retry! GTR 10 (
+        echo ERROR: Could not remove old version. It might be locked.
+        echo Please close all Ghosty Tools instances and try again.
+        pause
+        exit /b 1
+    )
+    timeout /t 1 /nobreak >nul
+    goto delete_loop
+)
+
+:: Copy new file to target
+copy /y "{safe_new}" "{safe_current}" >nul
+if errorlevel 1 (
+    echo.
+    echo ERROR: Failed to apply update.
+    echo Please make sure you have permission to write to:
+    echo "{safe_current}"
+    echo.
+    echo You can find the new version at:
+    echo "{safe_new}"
+    echo.
+    pause
+    exit /b 1
+)
+
+echo.
+echo Update applied successfully!
+echo.
+echo Cleanup...
+del /f /q "{safe_new}" >nul 2>&1
+
+echo Restarting Ghosty Tools...
+start "" "{safe_current}"
+
+:: Self-destruct and exit
+(goto) 2>nul & del "%~f0"
+"""
+            try:
+                # Use cp1252 (Standard Windows CMD encoding) for the batch file
+                with open(script_path, "w", encoding="cp1252") as f:
+                    f.write(batch_content)
                 
-                # Launch arguments: GhostyUpdater.exe "<path_to_new_exe>" "<path_to_old_exe>"
-                # Use CREATE_NO_WINDOW to ensure the updater runs silently
-                subprocess.Popen([updater_exe, new_file, current_file], 
-                                 creationflags=CREATE_NO_WINDOW,
+                self.log_signal.emit(f"Launching update script: {script_path}", "info")
+                
+                # Launch the script. We don't use CREATE_NO_WINDOW here so the user can see 
+                # "Updating..." if it takes a moment, providing better feedback.
+                subprocess.Popen(["cmd.exe", "/c", script_path], 
+                                 creationflags=CREATE_NEW_CONSOLE,
                                  close_fds=True)
                 
-                # Immediately close GhostyTools.exe
                 QApplication.quit()
-                sys.exit(0)
+                os._exit(0) # Force immediate exit to release all file locks
             except Exception as e:
-                logger.error(f"Failed to launch updater: {e}")
-                QMessageBox.warning(self, "Update Error", f"Failed to launch automatic updater: {e}\n\nPlease update manually.")
+                logger.error(f"Failed to launch update script: {e}")
+                QMessageBox.warning(self, "Update Error", f"Failed to start automatic update: {e}\n\nPlease update manually.")
+        
+        elif is_frozen and (sys.platform == 'linux' or sys.platform == 'darwin'):
+            # Basic support for Linux/macOS binary replacement
+            script_path = os.path.join(os.path.dirname(new_file), "apply_update.sh")
+            current_pid = os.getpid()
+            
+            sh_content = f"""#!/bin/bash
+echo "Waiting for Ghosty Tools (PID {current_pid}) to close..."
+while kill -0 {current_pid} 2>/dev/null; do
+    sleep 1
+done
+
+echo "Applying update..."
+cp -f "{new_file}" "{current_file}"
+if [ $? -eq 0 ]; then
+    echo "Update successful. Restarting..."
+    chmod +x "{current_file}"
+    "{current_file}" &
+else
+    echo "Update failed. Please check permissions."
+    read -p "Press enter to exit"
+fi
+rm -- "$0"
+"""
+            try:
+                with open(script_path, "w") as f:
+                    f.write(sh_content)
+                os.chmod(script_path, 0o755)
+                
+                subprocess.Popen(["/bin/bash", script_path], close_fds=True)
+                QApplication.quit()
+                os._exit(0)
+            except Exception as e:
+                logger.error(f"Failed to launch update script: {e}")
+                QMessageBox.warning(self, "Update Error", f"Failed to start automatic update: {e}\n\nPlease update manually.")
         else:
-            QMessageBox.warning(self, "Update Error", "Automatic update is only supported for the packaged (.exe) version. Please update manually.")
+            QMessageBox.information(self, "Update Downloaded", 
+                                   f"The update has been downloaded to:\n{new_file}\n\n"
+                                   "Please replace the existing file manually to complete the update.")
 
     def update_system_usage(self):
         cpu = psutil.cpu_percent()
