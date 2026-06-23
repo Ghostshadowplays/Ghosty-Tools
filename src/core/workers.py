@@ -113,14 +113,21 @@ class MaintenanceWorker(QThread):
                     cmd_prefix + [cmd],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
-                    text=True,
                     shell=False,
-                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
                 )
                 
                 for line in process.stdout:
-                    if line.strip():
-                        self.output.emit(f"[{name}] {line.strip()}", "debug")
+                    try:
+                        text = line.decode('utf-8', errors='replace')
+                    except:
+                        text = line.decode('cp1252', errors='replace')
+                    
+                    for part in text.split('\r'):
+                        clean_line = part.strip()
+                        if clean_line and clean_line not in ["-", "\\", "|", "/", ".", "??"]:
+                            if not re.match(r'^[\.\-\s]+$', clean_line):
+                                self.output.emit(f"[{name}] {clean_line}", "debug")
                 
                 process.wait()
                 if process.returncode == 0:
@@ -149,17 +156,23 @@ class GenericCommandWorker(QThread):
                 cmd_prefix + [self.command],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                text=True,
                 shell=False,
                 creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)
             )
             
             full_output = []
             for line in process.stdout:
-                if line.strip():
-                    clean_line = line.strip()
-                    full_output.append(clean_line)
-                    self.output.emit(f"[{self.name}] {clean_line}", "debug")
+                try:
+                    text = line.decode('utf-8', errors='replace')
+                except:
+                    text = line.decode('cp1252', errors='replace')
+
+                for part in text.split('\r'):
+                    clean_line = part.strip()
+                    if clean_line and clean_line not in ["-", "\\", "|", "/", ".", "??"]:
+                        if not re.match(r'^[\.\-\s]+$', clean_line):
+                            full_output.append(clean_line)
+                            self.output.emit(f"[{self.name}] {clean_line}", "debug")
             
             process.wait()
             success = (process.returncode == 0)
@@ -269,24 +282,15 @@ class SpecsWorker(QThread):
     finished = pyqtSignal(str)
     
     def run(self):
+        from src.utils.helpers import run_command
         try:
             # CPU
-            cpu_res = subprocess.run(
-                ["wmic", "cpu", "get", "name"],
-                capture_output=True,
-                text=True,
-                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-            )
+            cpu_res = run_command(["wmic", "cpu", "get", "name"])
             cpu_lines = [line.strip() for line in cpu_res.stdout.split('\n') if line.strip()]
             cpu_info = cpu_lines[1] if len(cpu_lines) > 1 else "Unknown CPU"
 
             # GPU
-            gpu_res = subprocess.run(
-                ["wmic", "path", "win32_VideoController", "get", "Name,PNPDeviceID,AdapterRAM,DriverVersion", "/format:csv"],
-                capture_output=True,
-                text=True,
-                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-            )
+            gpu_res = run_command(["wmic", "path", "win32_VideoController", "get", "Name,PNPDeviceID,AdapterRAM,DriverVersion", "/format:csv"])
 
             lines = [l.strip() for l in gpu_res.stdout.split("\n") if l.strip()]
             if len(lines) < 2:
@@ -310,12 +314,7 @@ class SpecsWorker(QThread):
                 gpu_info = "<br>".join(gpus) if gpus else "Unknown GPU"
 
             # Motherboard
-            mobo_res = subprocess.run(
-                ["wmic", "baseboard", "get", "product,manufacturer"],
-                capture_output=True,
-                text=True,
-                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-            )
+            mobo_res = run_command(["wmic", "baseboard", "get", "product,manufacturer"])
             mobo_lines = [line.strip() for line in mobo_res.stdout.split('\n') if line.strip()]
             mobo_info = mobo_lines[1] if len(mobo_lines) > 1 else "Unknown Motherboard"
 
@@ -344,14 +343,14 @@ class SpecsWorker(QThread):
             if sys.platform == 'win32':
                 try:
                     ps_cmd = ["powershell", "-NoProfile", "-Command", "(Get-CimInstance Win32_OperatingSystem).InstallDate.ToString('yyyy-MM-dd HH:mm')"]
-                    ins = subprocess.run(ps_cmd, capture_output=True, text=True, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+                    ins = run_command(ps_cmd)
                     install_date = ins.stdout.strip()
                 except Exception:
                     install_date = ""
             else:
                 try:
                     # Linux install date (approximate by checking oldest file in /var/log or similar)
-                    res = subprocess.run(["ls", "-ld", "/var/log/installer"], capture_output=True, text=True)
+                    res = run_command(["ls", "-ld", "/var/log/installer"])
                     if res.returncode == 0:
                         install_date = " ".join(res.stdout.split()[5:8])
                 except: pass
@@ -512,3 +511,39 @@ class DownloadWorker(QThread):
         except Exception as e:
             logger.error(f"Download error: {e}")
             self.finished.emit(False, str(e))
+
+class NetworkWorker(QThread):
+    finished = pyqtSignal(dict)
+    
+    def __init__(self, task="ip", target="127.0.0.1"):
+        super().__init__()
+        self.task = task
+        self.target = target
+        
+    def run(self):
+        from src.core.network_tools import NetworkTools
+        if self.task == "ip":
+            res = NetworkTools.get_ip_intelligence()
+            self.finished.emit({"task": "ip", "data": res})
+        elif self.task == "dns":
+            res = NetworkTools.benchmark_dns()
+            self.finished.emit({"task": "dns", "data": res})
+        elif self.task == "port":
+            res = NetworkTools.port_scan(self.target)
+            self.finished.emit({"task": "port", "data": res})
+
+class TaskManagerWorker(QThread):
+    finished = pyqtSignal(dict)
+    
+    def run(self):
+        from src.core.task_manager import TaskManager
+        res = TaskManager.get_resource_hogs()
+        self.finished.emit(res)
+
+class PrivacyAuditWorker(QThread):
+    finished = pyqtSignal(list)
+    
+    def run(self):
+        from src.core.privacy_cleaner import PrivacyCleaner
+        res = PrivacyCleaner.run_privacy_audit()
+        self.finished.emit(res)

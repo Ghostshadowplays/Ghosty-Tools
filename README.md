@@ -11,56 +11,55 @@ Official Website: [ghostyware.com](https://ghostyware.com)
 
 **The Professional All-in-One Cross-Platform Optimization & Security Suite**
 
-Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows and Linux environments. Built with a focus on **Security First**, it combines system maintenance, security auditing, and professional-grade password management into a single, sleek interface.
+Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows, Linux, and macOS environments. Built with a focus on **Security First**, it combines system maintenance, security auditing, and professional-grade password management into a single, sleek interface.
 
 ## ✨ Features
 
-### 📊 Dashboard & Monitoring
+### 📊 Dashboard & System Overview
 - **Live System Usage:** Real-time monitoring of CPU and RAM utilization.
 - **System Specifications:** Detailed hardware information (CPU, GPU, RAM, Motherboard).
-- **Battery Health:** Check charge levels and power status.
-- **Disk Health:** Real-time health status monitoring for your system drive.
+- **System Overview:** View boot time, OS build, and detailed hardware models at a glance.
+- **Battery & Disk Health:** Real-time health status monitoring for your battery and system drive.
 - **Network Speed Test:** Integrated speed test to verify your connection.
 
-### 🔧 System Maintenance
+### 🌐 Network Hub
+- **IP Intelligence:** Display local/public IP, ISP details, and geographic location.
+- **DNS Benchmarker:** Compare response times of major DNS providers to find the fastest one.
+- **Port Scanner:** Check for open ports on the local machine to identify potential security holes.
+
+### 🔧 System Maintenance & Advanced Tools
 - **Full Maintenance:** One-click execution of SFC, DISM, GPUpdate, and CHKDSK.
+- **Hosts File Editor:** Safe GUI for managing system-level domain mapping and telemetry blocking.
+- **Service Management:** Reset Print Spooler and other essential system services.
 - **DNS Flush:** Quickly clear your DNS resolver cache.
-- **Disk Cleanup:** Launch the Windows Disk Cleanup utility.
 - **Windows Updates:** Check for and initiate Windows Update installations.
 - **Restore Points:** Create system restore points before making major changes.
-- **Advanced Disk Tools:** MBR to GPT conversion utility (MBR2GPT) with safety validation.
 
-### 🛡️ Security Assessment
-- **Vulnerability Scanner:** Checks for Windows Defender status, Firewall configuration, UAC settings, SMBv1 risks, and active network shares.
-- **Live Feedback:** Instant reporting of security findings with severity levels.
+### 🛡️ Privacy & Security
+- **Privacy Audit:** Scans for privacy-invasive settings and helps disable them.
+- **Browser Privacy Cleaner:** Clear cookies, cache, and history across Chrome, Firefox, Edge, and Safari.
+- **Secure File Shredder:** Permanently delete sensitive files by overwriting them multiple times.
+- **Vulnerability Scanner:** Checks for Windows Defender status, Firewall, UAC, and SMBv1 risks.
 
-### 🗑️ Windows Debloat
+### 🚀 Task & Process Management
+- **Resource Hog Detector:** Lists top processes using CPU/RAM with a one-click "Optimize" button.
+- **Process Manager:** Real-time process monitoring and management.
+
+### 🗑️ Windows Debloat & Tool Manager
 - **System Scan:** Detect installed bloatware across multiple categories (Xbox, Cortana, Bing, etc.).
-- **Safe Removal:** Categorized removal of pre-installed apps and unnecessary Windows components.
-- **Restore Integration:** Links directly to restore point creation for maximum safety.
-
-### 📦 Install (Software Installer)
-- **Winget-Powered:** Easily install essential apps and tools (Browsers, Dev Tools, Multimedia, Utilities, etc.).
-- **Status Detection:** Automatically detects if tools are already installed.
-- **Now includes Essentials & Hardware Tools:** 7-Zip, VLC, Brave, Discord, HWiNFO, CPU-Z.
+- **Smart Uninstaller:** Sequences from Winget ID -> Name -> Specialized PowerShell removal for stubborn apps.
+- **App Essentials:** One-click installation for 7-Zip, VLC, Brave, Discord, HWiNFO, and more via Winget.
 
 ### 🔐 Password Management
-- **Password Generator:** Generate cryptographically secure passwords with customizable length and complexity.
-- **ShadowKeys Vault:** Robust SQLite-backed local password storage with AES-256 encryption, PBKDF2-HMAC key derivation, and automated legacy migration. Now stores data in secure, platform-specific config directories with encryption verification.
+- **Password Generator:** Generate cryptographically secure passwords.
+- **ShadowKeys Vault:** AES-256 encrypted local password storage with PBKDF2-HMAC key derivation.
+- **System Tray Integration:** Minimize to tray with quick-access buttons for "Quick Clean" or "Speed Test".
 
-### ⚙️ System Tweaks
-- **Performance & Privacy:** Categorized registry optimizations for Telemetry, Activity History, GameDVR, and more.
-- **Bulk Application:** Select multiple tweaks and apply them all at once.
-- **New in this build:** Disable Windows Copilot, disable News & Interests, and quickly show file extensions and hidden files.
-
-## 🐧 Linux Support (BETA)
-Ghosty Tools v7.2 introduces expanded support for Linux systems!
-Features now available on Linux:
-- **Dashboard & Monitoring:** System usage, specifications, and speed test.
-- **System Maintenance:** Automated cleanup and updates via `apt`.
-- **Security Scanner:** Auditing for `ufw` firewall, `ssh` status, and root login.
-- **Password Management:** ShadowKeys Vault and Password Generator.
-- **Software Installer:** Automated tool installation using `apt-get`.
+## 🌍 Cross-Platform Support
+Ghosty Tools v7.3 is fully optimized for **Windows**, **Linux**, and **macOS**.
+- **Windows:** Deep system tweaks, Winget integration, and PowerShell-based maintenance.
+- **Linux:** UFW firewall management, PPA/Repository management, and native log viewing.
+- **macOS:** Homebrew integration, app residue cleaning, and native maintenance scripts.
 
 See [LINUX_SUPPORT.md](LINUX_SUPPORT.md) for build instructions.
 

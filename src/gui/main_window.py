@@ -9,16 +9,17 @@ import string
 import re
 import logging
 import shutil
+import platform
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
                              QPushButton, QLabel, QCheckBox, QGroupBox, 
                              QScrollArea, QMessageBox, QProgressBar, QStackedWidget,
                              QFrame, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem,
                              QTreeWidgetItemIterator, QComboBox, QTextEdit, QLineEdit, QDialog, QFormLayout,
                              QApplication)
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QSize
-from PyQt6.QtGui import QIcon, QFont, QColor, QTextCursor
+from PyQt6.QtGui import QIcon, QFont, QColor, QTextCursor, QTextCharFormat
 import psutil
 try:
     import winreg
@@ -44,7 +45,10 @@ from src.core.workers import (
     SpecsWorker,
     MainDiskWorker,
     MonitoringSetupWorker,
-    DownloadWorker
+    DownloadWorker,
+    NetworkWorker,
+    TaskManagerWorker,
+    PrivacyAuditWorker
 )
 from src.core.password_manager import PasswordManager
 from src.core.bloat_remover import BloatRemover, BloatwareCategory, SafetyLevel
@@ -52,8 +56,10 @@ from src.core.system_tools_installer import SystemToolsInstaller, ToolCategory
 from src.core.security_scanner import SecurityScanner
 from src.core.update_manager import UpdateManager, UpdateWorker
 from src.core.diagnostics import Diagnostics
-from src.gui.dialogs import MasterPasswordDialog
+from src.gui.dialogs import MasterPasswordDialog, HostsEditorDialog
 from src.utils.helpers import is_admin, elevate_privileges, get_config_dir, ensure_private_file, get_resource_path, get_logs_dir, get_os_info
+from PyQt6.QtWidgets import QSystemTrayIcon, QMenu
+from PyQt6.QtGui import QAction
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +111,7 @@ class GhostyTool(QMainWindow):
         self._latest_update_info = None
 
         self.init_ui()
+        self.init_tray()
         
         QTimer.singleShot(1000, self.check_for_updates)
         QTimer.singleShot(2000, self.check_for_whats_new)
@@ -153,13 +160,16 @@ class GhostyTool(QMainWindow):
         self.add_nav_button("Dashboard", 0)
         self.add_nav_button("Maintenance", 1)
         self.add_nav_button("Security", 2)
-        self.add_nav_button("Debloat", 3)
-        self.add_nav_button("Install", 4)
-        self.add_nav_button("Cleanup", 5)
-        self.add_nav_button("Password Gen", 6)
-        self.add_nav_button("Password Vault", 7)
-        self.add_nav_button("Tweaks", 8)
-        self.add_nav_button("About", 9)
+        self.add_nav_button("Network", 3)
+        self.add_nav_button("Processes", 4)
+        self.add_nav_button("Privacy", 5)
+        self.add_nav_button("Debloat", 6)
+        self.add_nav_button("Install", 7)
+        self.add_nav_button("Cleanup", 8)
+        self.add_nav_button("Advanced Tools", 9)
+        self.add_nav_button("Passwords", 10)
+        self.add_nav_button("Tweaks", 11)
+        self.add_nav_button("About", 12)
 
         self.sidebar_layout.addStretch()
 
@@ -170,15 +180,16 @@ class GhostyTool(QMainWindow):
 
         # Platform check - Custom Linux GUI
         if sys.platform != 'win32':
-            # Hide Debloat, Tweaks and theme toggle as they are currently Windows-specific
-            for i in [3, 8]:
-                self.nav_buttons[i].setVisible(False)
+            # Hide Windows-specific tabs
+            for i in [6, 11]:
+                if i < len(self.nav_buttons):
+                    self.nav_buttons[i].setVisible(False)
             
             self.dark_mode_btn.setVisible(False)
             
             # Update labels for Linux to be more generic
             self.nav_buttons[1].setText("System Maintenance")
-            self.nav_buttons[5].setText("System Cleanup")
+            self.nav_buttons[8].setText("System Cleanup")
             
             # Branding update for Linux
             title_label.setText("GHOSTY TOOLS 🐧")
@@ -245,6 +256,7 @@ class GhostyTool(QMainWindow):
         
         self.terminal_output = QTextEdit()
         self.terminal_output.setReadOnly(True)
+        self.terminal_output.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
         self.terminal_output.setStyleSheet("""
             QTextEdit {
                 background-color: #1e1e1e;
@@ -283,11 +295,14 @@ class GhostyTool(QMainWindow):
         self.setup_dashboard_page()
         self.setup_maintenance_page()
         self.setup_security_page()
+        self.setup_network_page()
+        self.setup_processes_page()
+        self.setup_privacy_page()
         self.setup_debloat_page()
         self.setup_tools_page()
         self.setup_cleanup_page()
-        self.setup_passgen_page()
-        self.setup_vault_page()
+        self.setup_advanced_tools_page()
+        self.setup_password_page()
         self.setup_tweaks_page()
         self.setup_about_page()
 
@@ -347,8 +362,16 @@ class GhostyTool(QMainWindow):
 
     def log_to_terminal(self, message, level="info"):
         """Logs a message to the live terminal with color coding."""
+        if message is None:
+            return
+            
+        # Handle multi-line messages by recursing for each line
+        if "\n" in message:
+            for line in message.splitlines():
+                self.log_to_terminal(line, level)
+            return
+        
         # Pre-clean message from corrupted encoding characters
-        # Common corruption for progress bars in some terminals: â–ˆ (█), â–’ (▒), â–‘ (░)
         message = message.replace("â–ˆ", "█").replace("â–’", "▒").replace("â–‘", "░").replace("â–“", "▓")
         
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -361,9 +384,6 @@ class GhostyTool(QMainWindow):
         elif level == "info": color = "#569cd6"
         
         # Progress/Status indicator detection
-        # Spinners: - \ | /
-        # Bars: █ ▒
-        # Percentage: %
         is_progress = "%" in message or "█" in message or "▒" in message
         is_spinner = any(message.endswith(f" {s}") for s in ["-", "\\", "|", "/"])
         
@@ -384,13 +404,6 @@ class GhostyTool(QMainWindow):
                     self.progress_bar.show()
                 except: pass
 
-        # Clean up message for terminal if it's just a progress bar line
-        # If the line is mostly progress bar, we might want to make it cleaner
-        if "█" in message or "▒" in message:
-            # If it's a winget-style progress bar, it often looks like: [Update All] █████░░░░░ 50%
-            # We can leave it but ensure it's on one line.
-            pass
-
         cursor = self.terminal_output.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         
@@ -408,11 +421,24 @@ class GhostyTool(QMainWindow):
             # Replace last block
             cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock, QTextCursor.MoveMode.KeepAnchor)
             cursor.removeSelectedText()
-            cursor.insertHtml(f'<span style="color: #808080;">[{timestamp}]</span> <span style="color: {color};">{message}</span>')
+            
+            # Re-insert with timestamp and color
+            cursor.insertHtml(f'<span style="color: #808080;">[{timestamp}]</span> ')
+            fmt = QTextCharFormat()
+            fmt.setForeground(QColor(color))
+            fmt.setFontFamily("Consolas")
+            cursor.setCharFormat(fmt)
+            cursor.insertText(message)
         else:
             if self.terminal_output.toPlainText():
                 cursor.insertBlock()
-            cursor.insertHtml(f'<span style="color: #808080;">[{timestamp}]</span> <span style="color: {color};">{message}</span>')
+            
+            cursor.insertHtml(f'<span style="color: #808080;">[{timestamp}]</span> ')
+            fmt = QTextCharFormat()
+            fmt.setForeground(QColor(color))
+            fmt.setFontFamily("Consolas")
+            cursor.setCharFormat(fmt)
+            cursor.insertText(message)
             
         self.terminal_output.moveCursor(QTextCursor.MoveOperation.End)
         
@@ -718,6 +744,213 @@ class GhostyTool(QMainWindow):
                 item.setForeground(Qt.GlobalColor.green)
             self.security_list.addItem(item)
         self.log_signal.emit("Security scan completed.", "success")
+
+    def setup_network_page(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        
+        # IP Info Group
+        ip_group = QGroupBox("Network Intelligence")
+        ip_layout = QFormLayout()
+        self.local_ip_label = QLabel("Loading...")
+        self.public_ip_label = QLabel("Loading...")
+        self.isp_label = QLabel("Loading...")
+        self.location_label = QLabel("Loading...")
+        ip_layout.addRow("Local IP:", self.local_ip_label)
+        ip_layout.addRow("Public IP:", self.public_ip_label)
+        ip_layout.addRow("ISP:", self.isp_label)
+        ip_layout.addRow("Location:", self.location_label)
+        
+        refresh_ip_btn = QPushButton("Refresh Network Info")
+        refresh_ip_btn.clicked.connect(self.refresh_network_info)
+        ip_layout.addRow(refresh_ip_btn)
+        ip_group.setLayout(ip_layout)
+        layout.addWidget(ip_group)
+        
+        # DNS Benchmark Group
+        dns_group = QGroupBox("DNS Benchmarker")
+        dns_layout = QVBoxLayout()
+        self.dns_results_list = QListWidget()
+        dns_layout.addWidget(self.dns_results_list)
+        run_dns_btn = QPushButton("Benchmark DNS")
+        run_dns_btn.clicked.connect(self.run_dns_benchmark)
+        dns_layout.addWidget(run_dns_btn)
+        dns_group.setLayout(dns_layout)
+        layout.addWidget(dns_group)
+        
+        # Port Scanner Group
+        port_group = QGroupBox("Simple Port Scanner")
+        port_layout = QVBoxLayout()
+        self.port_results_text = QTextEdit()
+        self.port_results_text.setReadOnly(True)
+        self.port_results_text.setMaximumHeight(100)
+        port_layout.addWidget(self.port_results_text)
+        run_port_btn = QPushButton("Scan Local Ports")
+        run_port_btn.clicked.connect(self.run_port_scan)
+        port_layout.addWidget(run_port_btn)
+        port_group.setLayout(port_layout)
+        layout.addWidget(port_group)
+        
+        layout.addStretch()
+        self.content_stack.addWidget(page)
+        self.refresh_network_info()
+
+    def refresh_network_info(self):
+        self.local_ip_label.setText("Fetching...")
+        self.public_ip_label.setText("Fetching...")
+        self.network_worker = NetworkWorker(task="ip")
+        self.network_worker.finished.connect(self._on_network_task_finished)
+        self.network_worker.start()
+
+    def run_dns_benchmark(self):
+        self.dns_results_list.clear()
+        self.dns_results_list.addItem("Benchmarking... please wait.")
+        self.dns_worker = NetworkWorker(task="dns")
+        self.dns_worker.finished.connect(self._on_network_task_finished)
+        self.dns_worker.start()
+
+    def run_port_scan(self):
+        self.port_results_text.setText("Scanning common ports on localhost...")
+        self.port_worker = NetworkWorker(task="port")
+        self.port_worker.finished.connect(self._on_network_task_finished)
+        self.port_worker.start()
+
+    def _on_network_task_finished(self, result):
+        task = result.get("task")
+        data = result.get("data")
+        
+        if task == "ip":
+            self.local_ip_label.setText(data["local_ip"])
+            self.public_ip_label.setText(data["public_ip"])
+            self.isp_label.setText(data["isp"])
+            self.location_label.setText(data["location"])
+        elif task == "dns":
+            self.dns_results_list.clear()
+            for res in data:
+                latency = f"{res['latency']:.2f} ms" if res['latency'] > 0 else "Failed"
+                self.dns_results_list.addItem(f"{res['name']}: {latency}")
+        elif task == "port":
+            if data:
+                self.port_results_text.setText(f"Open Ports: {', '.join(map(str, data))}")
+            else:
+                self.port_results_text.setText("No common open ports found.")
+
+    def setup_processes_page(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.addWidget(QLabel("Resource Hog Detector (Top 5)"))
+        
+        self.proc_tree = QTreeWidget()
+        self.proc_tree.setHeaderLabels(["PID", "Name", "CPU %", "MEM %"])
+        layout.addWidget(self.proc_tree)
+        
+        refresh_btn = QPushButton("Refresh Processes")
+        refresh_btn.clicked.connect(self.refresh_processes)
+        layout.addWidget(refresh_btn)
+        
+        kill_btn = QPushButton("Terminate Selected Process")
+        kill_btn.setStyleSheet("background-color: #f44747; color: white;")
+        kill_btn.clicked.connect(self.kill_selected_process)
+        layout.addWidget(kill_btn)
+        
+        layout.addStretch()
+        self.content_stack.addWidget(page)
+        self.refresh_processes()
+
+    def refresh_processes(self):
+        self.proc_worker = TaskManagerWorker()
+        self.proc_worker.finished.connect(self._on_processes_ready)
+        self.proc_worker.start()
+
+    def _on_processes_ready(self, hogs):
+        self.proc_tree.clear()
+        # Combine and deduplicate
+        combined = {p['pid']: p for p in hogs['cpu'] + hogs['memory']}
+        for pid, info in combined.items():
+            item = QTreeWidgetItem([str(pid), info['name'], f"{info['cpu_percent']:.1f}%", f"{info['memory_percent']:.1f}%"])
+            self.proc_tree.addTopLevelItem(item)
+
+    def kill_selected_process(self):
+        item = self.proc_tree.currentItem()
+        if not item:
+            return
+        pid = int(item.text(0))
+        from src.core.task_manager import TaskManager
+        success, msg = TaskManager.kill_process(pid)
+        if success:
+            self.log_signal.emit(msg, "success")
+            self.refresh_processes()
+        else:
+            self.log_signal.emit(msg, "error")
+
+    def setup_privacy_page(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        
+        # Privacy Audit
+        audit_group = QGroupBox("Privacy Audit")
+        audit_layout = QVBoxLayout()
+        self.audit_results = QListWidget()
+        audit_layout.addWidget(self.audit_results)
+        run_audit_btn = QPushButton("Run Privacy Audit")
+        run_audit_btn.clicked.connect(self.run_privacy_audit)
+        audit_layout.addWidget(run_audit_btn)
+        audit_group.setLayout(audit_layout)
+        layout.addWidget(audit_group)
+        
+        # Browser Cleaner
+        browser_group = QGroupBox("Browser Privacy Cleaner")
+        browser_layout = QVBoxLayout()
+        self.browser_list = QListWidget()
+        browser_layout.addWidget(self.browser_list)
+        clean_btn = QPushButton("Clean Selected Browser Data")
+        clean_btn.clicked.connect(self.clean_browser_data)
+        browser_layout.addWidget(clean_btn)
+        browser_group.setLayout(browser_layout)
+        layout.addWidget(browser_group)
+        
+        layout.addStretch()
+        self.content_stack.addWidget(page)
+        self.refresh_browser_list()
+
+    def run_privacy_audit(self):
+        self.audit_results.clear()
+        self.audit_results.addItem("Auditing...")
+        self.audit_worker = PrivacyAuditWorker()
+        self.audit_worker.finished.connect(self._on_privacy_audit_finished)
+        self.audit_worker.start()
+
+    def _on_privacy_audit_finished(self, results):
+        self.audit_results.clear()
+        for res in results:
+            self.audit_results.addItem(f"{res['name']}: {res['status']} -> {res['recommendation']}")
+
+    def refresh_browser_list(self):
+        from src.core.privacy_cleaner import PrivacyCleaner
+        self.browser_list.clear()
+        paths = PrivacyCleaner.get_browser_paths()
+        for p in paths:
+            item = QListWidgetItem(p["name"])
+            item.setData(Qt.ItemDataRole.UserRole, p["path"])
+            item.setCheckState(Qt.CheckState.Unchecked)
+            self.browser_list.addItem(item)
+
+    def clean_browser_data(self):
+        from src.core.privacy_cleaner import PrivacyCleaner
+        cleaned_count = 0
+        for i in range(self.browser_list.count()):
+            item = self.browser_list.item(i)
+            if item.checkState() == Qt.CheckState.Checked:
+                path = item.data(Qt.ItemDataRole.UserRole)
+                success, msg = PrivacyCleaner.clean_browser_data(path)
+                if success:
+                    cleaned_count += 1
+                    self.log_signal.emit(msg, "success")
+        
+        if cleaned_count > 0:
+            QMessageBox.information(self, "Success", f"Cleaned data for {cleaned_count} browsers.")
+        else:
+            QMessageBox.warning(self, "No Selection", "Please select at least one browser to clean.")
 
     def setup_debloat_page(self):
         page = QWidget()
@@ -1127,7 +1360,10 @@ class GhostyTool(QMainWindow):
                 try:
                     # Search for winget ID first
                     search_cmd = f'winget search "{app_name}" --exact --source winget'
-                    res = subprocess.run(["powershell", "-NoProfile", "-Command", search_cmd], capture_output=True, text=True, creationflags=CREATE_NO_WINDOW)
+                    
+                    # Use a safer way to run the search
+                    from src.utils.helpers import run_command
+                    res = run_command(["powershell", "-NoProfile", "-Command", search_cmd], timeout=30)
                     
                     winget_id = None
                     # Simple parsing of winget search output (first ID column)
@@ -1140,13 +1376,27 @@ class GhostyTool(QMainWindow):
                                 break
                     
                     if winget_id:
-                        uninst_cmd = f'winget uninstall --id {winget_id} --silent --accept-source-agreements'
+                        uninst_cmd = f'winget uninstall --id {winget_id} --silent --force --accept-source-agreements'
                         self.log_signal.emit(f"Found Winget ID: {winget_id}. Running silent uninstall...", "debug")
-                        subprocess.run(["powershell", "-NoProfile", "-Command", uninst_cmd], creationflags=CREATE_NO_WINDOW)
-                        self.log_signal.emit(f"Uninstallation command sent for {app_name}.", "info")
+                        
+                        # Use Popen to capture output if we wanted streaming, but here we just wait
+                        uninst_res = run_command(["powershell", "-NoProfile", "-Command", uninst_cmd], timeout=120)
+                        
+                        # Log output cleanly
+                        if uninst_res.stdout:
+                            for line in uninst_res.stdout.splitlines():
+                                clean_line = line.strip()
+                                if clean_line and clean_line not in ["-", "\\", "|", "/", ".", "??"]:
+                                    self.log_signal.emit(f"[{app_name}] {clean_line}", "debug")
+
+                        if uninst_res.returncode == 0:
+                            self.log_signal.emit(f"Successfully uninstalled {app_name}.", "success")
+                        else:
+                            msg = f"Uninstallation failed for {app_name} (Code: {uninst_res.returncode})."
+                            if "Edge" in winget_id:
+                                msg += " Note: Microsoft Edge is a system component and may require manual removal."
+                            self.log_signal.emit(msg, "error")
                     else:
-                        # Fallback to standard control panel uninstall if possible? 
-                        # For now, just inform user.
                         self.log_signal.emit(f"Could not find Winget ID for {app_name}. Please uninstall manually via Control Panel.", "warning")
                 except Exception as e:
                     self.log_signal.emit(f"Error during uninstallation of {app_name}: {e}", "error")
@@ -1193,6 +1443,11 @@ class GhostyTool(QMainWindow):
         
         def run_check():
             try:
+                # Prime the winget cache once on Windows to avoid multiple slow calls
+                if sys.platform == "win32":
+                    self.log_signal.emit("Refreshing WinGet package cache...", "info")
+                    self.tools_installer.refresh_installed_cache()
+
                 items_to_check = []
                 iterator = QTreeWidgetItemIterator(self.tools_tree)
                 while iterator.value():
@@ -1254,12 +1509,19 @@ class GhostyTool(QMainWindow):
                 
                 process = subprocess.Popen(["powershell", "-NoProfile", "-Command", cmd], 
                                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
-                                         text=True, shell=False, creationflags=CREATE_NO_WINDOW)
+                                         shell=False, creationflags=CREATE_NO_WINDOW)
                 
                 for line in process.stdout:
-                    clean_line = line.strip()
-                    if clean_line:
-                        self.log_signal.emit(f"[Update All] {clean_line}", "debug")
+                    try:
+                        text = line.decode('utf-8', errors='replace')
+                    except:
+                        text = line.decode('cp1252', errors='replace')
+                    
+                    for part in text.split('\r'):
+                        clean_line = part.strip()
+                        if clean_line and clean_line not in ["-", "\\", "|", "/", ".", "??"]:
+                            if not re.match(r'^[\.\-\s]+$', clean_line):
+                                self.log_signal.emit(f"[Update All] {clean_line}", "debug")
                 
                 process.wait()
                 # Winget exit codes: 0 = Success, 0x8A15003B (-1978236869) = No updates found
@@ -1316,6 +1578,9 @@ class GhostyTool(QMainWindow):
         if QMessageBox.question(self, "Confirm Uninstall", f"Uninstall {len(selected_ids)} selected tools?") != QMessageBox.StandardButton.Yes:
             return
 
+        if sys.platform == 'win32' and not is_admin():
+            self.log_signal.emit("Warning: Administrator privileges are recommended for tool uninstallation.", "warning")
+
         self.log_signal.emit(f"Starting uninstallation of {len(selected_ids)} tools...", "info")
         
         def run_uninstalls():
@@ -1323,37 +1588,106 @@ class GhostyTool(QMainWindow):
                 tool = self.tools_installer.tools.get(tid)
                 if not tool: continue
                 
-                # Extract winget ID if possible
-                winget_id = None
-                for cmd in tool.install_commands:
-                    match = re.search(r'--id\s+([^\s]+)', cmd)
-                    if match:
-                        winget_id = match.group(1)
-                        break
+                # Use detected ID if available, otherwise fallback to extracted ID
+                winget_id = getattr(tool, 'detected_winget_id', None) or getattr(tool, 'winget_id', None)
                 
                 if not winget_id:
-                    self.log_signal.emit(f"Could not determine winget ID for {tool.name}. Skipping.", "warning")
-                    continue
+                    self.log_signal.emit(f"Could not determine winget ID for {tool.name}. Trying name-based uninstall.", "warning")
+                    uninst_cmd = f'winget uninstall "{tool.name}" --silent --force --accept-source-agreements'
+                else:
+                    uninst_cmd = f'winget uninstall --id "{winget_id}" --silent --force --accept-source-agreements'
 
-                self.log_signal.emit(f"Uninstalling {tool.name} ({winget_id})...", "info")
-                uninst_cmd = f"winget uninstall --id {winget_id} --silent --accept-source-agreements"
+                self.log_signal.emit(f"Uninstalling {tool.name}...", "info")
                 self.log_signal.emit(f"Executing: {uninst_cmd}", "debug")
                 
+                def execute_and_log(cmd, name):
+                    proc = subprocess.Popen(["powershell", "-NoProfile", "-Command", cmd], 
+                                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+                                           shell=False, creationflags=CREATE_NO_WINDOW)
+                    full_output = []
+                    while True:
+                        line = proc.stdout.readline()
+                        if not line: break
+                        try:
+                            text = line.decode('utf-8', errors='replace')
+                        except:
+                            text = line.decode('cp1252', errors='replace')
+                        
+                        for part in text.split('\r'):
+                            clean = part.strip()
+                            if clean and clean not in ["-", "\\", "|", "/", ".", "??"]:
+                                if not re.match(r'^[\.\-\s]+$', clean):
+                                    full_output.append(clean)
+                                    self.log_signal.emit(f"[{name}] {clean}", "debug")
+                    proc.wait()
+                    return proc.returncode, "\n".join(full_output)
+
                 try:
-                    process = subprocess.Popen(["powershell", "-NoProfile", "-Command", uninst_cmd], 
-                                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
-                                             text=True, shell=False, creationflags=CREATE_NO_WINDOW)
+                    returncode, output_str = execute_and_log(uninst_cmd, tool.name)
                     
-                    for line in process.stdout:
-                        clean_line = line.strip()
-                        if clean_line:
-                            self.log_signal.emit(f"[{tool.name}] {clean_line}", "debug")
-                    
-                    process.wait()
-                    if process.returncode == 0:
+                    if returncode == 0:
                         self.log_signal.emit(f"Successfully uninstalled {tool.name}.", "success")
                     else:
-                        self.log_signal.emit(f"Uninstallation failed for {tool.name} with code {process.returncode}", "error")
+                        # Fallback: try uninstalling by name if ID-based fails
+                        if "--id" in uninst_cmd:
+                            self.log_signal.emit(f"ID-based uninstall failed for {tool.name}. Trying name-based fallback...", "warning")
+                            fallback_cmd = f'winget uninstall "{tool.name}" --silent --force --accept-source-agreements'
+                            fb_returncode, fb_output = execute_and_log(fallback_cmd, tool.name)
+                            if fb_returncode == 0:
+                                self.log_signal.emit(f"Successfully uninstalled {tool.name} via name fallback.", "success")
+                                continue
+                            returncode = fb_returncode
+                            output_str = fb_output
+
+                        # Third Fallback: PowerShell Appx/System removal for known Microsoft apps
+                        low_name = tool.name.lower()
+                        low_id = (winget_id or "").lower()
+                        
+                        if any(x in low_name or x in low_id for x in ["teams", "onedrive", "edge", "microsoft", "xbox", "cortana", "office", "skype", "solitaire"]):
+                            self.log_signal.emit(f"Winget methods failed. Trying specialized PowerShell removal for {tool.name}...", "warning")
+                            
+                            ps_fallback = ""
+                            if "teams" in low_name or "teams" in low_id:
+                                ps_fallback = "Get-AppxPackage -AllUsers *Teams* | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue"
+                            elif "onedrive" in low_name or "onedrive" in low_id:
+                                ps_fallback = 'taskkill /f /im OneDrive.exe; if (Test-Path "$env:SystemRoot\\System32\\OneDriveSetup.exe") { Start-Process -FilePath "$env:SystemRoot\\System32\\OneDriveSetup.exe" -ArgumentList "/uninstall" -Wait }'
+                            elif "edge" in low_name or "edge" in low_id:
+                                # Edge is stubborn; try removing the Appx packages and clearing the installation directory
+                                ps_fallback = "Get-AppxPackage -AllUsers *MicrosoftEdge* | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue"
+                            elif "cortana" in low_name or "cortana" in low_id:
+                                ps_fallback = "Get-AppxPackage -AllUsers *549981C3F5F10* | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue"
+                            elif "xbox" in low_name or "xbox" in low_id:
+                                ps_fallback = "Get-AppxPackage -AllUsers *Xbox* | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue"
+                            elif "solitaire" in low_name or "solitaire" in low_id:
+                                ps_fallback = "Get-AppxPackage -AllUsers *SolitaireCollection* | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue"
+                            elif "skype" in low_name or "skype" in low_id:
+                                ps_fallback = "Get-AppxPackage -AllUsers *SkypeApp* | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue"
+                            elif "microsoft" in low_id:
+                                # Generic Appx removal for Microsoft IDs (e.g. Microsoft.WindowsCalculator)
+                                ps_fallback = f"Get-AppxPackage -AllUsers *{winget_id}* | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue"
+                            elif "microsoft" in low_name:
+                                # Generic Appx removal for Microsoft names (e.g. "Microsoft Photos")
+                                clean_name = tool.name.replace("Microsoft ", "").replace(" ", "")
+                                ps_fallback = f"Get-AppxPackage -AllUsers *{clean_name}* | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue"
+                            
+                            if ps_fallback:
+                                self.log_signal.emit(f"Executing PowerShell fallback: {ps_fallback}", "debug")
+                                ps_returncode, ps_output = execute_and_log(ps_fallback, tool.name)
+                                if ps_returncode == 0:
+                                    self.log_signal.emit(f"Successfully removed {tool.name} via PowerShell fallback.", "success")
+                                    continue
+                        
+                        error_msg = f"Uninstallation failed for {tool.name} with code {returncode}"
+                        
+                        # Special handling for common errors
+                        if "No installed package found matching input criteria" in output_str:
+                            error_msg += ". This tool was detected but is not managed by Winget (likely installed manually)."
+                        elif "Microsoft.Edge" in (winget_id or "") or returncode == 93:
+                            error_msg += ". Note: Microsoft Edge is a system component protected by Windows."
+                        elif any(x in (winget_id or "").lower() for x in ["microsoft.teams", "microsoft.onedrive", "microsoft.windows"]):
+                            error_msg += ". Note: This is a built-in Windows component and may be protected."
+                        
+                        self.log_signal.emit(error_msg, "error")
                 except Exception as e:
                     self.log_signal.emit(f"Error uninstalling {tool.name}: {e}", "error")
             
@@ -1425,14 +1759,25 @@ class GhostyTool(QMainWindow):
                 cmd_prefix = ["powershell", "-NoProfile", "-Command"] if sys.platform == 'win32' else ["bash", "-c"]
                 process = subprocess.Popen(cmd_prefix + [cmd], 
                                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
-                                         text=True, shell=False, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+                                         shell=False, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
                 
                 output_captured = []
-                for line in process.stdout:
-                    clean_line = line.strip()
-                    if clean_line:
-                        output_captured.append(clean_line)
-                        self.log_signal.emit(f"[{tool.name}] {clean_line}", "debug")
+                while True:
+                    line = process.stdout.readline()
+                    if not line:
+                        break
+                    
+                    try:
+                        text = line.decode('utf-8', errors='replace')
+                    except:
+                        text = line.decode('cp1252', errors='replace')
+
+                    for part in text.split('\r'):
+                        clean_line = part.strip()
+                        if clean_line and clean_line not in ["-", "\\", "|", "/", ".", "??"]:
+                            if not re.match(r'^[\.\-\s]+$', clean_line):
+                                output_captured.append(clean_line)
+                                self.log_signal.emit(f"[{tool.name}] {clean_line}", "debug")
                 
                 process.wait()
                 if process.returncode != 0:
@@ -1490,8 +1835,9 @@ class GhostyTool(QMainWindow):
             if not exe_path:
                 for name in lookup_names:
                     try:
+                        from src.utils.helpers import run_command
                         ps_cmd = ["powershell.exe", "-NoProfile", "-Command", f"Write-Host (Get-Command '{name}' -ErrorAction SilentlyContinue).Source"]
-                        res = subprocess.run(ps_cmd, capture_output=True, text=True, timeout=5, shell=False, creationflags=CREATE_NO_WINDOW)
+                        res = run_command(ps_cmd, timeout=5)
                         if res.stdout.strip() and os.path.exists(res.stdout.strip()):
                             exe_path = res.stdout.strip()
                             break
@@ -1608,10 +1954,252 @@ class GhostyTool(QMainWindow):
             logger.error(f"Branding failed for {tool.name}: {e}")
             self.log_signal.emit(f"Ghosty branding failed for {tool.name}: {e}", "warning")
 
-    def setup_passgen_page(self):
+    def setup_advanced_tools_page(self):
         page = QWidget()
         layout = QVBoxLayout(page)
-        group = QGroupBox("Professional Password Generator")
+        
+        # System Overview
+        sys_group = QGroupBox("System Overview")
+        sys_layout = QGridLayout()
+        
+        cpu_info = platform.processor() or "Unknown"
+        cpu_label = QLabel(f"<b>CPU:</b> {cpu_info}")
+        sys_layout.addWidget(cpu_label, 0, 0)
+        
+        mem = psutil.virtual_memory()
+        mem_label = QLabel(f"<b>Memory:</b> {mem.total // (1024**3)} GB ({mem.percent}% used)")
+        sys_layout.addWidget(mem_label, 0, 1)
+        
+        os_label = QLabel(f"<b>OS:</b> {platform.system()} {platform.release()}")
+        sys_layout.addWidget(os_label, 1, 0)
+        
+        boot_time = datetime.fromtimestamp(psutil.boot_time()).strftime("%Y-%m-%d %H:%M:%S")
+        boot_label = QLabel(f"<b>Boot Time:</b> {boot_time}")
+        sys_layout.addWidget(boot_label, 1, 1)
+        
+        sys_group.setLayout(sys_layout)
+        layout.addWidget(sys_group)
+        
+        # Secure File Shredder
+        shred_group = QGroupBox("Secure File Shredder")
+        shred_layout = QVBoxLayout()
+        self.shred_path_label = QLabel("No file selected")
+        shred_layout.addWidget(self.shred_path_label)
+        select_file_btn = QPushButton("Select File to Shred")
+        select_file_btn.clicked.connect(self.select_file_to_shred)
+        shred_layout.addWidget(select_file_btn)
+        self.shred_btn = QPushButton("Shred File Permanently")
+        self.shred_btn.setStyleSheet("background-color: #f44747; color: white; font-weight: bold;")
+        self.shred_btn.setEnabled(False)
+        self.shred_btn.clicked.connect(self.run_file_shredder)
+        shred_layout.addWidget(self.shred_btn)
+        shred_group.setLayout(shred_layout)
+        layout.addWidget(shred_group)
+        
+        # Platform Specific Tools
+        plat_group = QGroupBox(f"{sys.platform.capitalize()} Specific Tools")
+        plat_layout = QVBoxLayout()
+        
+        if sys.platform == "win32":
+            win_grid = QGridLayout()
+            
+            gaming_btn = QPushButton("Toggle Gaming Mode")
+            gaming_btn.clicked.connect(lambda: self.run_win_tool("gaming"))
+            win_grid.addWidget(gaming_btn, 0, 0)
+            
+            winget_btn = QPushButton("Check WinGet Apps")
+            winget_btn.clicked.connect(lambda: self.run_win_tool("winget"))
+            win_grid.addWidget(winget_btn, 0, 1)
+            
+            dns_btn = QPushButton("Flush DNS Cache")
+            dns_btn.clicked.connect(lambda: self.run_win_tool("dns"))
+            win_grid.addWidget(dns_btn, 1, 0)
+            
+            spool_btn = QPushButton("Reset Print Spooler")
+            spool_btn.clicked.connect(lambda: self.run_win_tool("spooler"))
+            win_grid.addWidget(spool_btn, 1, 1)
+            
+            sfc_btn = QPushButton("Verify System Files (SFC)")
+            sfc_btn.clicked.connect(lambda: self.run_win_tool("sfc"))
+            win_grid.addWidget(sfc_btn, 2, 0)
+            
+            hosts_btn = QPushButton("Open Hosts File Editor")
+            hosts_btn.clicked.connect(lambda: self.run_win_tool("hosts"))
+            win_grid.addWidget(hosts_btn, 2, 1)
+            
+            plat_layout.addLayout(win_grid)
+            
+        elif sys.platform == "linux":
+            lin_grid = QGridLayout()
+            
+            ufw_btn = QPushButton("Toggle UFW Firewall")
+            ufw_btn.clicked.connect(lambda: self.run_linux_tool("ufw"))
+            lin_grid.addWidget(ufw_btn, 0, 0)
+            
+            repo_btn = QPushButton("List Repositories")
+            repo_btn.clicked.connect(lambda: self.run_linux_tool("repos"))
+            lin_grid.addWidget(repo_btn, 0, 1)
+            
+            log_btn = QPushButton("View System Logs")
+            log_btn.clicked.connect(lambda: self.run_linux_tool("logs"))
+            lin_grid.addWidget(log_btn, 1, 0)
+            
+            df_btn = QPushButton("Disk Usage Summary")
+            df_btn.clicked.connect(lambda: self.run_linux_tool("disk"))
+            lin_grid.addWidget(df_btn, 1, 1)
+            
+            plat_layout.addLayout(lin_grid)
+            
+        elif sys.platform == "darwin":
+            mac_grid = QGridLayout()
+            
+            brew_btn = QPushButton("Update Homebrew")
+            brew_btn.clicked.connect(lambda: self.run_macos_tool("brew"))
+            mac_grid.addWidget(brew_btn, 0, 0)
+            
+            maint_btn = QPushButton("Periodic Maintenance")
+            maint_btn.clicked.connect(lambda: self.run_macos_tool("maint"))
+            mac_grid.addWidget(maint_btn, 0, 1)
+            
+            sip_btn = QPushButton("Check SIP Status")
+            sip_btn.clicked.connect(lambda: self.run_macos_tool("sip"))
+            mac_grid.addWidget(sip_btn, 1, 0)
+            
+            residue_btn = QPushButton("Scan App Residue")
+            residue_btn.clicked.connect(lambda: self.run_macos_tool("residue"))
+            mac_grid.addWidget(residue_btn, 1, 1)
+            
+            plat_layout.addLayout(mac_grid)
+            
+        plat_group.setLayout(plat_layout)
+        layout.addWidget(plat_group)
+        
+        layout.addStretch()
+        self.content_stack.addWidget(page)
+
+    def select_file_to_shred(self):
+        from PyQt6.QtWidgets import QFileDialog
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File to Shred")
+        if file_path:
+            self.shred_path_label.setText(file_path)
+            self.shred_btn.setEnabled(True)
+
+    def run_file_shredder(self):
+        file_path = self.shred_path_label.text()
+        if not os.path.exists(file_path): return
+        
+        reply = QMessageBox.warning(self, "Confirm Shredding", 
+                                  "Are you sure? This file will be PERMANENTLY deleted and CANNOT be recovered.",
+                                  QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            from src.core.file_shredder import FileShredder
+            success, msg = FileShredder.shred(file_path)
+            if success:
+                self.log_signal.emit(msg, "success")
+                self.shred_path_label.setText("No file selected")
+                self.shred_btn.setEnabled(False)
+            else:
+                self.log_signal.emit(msg, "error")
+
+    def run_win_tool(self, tool):
+        from src.core.platform_tools.windows import WindowsTools
+        from src.utils.helpers import is_admin
+        
+        # Admin check for privileged tools
+        if tool in ["gaming", "spooler", "sfc", "hosts"]:
+            if not is_admin():
+                self.log_signal.emit(f"Error: Administrator privileges are required to run {tool}.", "error")
+                return
+
+        if tool == "gaming":
+            success, msg = WindowsTools.toggle_gaming_mode(True)
+            self.log_signal.emit(msg, "info" if success else "error")
+        elif tool == "winget":
+            self.log_signal.emit("Fetching WinGet apps list... Please wait.", "info")
+            def run_winget():
+                success, msg = WindowsTools.get_winget_apps()
+                self.log_signal.emit(msg, "info")
+            import threading
+            threading.Thread(target=run_winget, daemon=True).start()
+        elif tool == "dns":
+            success, msg = WindowsTools.flush_dns()
+            self.log_signal.emit(msg, "success" if success else "error")
+        elif tool == "spooler":
+            success, msg = WindowsTools.clear_print_spooler()
+            self.log_signal.emit(msg, "success" if success else "error")
+        elif tool == "sfc":
+            self.log_signal.emit("Starting System File Check (Verify Only)... This may take a few minutes.", "info")
+            # Run in background to avoid freezing UI
+            def run_sfc():
+                success, msg = WindowsTools.check_system_files()
+                self.log_signal.emit(msg, "info")
+            import threading
+            threading.Thread(target=run_sfc, daemon=True).start()
+        elif tool == "hosts":
+            dialog = HostsEditorDialog(self)
+            dialog.exec()
+
+    def run_linux_tool(self, tool):
+        from src.core.platform_tools.linux import LinuxTools
+        import threading
+        if tool == "ufw":
+            success, msg = LinuxTools.manage_ufw(True)
+            self.log_signal.emit(msg, "info" if success else "error")
+        elif tool == "repos":
+            success, msg = LinuxTools.manage_repositories("list")
+            self.log_signal.emit(msg, "info")
+        elif tool == "logs":
+            self.log_signal.emit("Fetching system logs...", "info")
+            def run_logs():
+                success, msg = LinuxTools.get_system_logs()
+                self.log_signal.emit(msg, "info")
+            threading.Thread(target=run_logs, daemon=True).start()
+        elif tool == "disk":
+            self.log_signal.emit("Checking disk usage...", "info")
+            def run_disk():
+                success, msg = LinuxTools.get_disk_usage()
+                self.log_signal.emit(msg, "info")
+            threading.Thread(target=run_disk, daemon=True).start()
+
+    def run_macos_tool(self, tool):
+        from src.core.platform_tools.macos import MacOSTools
+        import threading
+        if tool == "brew":
+            self.log_signal.emit("Updating Homebrew... This may take a while.", "info")
+            def run_brew():
+                success, msg = MacOSTools.manage_homebrew("update")
+                self.log_signal.emit(msg, "info")
+            threading.Thread(target=run_brew, daemon=True).start()
+        elif tool == "maint":
+            self.log_signal.emit("Running macOS maintenance scripts...", "info")
+            def run_maint():
+                success, msg = MacOSTools.run_maintenance_scripts()
+                self.log_signal.emit(msg, "info" if success else "error")
+            threading.Thread(target=run_maint, daemon=True).start()
+        elif tool == "sip":
+            success, msg = MacOSTools.get_sip_status()
+            self.log_signal.emit(msg, "info")
+        elif tool == "residue":
+            results = MacOSTools.scan_app_residue()
+            if results:
+                msg = "Found potential residue folders:\n" + "\n".join(results)
+                self.log_signal.emit(msg, "info")
+            else:
+                self.log_signal.emit("No app residue folders found.", "info")
+
+    def setup_password_page(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        
+        from PyQt6.QtWidgets import QTabWidget
+        tabs = QTabWidget()
+        
+        # Generator Tab
+        gen_tab = QWidget()
+        gen_layout = QVBoxLayout(gen_tab)
+        
+        group = QGroupBox("Secure Password Generator")
         group_layout = QVBoxLayout()
         self.pass_length_label = QLabel("Password Length: 16")
         group_layout.addWidget(self.pass_length_label)
@@ -1631,7 +2219,7 @@ class GhostyTool(QMainWindow):
         group_layout.addWidget(self.pass_special)
         gen_btn = QPushButton("Generate Secure Password")
         gen_btn.setFixedHeight(45)
-        gen_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; font-size: 14px; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
+        gen_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border-radius: 6px; }")
         gen_btn.clicked.connect(self.generate_password)
         group_layout.addWidget(gen_btn)
         self.generated_pass_entry = QLineEdit()
@@ -1648,12 +2236,57 @@ class GhostyTool(QMainWindow):
         group_layout.addLayout(pass_actions)
         self.pass_analysis = QTextEdit()
         self.pass_analysis.setReadOnly(True)
-        self.pass_analysis.setFixedHeight(100)
-        self.pass_analysis.setStyleSheet("background: #1e1e1e; color: #888;")
+        self.pass_analysis.setFixedHeight(80)
         group_layout.addWidget(self.pass_analysis)
         group.setLayout(group_layout)
-        layout.addWidget(group)
-        layout.addStretch()
+        gen_layout.addWidget(group)
+        gen_layout.addStretch()
+        
+        # Vault Tab
+        vault_tab = QWidget()
+        vault_layout = QVBoxLayout(vault_tab)
+        self.vault_stack = QStackedWidget()
+        
+        login_widget = QWidget()
+        login_layout = QVBoxLayout(login_widget)
+        login_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        unlock_btn = QPushButton("Unlock Password Vault")
+        unlock_btn.setFixedSize(250, 60)
+        unlock_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border-radius: 10px; font-size: 16px; }")
+        unlock_btn.clicked.connect(self.unlock_vault)
+        login_layout.addWidget(unlock_btn)
+        self.vault_stack.addWidget(login_widget)
+        
+        self.vault_main_widget = QWidget()
+        v_main_layout = QVBoxLayout(self.vault_main_widget)
+        form_group = QGroupBox("Vault Entries")
+        v_form_layout = QFormLayout()
+        self.vault_site_entry = QLineEdit()
+        self.vault_pass_entry = QLineEdit()
+        v_form_layout.addRow("Site:", self.vault_site_entry)
+        v_form_layout.addRow("Password:", self.vault_pass_entry)
+        save_btn = QPushButton("Save to Vault")
+        save_btn.clicked.connect(self.save_vault_entry)
+        v_form_layout.addRow(save_btn)
+        form_group.setLayout(v_form_layout)
+        v_main_layout.addWidget(form_group)
+        
+        self.vault_list = QListWidget()
+        self.vault_list.itemClicked.connect(self.on_vault_item_clicked)
+        v_main_layout.addWidget(self.vault_list)
+        
+        v_actions = QHBoxLayout()
+        del_v_btn = QPushButton("Delete Selected")
+        del_v_btn.clicked.connect(self.delete_vault_entry)
+        v_actions.addWidget(del_v_btn)
+        v_main_layout.addLayout(v_actions)
+        
+        self.vault_stack.addWidget(self.vault_main_widget)
+        vault_layout.addWidget(self.vault_stack)
+        
+        tabs.addTab(gen_tab, "Password Generator")
+        tabs.addTab(vault_tab, "Password Vault")
+        layout.addWidget(tabs)
         self.content_stack.addWidget(page)
 
     def generate_password(self):
@@ -1689,48 +2322,6 @@ class GhostyTool(QMainWindow):
             pyperclip.copy(text)
             self.log_signal.emit("Copied to clipboard.", "info")
 
-    def setup_vault_page(self):
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        self.vault_stack = QStackedWidget()
-        login_widget = QWidget()
-        login_layout = QVBoxLayout(login_widget)
-        login_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        unlock_btn = QPushButton("Unlock Password Vault")
-        unlock_btn.setFixedSize(250, 60)
-        unlock_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border-radius: 10px; font-size: 16px; border: 1px solid #2e46a9; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
-        unlock_btn.clicked.connect(self.unlock_vault)
-        login_layout.addWidget(unlock_btn)
-        self.vault_stack.addWidget(login_widget)
-        self.vault_main_widget = QWidget()
-        vault_layout = QVBoxLayout(self.vault_main_widget)
-        form_group = QGroupBox("Secure Password Management")
-        form_layout = QFormLayout()
-        self.vault_site_entry = QLineEdit()
-        self.vault_site_entry.setPlaceholderText("Site / App Name")
-        self.vault_pass_entry = QLineEdit()
-        self.vault_pass_entry.setPlaceholderText("Password")
-        form_layout.addRow("Site:", self.vault_site_entry)
-        form_layout.addRow("Password:", self.vault_pass_entry)
-        save_btn = QPushButton("Save to Vault")
-        save_btn.setMinimumHeight(40)
-        save_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
-        save_btn.clicked.connect(self.save_vault_entry)
-        form_layout.addRow(save_btn)
-        form_group.setLayout(form_layout)
-        vault_layout.addWidget(form_group)
-        self.vault_list = QListWidget()
-        self.vault_list.itemClicked.connect(self.on_vault_item_clicked)
-        vault_layout.addWidget(self.vault_list)
-        delete_btn = QPushButton("Delete Selected")
-        delete_btn.setMinimumHeight(40)
-        delete_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
-        delete_btn.clicked.connect(self.delete_vault_entry)
-        vault_layout.addWidget(delete_btn)
-        self.vault_stack.addWidget(self.vault_main_widget)
-        layout.addWidget(self.vault_stack)
-        self.content_stack.addWidget(page)
-
     def unlock_vault(self):
         config_dir = os.path.dirname(self.db_path)
         old_json = os.path.join(config_dir, "vault.json")
@@ -1744,30 +2335,24 @@ class GhostyTool(QMainWindow):
             success = False
             
             if is_new:
-                # Setup new SQLite vault
                 if self.password_manager.initialize_vault(password):
                     success = True
-                    # Check if we should migrate from old JSON format
                     if os.path.exists(old_json) and os.path.exists(old_salt):
                         self.log_signal.emit("Legacy vault found. Attempting migration...", "info")
                         if self.password_manager.migrate_from_json(old_json, old_salt, password):
-                            self.log_signal.emit("Migration successful. Legacy files can be removed.", "success")
-                            # We don't delete them automatically for safety, but they are now redundant
+                            self.log_signal.emit("Migration successful.", "success")
             else:
-                # Unlock existing SQLite vault
                 success = self.password_manager.unlock(password)
             
             if success:
-                try:
-                    ensure_private_file(self.db_path)
-                except Exception:
-                    pass
+                try: ensure_private_file(self.db_path)
+                except: pass
                 self.refresh_vault_list()
                 self.vault_stack.setCurrentIndex(1)
-                self.log_signal.emit("Vault unlocked successfully.", "success")
+                self.log_signal.emit("Vault unlocked.", "success")
             else:
-                self.log_signal.emit("Failed to unlock vault. Check master password.", "error")
-                QMessageBox.critical(self, "Unlock Failed", "Invalid master password or corrupted vault.")
+                self.log_signal.emit("Failed to unlock vault.", "error")
+                QMessageBox.critical(self, "Unlock Failed", "Invalid password.")
 
     def refresh_vault_list(self):
         self.vault_list.clear()
@@ -1784,8 +2369,7 @@ class GhostyTool(QMainWindow):
                 self.refresh_vault_list()
                 self.log_signal.emit(f"Saved password for {site}.", "success")
             else:
-                self.log_signal.emit("Failed to save: Invalid characters detected.", "error")
-                QMessageBox.warning(self, "Invalid Input", "Site or password contains unsupported characters.")
+                self.log_signal.emit("Failed to save password.", "error")
 
     def delete_vault_entry(self):
         item = self.vault_list.currentItem()
@@ -1797,11 +2381,12 @@ class GhostyTool(QMainWindow):
 
     def on_vault_item_clicked(self, item):
         site = item.text()
-        pw = self.password_manager.passwords.get(site, "")
-        self.vault_site_entry.setText(site)
-        self.vault_pass_entry.setText(pw)
-        self.copy_to_clipboard(pw)
-        self.log_signal.emit(f"Password for {site} copied to clipboard.", "info")
+        if self.password_manager and hasattr(self.password_manager, "passwords"):
+            pw = self.password_manager.passwords.get(site, "")
+            self.vault_site_entry.setText(site)
+            self.vault_pass_entry.setText(pw)
+            self.copy_to_clipboard(pw)
+            self.log_signal.emit(f"Password for {site} copied to clipboard.", "info")
 
     def setup_tweaks_page(self):
         scroll = QScrollArea()
@@ -1915,12 +2500,15 @@ class GhostyTool(QMainWindow):
         features_group = QGroupBox(f"What's New in {ver}")
         features_layout = QVBoxLayout()
         features_text = QLabel(
-            f"• 🚀 <b>{ver} Milestone:</b> Multi-Platform & Diagnostic Update!<br>"
-            "• 🌐 <b>Cross-Platform:</b> Improved architecture for Windows, macOS, and Linux.<br>"
-            "• 🩺 <b>Self-Diagnostics:</b> New diagnostic system to check system health and app status.<br>"
-            "• 🛡️ <b>Advanced Security:</b> Enhanced security scanner with more granular Linux auditing.<br>"
-            "• 🛠️ <b>Rollback Support:</b> Automatic backup and rollback for failed updates.<br>"
-            "• 📊 <b>UX Improvements:</b> Progress bars for downloads and clearer status messages."
+            f"• 🏆 <b>{ver} Milestone:</b> Professional All-in-One Hub!<br>"
+            "• 🌐 <b>Network Hub:</b> New IP Intelligence, DNS Benchmarker, and Port Scanner.<br>"
+            "• 📊 <b>Task Manager:</b> Resource Hog detector with one-click optimization.<br>"
+            "• 🛡️ <b>Privacy & Security:</b> Added Privacy Audit and Browser Cleaner for all major browsers.<br>"
+            "• 🗑️ <b>Secure Shredder:</b> Permanently delete sensitive files beyond recovery.<br>"
+            "• 🍎 <b>macOS Tools:</b> Integrated Homebrew management and maintenance scripts.<br>"
+            "• 🐧 <b>Linux Tools:</b> Added UFW firewall management and repository tools.<br>"
+            "• 📥 <b>Tray Support:</b> Minimize to system tray with quick access actions.<br>"
+            "• 🎨 <b>Modern UX:</b> Refined tabbed interface and theme switching."
         )
         features_text.setTextFormat(Qt.TextFormat.RichText)
         features_text.setWordWrap(True)
@@ -2306,8 +2894,9 @@ class GhostyTool(QMainWindow):
         if sys.platform != 'win32':
             return []
         try:
+            from src.utils.helpers import run_command
             ps_command = "Get-PhysicalDisk | Select-Object DeviceID, FriendlyName, Size, MediaType | ConvertTo-Json"
-            result = subprocess.run(["powershell", "-NoProfile", "-Command", ps_command], capture_output=True, text=True, shell=False, creationflags=CREATE_NO_WINDOW)
+            result = run_command(["powershell", "-NoProfile", "-Command", ps_command])
             if not result.stdout.strip(): return []
             disks = json.loads(result.stdout)
             return disks if isinstance(disks, list) else [disks]
@@ -2394,8 +2983,9 @@ class GhostyTool(QMainWindow):
             threading.Thread(target=self._linux_update_check_thread, daemon=True).start()
 
     def _linux_update_check_thread(self):
+        from src.utils.helpers import run_command
         try:
-            res = subprocess.run(["apt", "list", "--upgradable"], capture_output=True, text=True)
+            res = run_command(["apt", "list", "--upgradable"])
             lines = [l for l in res.stdout.split('\n') if l and '/' in l]
             count = len(lines)
             self.update_status.setText(f"Status: {count} updates found")
@@ -2702,3 +3292,50 @@ class GhostyTool(QMainWindow):
             subprocess.run(["sc", "stop", "SysMain"], shell=False, check=False, creationflags=CREATE_NO_WINDOW)
             subprocess.run(["sc", "config", "SysMain", "start=", "disabled"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
         except Exception as e: logger.error(f"SysMain tweak failed: {e}")
+    def init_tray(self):
+        self.tray_icon = QSystemTrayIcon(self)
+        icon_path = os.path.join(self.project_root, "images", "ghosty icon.ico")
+        if os.path.exists(icon_path):
+            self.tray_icon.setIcon(QIcon(icon_path))
+        
+        tray_menu = QMenu()
+        show_action = QAction("Show Ghosty Tools", self)
+        show_action.triggered.connect(self.show_and_raise)
+        
+        clean_action = QAction("Quick Clean", self)
+        clean_action.triggered.connect(self.run_disk_cleanup)
+        
+        speed_action = QAction("Speed Test", self)
+        speed_action.triggered.connect(self.run_speed_test)
+        
+        quit_action = QAction("Quit", self)
+        quit_action.triggered.connect(QApplication.instance().quit)
+        
+        tray_menu.addAction(show_action)
+        tray_menu.addSeparator()
+        tray_menu.addAction(clean_action)
+        tray_menu.addAction(speed_action)
+        tray_menu.addSeparator()
+        tray_menu.addAction(quit_action)
+        
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.activated.connect(self.on_tray_icon_activated)
+        self.tray_icon.show()
+
+    def show_and_raise(self):
+        self.show()
+        self.activateWindow()
+        self.raise_()
+
+    def on_tray_icon_activated(self, reason):
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:
+            if self.isVisible():
+                self.hide()
+            else:
+                self.show_and_raise()
+
+    def changeEvent(self, event):
+        if event.type() == event.Type.WindowStateChange:
+            if self.windowState() & Qt.WindowState.WindowMinimized:
+                QTimer.singleShot(0, self.hide)
+        super().changeEvent(event)

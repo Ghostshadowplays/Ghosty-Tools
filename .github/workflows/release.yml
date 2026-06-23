@@ -49,14 +49,7 @@ jobs:
 
   build-macos:
     name: Build macOS App
-    strategy:
-      matrix:
-        include:
-          - arch: x86_64
-            os: macos-13
-          - arch: arm64
-            os: macos-latest
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     
     steps:
       - name: Checkout code
@@ -75,14 +68,18 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
+          # Build universal2 binary (target_arch is handled in ghosty_tools.spec)
           pyinstaller ghosty_tools.spec --clean --noconfirm
-          mv dist/GhostyTools dist/GhostyTools-macOS-${{ matrix.arch }}
+          cp dist/GhostyTools dist/GhostyTools-macOS-x86_64
+          mv dist/GhostyTools dist/GhostyTools-macOS-arm64
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release'
         with:
-          files: dist/GhostyTools-macOS-${{ matrix.arch }}
+          files: |
+            dist/GhostyTools-macOS-x86_64
+            dist/GhostyTools-macOS-arm64
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -122,7 +119,7 @@ jobs:
 
           cat <<EOF > ghostytools_amd64/DEBIAN/control
           Package: ghostytools
-          Version: 7.2
+          Version: 7.3
           Section: utils
           Priority: optional
           Architecture: amd64

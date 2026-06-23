@@ -8,7 +8,7 @@ from src.gui.main_window import GhostyTool
 from src.utils.helpers import get_logs_dir, get_os_info
 
 # Determine version
-VERSION = "v7.2"
+VERSION = "v7.3"
 
 def setup_logging():
     """Configure logging to both file and console."""

@@ -120,3 +120,63 @@ def ensure_private_file(path: str):
     except Exception:
         # Best-effort; ignore failures
         pass
+
+def run_command(cmd, **kwargs):
+    """Run a subprocess command with proper encoding and error handling."""
+    import subprocess
+    
+    # Default parameters
+    params = {
+        'capture_output': True,
+        'text': False,  # Capture as bytes to handle encoding manually
+    }
+    
+    # Handle creationflags for Windows to hide console window
+    if sys.platform == 'win32':
+        if 'creationflags' not in kwargs:
+            # CREATE_NO_WINDOW = 0x08000000
+            params['creationflags'] = 0x08000000
+    
+    # Allow overrides
+    params.update(kwargs)
+    
+    try:
+        result = subprocess.run(cmd, **params)
+        
+        def safe_decode(data):
+            if not data:
+                return ""
+            # Try UTF-8 first
+            try:
+                decoded = data.decode('utf-8')
+                # If it's full of null bytes, it's probably UTF-16
+                if decoded.count('\x00') > len(decoded) / 3:
+                    return data.decode('utf-16', errors='replace')
+                return decoded
+            except UnicodeDecodeError:
+                # Try UTF-16
+                try:
+                    return data.decode('utf-16', errors='replace')
+                except UnicodeDecodeError:
+                    # Fallback to system default with replacement
+                    return data.decode(sys.getdefaultencoding(), errors='replace')
+
+        stdout_str = safe_decode(result.stdout)
+        stderr_str = safe_decode(result.stderr)
+
+        class DecodedProcess:
+            def __init__(self, returncode, stdout, stderr):
+                self.returncode = returncode
+                self.stdout = stdout
+                self.stderr = stderr
+        
+        return DecodedProcess(result.returncode, stdout_str, stderr_str)
+
+    except Exception as e:
+        logger.error(f"Error running command {cmd}: {e}")
+        class FailedProcess:
+            def __init__(self, error):
+                self.returncode = -1
+                self.stdout = ""
+                self.stderr = str(error)
+        return FailedProcess(e)

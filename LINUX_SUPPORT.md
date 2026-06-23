@@ -6,7 +6,11 @@ Ghosty Tools was originally designed for Windows, but we have added support for 
 Most system-level tools (Maintenance, Security) now have **platform-specific implementations for Linux**. Windows-only features like Debloat and Registry Tweaks will be hidden or disabled when running on Linux.
 
 ### Supported Features on Linux:
-- **Dashboard:** CPU/RAM monitoring and System Specs.
+- **Dashboard:** CPU/RAM monitoring, System Specs, and Boot Time.
+- **Network Hub:** IP intelligence, DNS benchmarking, and port scanning.
+- **Task Manager:** Resource hog detector and process management.
+- **Privacy Suite:** Privacy auditing and multi-browser cleaning.
+- **Secure Shredder:** Permanent file deletion.
 - **System Maintenance:** `apt` updates, upgrades, and system cleanup.
 - **Security Scanner:** Linux-specific checks for `ufw`, `ssh`, and root access.
 - **Speed Test:** Fully functional.

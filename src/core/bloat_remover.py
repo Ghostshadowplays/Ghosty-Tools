@@ -89,9 +89,10 @@ class BloatRemover:
     def execute_powershell(self, command, timeout=300):
         if sys.platform != 'win32':
             return False, "", "PowerShell is not available on this platform."
+        from src.utils.helpers import run_command
         try:
             ps_command = ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command]
-            result = subprocess.run(ps_command, capture_output=True, text=True, timeout=timeout, shell=False, creationflags=CREATE_NO_WINDOW)
+            result = run_command(ps_command, timeout=timeout)
             return result.returncode == 0, result.stdout.strip(), result.stderr.strip()
         except Exception as e:
             return False, "", str(e)
