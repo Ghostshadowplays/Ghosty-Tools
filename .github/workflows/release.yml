@@ -75,7 +75,8 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          pyinstaller ghosty_tools.spec --clean --noconfirm --name GhostyTools-macOS-${{ matrix.arch }}
+          pyinstaller ghosty_tools.spec --clean --noconfirm
+          mv dist/GhostyTools dist/GhostyTools-macOS-${{ matrix.arch }}
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
