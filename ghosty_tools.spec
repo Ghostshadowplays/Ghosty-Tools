@@ -14,6 +14,12 @@ added_files = [
     ('images', 'images'),
 ]
 
+# Only include GhostyUpdater in the bundle if it exists (built in CI or previously)
+if os.path.exists('dist/GhostyUpdater.exe'):
+    added_files.append(('dist/GhostyUpdater.exe', '.'))
+elif os.path.exists('GhostyUpdater.exe'):
+    added_files.append(('GhostyUpdater.exe', '.'))
+
 a = Analysis(
     ['main.py'],
     pathex=[],

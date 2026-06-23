@@ -30,13 +30,18 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
+          # Build updater first so it can be bundled into the main EXE
+          pyinstaller src/core/updater.py --onefile --noconfirm --name GhostyUpdater --clean
+          # Build main app
           pyinstaller ghosty_tools.spec --clean --noconfirm
 
-      - name: Upload Release Asset
+      - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release'
         with:
-          files: dist/GhostyTools.exe
+          files: |
+            dist/GhostyTools.exe
+            dist/GhostyUpdater.exe
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

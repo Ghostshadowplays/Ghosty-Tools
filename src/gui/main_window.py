@@ -8,13 +8,15 @@ import secrets
 import string
 import re
 import logging
+import shutil
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QCheckBox, QGroupBox, 
                              QScrollArea, QMessageBox, QProgressBar, QStackedWidget,
                              QFrame, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem,
-                             QTreeWidgetItemIterator, QComboBox, QTextEdit, QLineEdit, QDialog, QFormLayout)
+                             QTreeWidgetItemIterator, QComboBox, QTextEdit, QLineEdit, QDialog, QFormLayout,
+                             QApplication)
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QSize
 from PyQt6.QtGui import QIcon, QFont, QColor, QTextCursor
 import psutil
@@ -51,8 +53,6 @@ from src.core.security_scanner import SecurityScanner
 from src.core.update_manager import UpdateManager, UpdateWorker
 from src.gui.dialogs import MasterPasswordDialog
 from src.utils.helpers import is_admin, elevate_privileges, get_config_dir, ensure_private_file, get_resource_path
-
-CREATE_NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
 logger = logging.getLogger(__name__)
 
@@ -2045,7 +2045,7 @@ class GhostyTool(QMainWindow):
         # Find the EXE asset if available
         download_url = None
         for asset in update_info.get("assets", []):
-            if asset["name"].lower().endswith(".exe"):
+            if asset["name"].lower().endswith(".exe") and "updater" not in asset["name"].lower():
                 download_url = asset["browser_download_url"]
                 break
         
@@ -2054,7 +2054,11 @@ class GhostyTool(QMainWindow):
             webbrowser.open(update_info.get("html_url", "https://github.com/Ghostshadowplays/Ghosty-Tools/releases"))
             return
         
-        target_path = os.path.join(get_config_dir(), "update_package.exe")
+        # Use %LOCALAPPDATA%\GhostyTools\update\GhostyTools_new.exe as requested
+        local_app_data = os.environ.get('LOCALAPPDATA', os.environ.get('APPDATA', get_config_dir()))
+        update_dir = os.path.join(local_app_data, "GhostyTools", "update")
+        os.makedirs(update_dir, exist_ok=True)
+        target_path = os.path.join(update_dir, "GhostyTools_new.exe")
         
         self.update_dialog = QDialog(self)
         self.update_dialog.setWindowTitle("Downloading Update")
@@ -2095,50 +2099,51 @@ class GhostyTool(QMainWindow):
                                    "The source files will not be automatically overwritten to prevent data loss.")
             # Open the folder containing the new file
             try:
-                subprocess.Popen(["explorer", "/select,", os.path.normpath(new_file)], creationflags=CREATE_NO_WINDOW)
+                subprocess.Popen(["explorer", "/select,", os.path.normpath(new_file)])
             except Exception:
                 pass
             return
 
-        # Launch updater via PowerShell for frozen (EXE) installations
-        # This is more reliable for Windows EXEs as it doesn't depend on a bundled script or interpreter
+        # Launch the standalone GhostyUpdater.exe for frozen installations
         if is_frozen:
             if not new_file.lower().endswith(".exe"):
                 QMessageBox.warning(self, "Update Error", "The downloaded update is not an executable file. Please update manually.")
                 return
 
-            # Prepare environment without PyInstaller variables to ensure the new process extracts itself correctly
-            env = os.environ.copy()
-            for key in list(env.keys()):
-                if key == '_MEIPASS' or key.startswith('PYI'):
-                    env.pop(key, None)
-            
-            # Clean PATH of any _MEI references to prevent loading DLLs from the wrong temp folder
-            if 'PATH' in env:
-                paths = env['PATH'].split(os.pathsep)
-                env['PATH'] = os.pathsep.join([p for p in paths if '_MEI' not in p])
+            # Determine where the updater should be
+            local_app_data = os.environ.get('LOCALAPPDATA', os.environ.get('APPDATA', get_config_dir()))
+            updater_dir = os.path.join(local_app_data, "GhostyTools")
+            os.makedirs(updater_dir, exist_ok=True)
+            updater_exe = os.path.join(updater_dir, "GhostyUpdater.exe")
 
-            # Use a more robust PowerShell script that also explicitly clears session variables
-            ps_command = (
-                f'$env:_MEIPASS = $null; '
-                f'$env:PATH = ($env:PATH -split ";" | Where-Object {{ $_ -notmatch "_MEI" }}) -join ";"; '
-                f'Start-Sleep -Seconds 5; '
-                f'if (Test-Path -LiteralPath "{current_file}") {{ Remove-Item -LiteralPath "{current_file}" -Force -ErrorAction SilentlyContinue }}; '
-                f'Move-Item -LiteralPath "{new_file}" -Destination "{current_file}" -Force; '
-                f'Start-Process -FilePath "{current_file}"'
-            )
+            # Extract/Ensure updater exists
+            # In a frozen EXE, we bundle GhostyUpdater.exe as a resource
+            bundled_updater = get_resource_path("GhostyUpdater.exe")
             
             try:
-                self.log_signal.emit("Launching PowerShell updater...", "info")
-                subprocess.Popen(["powershell", "-NoProfile", "-Command", ps_command], 
+                if os.path.exists(bundled_updater):
+                    # Copy bundled updater to the stable location if it's different or doesn't exist
+                    # Use a simple copy to ensure we don't lock the bundled one
+                    shutil.copy2(bundled_updater, updater_exe)
+                
+                if not os.path.exists(updater_exe):
+                    raise FileNotFoundError("GhostyUpdater.exe not found in resources or stable location.")
+
+                self.log_signal.emit(f"Launching updater: {updater_exe}", "info")
+                
+                # Launch arguments: GhostyUpdater.exe "<path_to_new_exe>" "<path_to_old_exe>"
+                # Use CREATE_NO_WINDOW to ensure the updater runs silently
+                subprocess.Popen([updater_exe, new_file, current_file], 
                                  creationflags=CREATE_NO_WINDOW,
-                                 env=env)
+                                 close_fds=True)
+                
+                # Immediately close GhostyTools.exe
+                QApplication.quit()
                 sys.exit(0)
             except Exception as e:
-                logger.error(f"Failed to launch PowerShell updater: {e}")
+                logger.error(f"Failed to launch updater: {e}")
                 QMessageBox.warning(self, "Update Error", f"Failed to launch automatic updater: {e}\n\nPlease update manually.")
         else:
-            # Fallback for non-frozen, non-py (shouldn't happen with current logic but for safety)
             QMessageBox.warning(self, "Update Error", "Automatic update is only supported for the packaged (.exe) version. Please update manually.")
 
     def update_system_usage(self):
