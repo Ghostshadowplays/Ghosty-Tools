@@ -55,7 +55,7 @@ if is_windows:
         console=False,
         disable_windowed_traceback=False,
         argv_emulation=False,
-        target_arch=None,
+        target_arch=os.environ.get('TARGET_ARCH'),
         codesign_identity=None,
         entitlements_file=None,
         icon=['images/ghosty icon.ico'],
@@ -78,7 +78,7 @@ else:
         console=False,
         disable_windowed_traceback=False,
         argv_emulation=False,
-        target_arch='universal2' if sys.platform == 'darwin' else None,
+        target_arch=os.environ.get('TARGET_ARCH'), # Allow override from environment
         codesign_identity=None,
         entitlements_file=None,
     )
