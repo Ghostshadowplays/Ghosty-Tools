@@ -18,19 +18,41 @@ Most system-level tools (Maintenance, Security) now have **platform-specific imp
 - **ShadowKeys Vault:** Fully functional (stored in `~/.config/ghostytools/`).
 - **Software Installer:** Automated translation of common tools to `apt-get`.
 
-## 🛠️ Building for Linux
-To create a standalone Linux executable (similar to a Windows `.exe`), follow these steps:
+## 📦 Installation (Recommended)
+The easiest way to use Ghosty Tools on Debian-based systems (Ubuntu, Mint, etc.) is via the official `.deb` package.
 
-1. **Install Prerequisites:**
-   You will need Python 3, pip, and system libraries for PyQt6.
+1. **Download the Package:**
    ```bash
-   sudo apt update
-   sudo apt install python3-pip python3-venv xclip xsel
+   wget https://github.com/Ghostshadowplays/Ghosty-Tools/releases/download/v7.3/GhostyTools-Linux-x64.deb
    ```
 
-2. **Run the Build Script:**
-   We provide a script to automate the build process:
+2. **Install the Package:**
    ```bash
+   sudo apt update
+   sudo dpkg -i GhostyTools-Linux-x64.deb
+   sudo apt install -f  # Fix any missing dependencies
+   ```
+
+3. **Run the Application:**
+   You can now launch Ghosty Tools from your application menu or terminal:
+   ```bash
+   ghostytools
+   ```
+
+## 🛠️ Building from Source
+If you prefer to build the standalone binary yourself:
+
+1. **Install Prerequisites:**
+   Ensure you have Python 3, pip, and venv installed:
+   ```bash
+   sudo apt update
+   sudo apt install python3 python3-pip python3-venv xclip
+   ```
+
+2. **Clone and Build:**
+   ```bash
+   git clone https://github.com/Ghostshadowplays/Ghosty-Tools.git
+   cd Ghosty-Tools
    chmod +x build_linux.sh
    ./build_linux.sh
    ```
@@ -44,7 +66,7 @@ To create a standalone Linux executable (similar to a Windows `.exe`), follow th
 ## 📋 Requirements
 - **Clipboard support:** Install `xclip` or `xsel`.
 - **GUI:** Requires an X11 or Wayland environment.
-- **Python Dependencies:** Automatically handled by the build script.
+- **Permissions:** Some features (Maintenance, Security) require `sudo` privileges.
 
 ---
 *Note: We are continuously expanding Linux support. If you have ideas for more Linux-specific features, please see our CONTRIBUTING.md!*
