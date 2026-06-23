@@ -1165,7 +1165,7 @@ class GhostyTool(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         
-        info_label = QLabel("Ghosty Tool v7.0")
+        info_label = QLabel("Ghosty Tool v7.1")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         info_label.setStyleSheet("color: #4158D0; margin-top: 20px;")
@@ -1177,10 +1177,10 @@ class GhostyTool(QMainWindow):
         sub_label.setStyleSheet("color: #888; margin-bottom: 20px;")
         layout.addWidget(sub_label)
 
-        features_group = QGroupBox("What's New in v7.0")
+        features_group = QGroupBox("What's New in v7.1")
         features_layout = QVBoxLayout()
         features_text = QLabel(
-            "• 🐧 <b>V7.0 Milestone:</b> The Linux Era - Experimental support for Linux systems!<br>"
+            "• 🐧 <b>V7.1 Milestone:</b> The Linux Era - Experimental support for Linux systems!<br>"
             "• 🌐 <b>Cross-Platform:</b> New architecture allowing Ghosty Tools to run on Windows and Linux.<br>"
             "• 🏗️ <b>Unified Build System:</b> Automated GitHub Actions for both .exe and Linux binaries.<br>"
             "• 🛡️ <b>Linux Security:</b> New security scanner checks for UFW, SSH, and root login on Linux.<br>"

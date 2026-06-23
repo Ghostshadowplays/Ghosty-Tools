@@ -54,7 +54,7 @@ Ghosty Tools is a high-performance, modular utility designed to secure and optim
 - **New in this build:** Disable Windows Copilot, disable News & Interests, and quickly show file extensions and hidden files.
 
 ## 🐧 Linux Support (BETA)
-Ghosty Tools v7.0 introduces expanded support for Linux systems!
+Ghosty Tools v7.1 introduces expanded support for Linux systems!
 Features now available on Linux:
 - **Dashboard & Monitoring:** System usage, specifications, and speed test.
 - **System Maintenance:** Automated cleanup and updates via `apt`.
@@ -96,28 +96,6 @@ See [LINUX_SUPPORT.md](LINUX_SUPPORT.md) for build instructions.
 Launch directly:
 ```bash
 python python-gui/main.py
-```
-
-## 📦 Publishing
-Ghosty Tools can be published to official package managers:
-- **WinGet (Windows):** Uses the multi-file manifest in `manifests/g/Ghostshadowplays/GhostyTools/7.0/`.
-- **Snap Store (Linux):** Uses `snapcraft.yaml`.
-
-See [docs/PUBLISHING.md](docs/PUBLISHING.md) for detailed instructions.
-
-### Local WinGet Testing
-**IMPORTANT:** WinGet multi-file manifests must be validated as a **directory**, not a single file.
-
-If you are at the project root:
-```powershell
-winget validate manifests\g\Ghostshadowplays\GhostyTools\7.0\
-winget install --manifest manifests\g\Ghostshadowplays\GhostyTools\7.0\
-```
-
-If you are inside the `7.0` folder:
-```powershell
-winget validate .
-winget install --manifest .
 ```
 
 ## 📁 Project Structure
