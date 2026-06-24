@@ -9,9 +9,11 @@ try:
 except ImportError:
     winreg = None
 
+from src.core.platform_tools.base import BasePlatformTools
+
 logger = logging.getLogger(__name__)
 
-class WindowsTools:
+class WindowsTools(BasePlatformTools):
     @staticmethod
     def manage_context_menu(remove_items=None):
         """Placeholder for context menu management."""
@@ -22,8 +24,7 @@ class WindowsTools:
         # This requires careful registry manipulation.
         return True, "Context menu analysis complete (Feature in development)."
 
-    @staticmethod
-    def toggle_gaming_mode(enable=True):
+    def toggle_gaming_mode(self, enable=True):
         """Optimize system for gaming."""
         if sys.platform != "win32":
             return False, "Not on Windows."
@@ -44,8 +45,7 @@ class WindowsTools:
             logger.error(f"Error toggling gaming mode: {e}")
             return False, str(e)
 
-    @staticmethod
-    def get_hosts_content():
+    def get_hosts_content(self):
         """Read the hosts file content."""
         hosts_path = r"C:\Windows\System32\drivers\etc\hosts"
         try:
@@ -56,8 +56,7 @@ class WindowsTools:
         except Exception as e:
             return False, str(e)
 
-    @staticmethod
-    def save_hosts_content(content):
+    def save_hosts_content(self, content):
         """Save the hosts file content."""
         hosts_path = r"C:\Windows\System32\drivers\etc\hosts"
         try:
@@ -115,14 +114,39 @@ class WindowsTools:
             logger.error(f"Error calling winget: {e}")
         return False, "WinGet not available or failed to list apps."
 
-    @staticmethod
-    def flush_dns():
+    def flush_dns(self):
         """Flush the DNS resolver cache."""
         from src.utils.helpers import run_command
         try:
             proc = run_command(["ipconfig", "/flushdns"])
             return proc.returncode == 0, proc.stdout
         except Exception as e:
+            return False, str(e)
+
+    def get_system_logs(self, lines=50):
+        """Fetch the last N lines of system logs using PowerShell."""
+        from src.utils.helpers import run_command
+        try:
+            cmd = ["powershell", "-Command", f"Get-EventLog -LogName System -Newest {lines} | Select-Object -Property TimeGenerated, EntryType, Source, Message | Format-List"]
+            proc = run_command(cmd)
+            if proc.returncode == 0:
+                return True, proc.stdout
+            return False, proc.stderr
+        except Exception as e:
+            logger.error(f"Error fetching system logs: {e}")
+            return False, str(e)
+
+    def get_disk_usage(self):
+        """Get disk usage summary using wmic or powershell."""
+        from src.utils.helpers import run_command
+        try:
+            cmd = ["powershell", "-Command", "Get-PSDrive -PSProvider FileSystem | Select-Object Name, @{N='Used(GB)';E={'{0:N2}' -f ($_.Used/1GB)}}, @{N='Free(GB)';E={'{0:N2}' -f ($_.Free/1GB)}}, @{N='Total(GB)';E={'{0:N2}' -f (($_.Used+$_.Free)/1GB)}} | Format-Table"]
+            proc = run_command(cmd)
+            if proc.returncode == 0:
+                return True, proc.stdout
+            return False, proc.stderr
+        except Exception as e:
+            logger.error(f"Error fetching disk usage: {e}")
             return False, str(e)
 
     @staticmethod

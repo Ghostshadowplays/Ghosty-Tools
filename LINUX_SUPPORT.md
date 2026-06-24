@@ -23,7 +23,7 @@ The easiest way to use Ghosty Tools on Debian-based systems (Ubuntu, Mint, etc.)
 
 1. **Download the Package:**
    ```bash
-   wget https://github.com/Ghostshadowplays/Ghosty-Tools/releases/download/v7.3/GhostyTools-Linux-x64.deb
+   wget https://github.com/Ghostshadowplays/Ghosty-Tools/releases/download/v7.3.1/GhostyTools-Linux-x64.deb
    ```
 
 2. **Install the Package:**

@@ -13,6 +13,16 @@ Official Website: [ghostyware.com](https://ghostyware.com)
 
 Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows, Linux, and macOS environments. Built with a focus on **Security First**, it combines system maintenance, security auditing, and professional-grade password management into a single, sleek interface.
 
+## 🆕 What's New in v7.3.1
+- 🎨 **GUI Overhaul:** Complete modernization of all pages with a professional dark-modern aesthetic and card-based layout.
+- 🚀 **Smart Update System:** New branded notification banner and detailed update dialog for a seamless upgrade experience.
+- 📊 **Dynamic Dashboard:** Real-time system health scoring, interactive resource monitors, and proactive system alerts.
+- 🤖 **Automation Reports:** Integrated system reporting directly within the application's Automation page.
+- 📋 **Enhanced Management:** Modernized Event Viewer, Services Manager, and Advanced System Tools for better usability.
+- 🔐 **ShadowKeys v2:** Redesigned vault and generator interface with improved security and clipboard management.
+- 📐 **Responsive Design:** Optimized window dimensions and added global scrolling to support a wider range of screen resolutions.
+- 🚀 **Stability Fixes:** Resolved several critical runtime exceptions and improved cross-platform compatibility.
+
 ## ✨ Features
 
 ### 📊 Dashboard & System Overview
@@ -56,7 +66,7 @@ Ghosty Tools is a high-performance, modular utility designed to secure and optim
 - **System Tray Integration:** Minimize to tray with quick-access buttons for "Quick Clean" or "Speed Test".
 
 ## 🌍 Cross-Platform Support
-Ghosty Tools v7.3 is fully optimized for **Windows**, **Linux**, and **macOS**.
+Ghosty Tools v7.3.1 is fully optimized for **Windows**, **Linux**, and **macOS**.
 - **Windows:** Deep system tweaks, Winget integration, and PowerShell-based maintenance.
 - **Linux:** UFW firewall management, PPA/Repository management, and native log viewing.
 - **macOS:** Homebrew integration, app residue cleaning, and native maintenance scripts.

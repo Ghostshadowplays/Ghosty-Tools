@@ -3,12 +3,15 @@ import secrets
 import base64
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QMessageBox, QTableWidget, 
-                             QTableWidgetItem, QHeaderView)
-from PyQt6.QtCore import Qt
+                             QTableWidgetItem, QHeaderView, QSlider, QGridLayout, QFrame,
+                             QWidget, QProgressBar, QTextEdit)
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QFont, QColor, QIcon, QPixmap
+from src.utils.theme_manager import ThemeManager
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
-from src.utils.helpers import ensure_private_file
+from src.utils.helpers import ensure_private_file, get_resource_path
 
 class MasterPasswordDialog(QDialog):
     def __init__(self, is_new=False):
@@ -223,3 +226,374 @@ class HostsEditorDialog(QDialog):
             self.accept()
         else:
             QMessageBox.critical(self, "Error", f"Failed to save: {msg}")
+
+class AppearanceDialog(QFrame):
+    theme_changed = pyqtSignal()
+
+    def __init__(self, theme_manager, parent=None):
+        super().__init__(parent)
+        self.tm = theme_manager
+        self.preset_buttons = {}
+        self.setFixedSize(400, 520) # Slightly smaller
+        self.setObjectName("AppearanceOverlay")
+        self.hide()
+        
+        # Apply initial styling
+        self.init_ui()
+        self.update_style()
+        self.update_preset_buttons()
+        
+        if hasattr(self, 'bg_slider'):
+            self.bg_slider.setValue(self.tm.bg_intensity)
+
+    def update_style(self):
+        colors = self.tm.get_theme_colors()
+        self.setStyleSheet(f"""
+            QFrame#AppearanceOverlay {{
+                background-color: {colors['background']};
+                border: 1px solid #333;
+                border-radius: 15px;
+            }}
+            QLabel {{ color: white; background: transparent; }}
+        """)
+        if hasattr(self, 'bg_slider'):
+            self.bg_slider.setStyleSheet(f"""
+                QSlider::groove:horizontal {{
+                    border: 1px solid #333;
+                    height: 4px;
+                    background: #222;
+                    margin: 2px 0;
+                    border-radius: 2px;
+                }}
+                QSlider::handle:horizontal {{
+                    background: {colors['primary']};
+                    border: 1px solid {colors['primary']};
+                    width: 16px;
+                    height: 16px;
+                    margin: -6px 0;
+                    border-radius: 8px;
+                }}
+            """)
+
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 15, 20, 20)
+        layout.setSpacing(10)
+
+        # Header with Close Button
+        header_layout = QHBoxLayout()
+        header = QLabel("Appearance")
+        header.setStyleSheet("font-size: 20px; font-weight: bold; color: white;")
+        header_layout.addWidget(header)
+        
+        header_layout.addStretch()
+        
+        self.close_btn = QPushButton("✕")
+        self.close_btn.setFixedSize(28, 28)
+        self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #888;
+                font-size: 16px;
+                border: none;
+            }
+            QPushButton:hover {
+                color: white;
+                background-color: #333;
+                border-radius: 14px;
+            }
+        """)
+        self.close_btn.clicked.connect(self.hide)
+        header_layout.addWidget(self.close_btn)
+        layout.addLayout(header_layout)
+
+        sub_header = QLabel("Personalize your workspace")
+        sub_header.setStyleSheet("color: #666; font-size: 11px; margin-top: -5px;")
+        layout.addWidget(sub_header)
+
+        # Theme Type (Dark, Light, Custom)
+        from PyQt6.QtWidgets import QButtonGroup
+        self.mode_group = QButtonGroup(self)
+        type_layout = QHBoxLayout()
+        type_layout.setSpacing(10)
+        
+        self.dark_btn = QPushButton("Dark")
+        self.light_btn = QPushButton("Light")
+        self.custom_btn = QPushButton("Custom")
+        
+        for i, btn in enumerate([self.dark_btn, self.light_btn, self.custom_btn]):
+            btn.setCheckable(True)
+            btn.setFixedHeight(45)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.mode_group.addButton(btn, i)
+            # ...
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #1a1a1f;
+                    border: 1px solid #333;
+                    border-radius: 8px;
+                    color: white;
+                    font-weight: bold;
+                }
+                QPushButton:checked {
+                    background-color: #333;
+                    border: 2px solid #4158D0;
+                }
+                QPushButton:hover {
+                    border-color: #555;
+                }
+            """)
+            type_layout.addWidget(btn)
+        
+        self.dark_btn.setChecked(True)
+        layout.addLayout(type_layout)
+
+        # Presets Section
+        presets_label = QLabel("PRESETS")
+        presets_label.setStyleSheet("color: #888; font-weight: bold; margin-top: 15px; font-size: 11px;")
+        layout.addWidget(presets_label)
+
+        presets_grid = QGridLayout()
+        presets_grid.setSpacing(12)
+
+        presets = list(ThemeManager.DEFAULT_THEMES.keys())
+        for i, name in enumerate(presets):
+            btn = self.create_preset_button(name)
+            self.preset_buttons[name] = btn
+            presets_grid.addWidget(btn, i // 2, i % 2)
+        
+        layout.addLayout(presets_grid)
+
+        # Background Slider
+        bg_label = QLabel("BACKGROUND")
+        bg_label.setStyleSheet("color: #888; font-weight: bold; margin-top: 15px; font-size: 11px;")
+        layout.addWidget(bg_label)
+
+        self.bg_slider = QSlider(Qt.Orientation.Horizontal)
+        self.bg_slider.setRange(0, 100)
+        self.bg_slider.setValue(50)
+        self.bg_slider.setMinimumHeight(30)
+        self.bg_slider.valueChanged.connect(self.on_bg_adjustment)
+        layout.addWidget(self.bg_slider)
+
+        layout.addStretch()
+
+    def on_bg_adjustment(self, value):
+        self.tm.bg_intensity = value
+        self.tm.save_settings()
+        self.theme_changed.emit()
+        self.update_style()
+
+    def create_preset_button(self, name):
+        colors = ThemeManager.DEFAULT_THEMES[name]
+        btn = QPushButton()
+        btn.setFixedHeight(55)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        # Initial styling (will be updated by update_preset_buttons)
+        self.style_preset_button(btn, name, colors)
+        
+        # Layout for squares and text
+        h_layout = QHBoxLayout(btn)
+        h_layout.setContentsMargins(12, 0, 12, 0)
+        h_layout.setSpacing(10)
+        
+        # Color squares
+        sq_container = QWidget()
+        sq_layout = QHBoxLayout(sq_container)
+        sq_layout.setContentsMargins(0, 0, 0, 0)
+        sq_layout.setSpacing(5)
+        
+        # Use primary, secondary, and text for a better representation in the UI
+        for color_key in ['primary', 'secondary', 'text']:
+            sq = QFrame()
+            sq.setFixedSize(14, 14)
+            sq_color = colors.get(color_key, "#ffffff")
+            sq.setStyleSheet(f"background-color: {sq_color}; border-radius: 4px;")
+            sq_layout.addWidget(sq)
+        
+        h_layout.addWidget(sq_container)
+        
+        name_label = QLabel(name)
+        name_label.setStyleSheet("color: white; font-weight: bold; background: transparent;")
+        h_layout.addWidget(name_label)
+        h_layout.addStretch()
+        
+        btn.clicked.connect(lambda _, n=name: self.apply_preset(n))
+        return btn
+
+    def style_preset_button(self, btn, name, colors):
+        is_current = self.tm.current_theme == name
+        border_color = colors['primary'] if is_current else "#333"
+        border_width = "2px" if is_current else "1px"
+        
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {colors['surface']};
+                border: {border_width} solid {border_color};
+                border-radius: 10px;
+            }}
+            QPushButton:hover {{
+                border-color: {colors['primary']};
+            }}
+        """)
+
+    def apply_preset(self, name):
+        self.tm.set_theme(name)
+        self.theme_changed.emit()
+        self.update_style()
+        self.update_preset_buttons()
+
+    def update_preset_buttons(self):
+        for name, btn in self.preset_buttons.items():
+            colors = ThemeManager.DEFAULT_THEMES.get(name, {})
+            if colors:
+                self.style_preset_button(btn, name, colors)
+
+class UpdateDialog(QDialog):
+    def __init__(self, update_info, parent=None):
+        super().__init__(parent)
+        self.update_info = update_info
+        self.setWindowTitle("Ghosty Tool Update")
+        self.setFixedSize(500, 420)
+        self.setStyleSheet("background-color: #0f0f12; color: white;")
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(20)
+
+        # Header with Logo/Name
+        header_layout = QHBoxLayout()
+        
+        # Logo placeholder
+        logo_label = QLabel()
+        icon_path = os.path.join(get_resource_path(""), "images", "ghosty icon.ico")
+        if os.path.exists(icon_path):
+            pixmap = QIcon(icon_path).pixmap(48, 48)
+            logo_label.setPixmap(pixmap)
+        else:
+            logo_label.setText("👻")
+            logo_label.setStyleSheet("font-size: 32px; background: transparent;")
+        header_layout.addWidget(logo_label)
+        
+        title_info = QVBoxLayout()
+        title_info.setSpacing(2)
+        
+        title_row = QHBoxLayout()
+        name_label = QLabel("Ghosty Tool")
+        name_label.setStyleSheet("font-size: 22px; font-weight: bold; color: white; background: transparent;")
+        title_row.addWidget(name_label)
+        
+        version_badge = QLabel(self.update_info.get("latest_version", "v7.3.2"))
+        version_badge.setStyleSheet("""
+            background-color: #4158D0;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 5px;
+        """)
+        title_row.addWidget(version_badge)
+        title_row.addStretch()
+        title_info.addLayout(title_row)
+        
+        subtitle = QLabel("A new version is available for download.")
+        subtitle.setStyleSheet("color: #888; font-size: 13px; background: transparent;")
+        title_info.addWidget(subtitle)
+        
+        header_layout.addLayout(title_info)
+        layout.addLayout(header_layout)
+
+        # Release Notes
+        notes_label = QLabel("WHAT'S NEW")
+        notes_label.setStyleSheet("color: #666; font-size: 10px; font-weight: bold; letter-spacing: 1px;")
+        layout.addWidget(notes_label)
+        
+        self.notes_area = QTextEdit()
+        self.notes_area.setReadOnly(True)
+        # Handle cases where release_notes might be missing
+        notes = self.update_info.get("body", self.update_info.get("release_notes", "No release notes provided."))
+        self.notes_area.setPlainText(notes)
+        self.notes_area.setStyleSheet("""
+            QTextEdit {
+                background-color: #1a1a1f;
+                border: 1px solid #333;
+                border-radius: 10px;
+                color: #d4d4d4;
+                padding: 12px;
+                font-size: 12px;
+                line-height: 1.4;
+            }
+        """)
+        layout.addWidget(self.notes_area)
+
+        # Progress Section (Hidden initially)
+        self.progress_container = QWidget()
+        progress_layout = QVBoxLayout(self.progress_container)
+        progress_layout.setContentsMargins(0, 0, 0, 0)
+        progress_layout.setSpacing(8)
+        
+        self.status_label = QLabel("Ready to update")
+        self.status_label.setStyleSheet("color: #d4d4d4; font-size: 12px;")
+        progress_layout.addWidget(self.status_label)
+        
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setFixedHeight(8)
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setStyleSheet("""
+            QProgressBar { background-color: #2a2a2a; border: none; border-radius: 4px; }
+            QProgressBar::chunk { background-color: #4158D0; border-radius: 4px; }
+        """)
+        progress_layout.addWidget(self.progress_bar)
+        
+        self.progress_container.hide()
+        layout.addWidget(self.progress_container)
+
+        # Buttons
+        self.btn_layout = QHBoxLayout()
+        self.close_btn = QPushButton("Later")
+        self.close_btn.setFixedHeight(45)
+        self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.close_btn.setStyleSheet("""
+            QPushButton { 
+                background-color: transparent; 
+                border: 1px solid #333; 
+                border-radius: 8px; 
+                color: white; 
+                font-weight: bold;
+            } 
+            QPushButton:hover { background-color: #1a1a1f; border-color: #444; }
+        """)
+        self.close_btn.clicked.connect(self.reject)
+        
+        self.update_btn = QPushButton("Update Now")
+        self.update_btn.setFixedHeight(45)
+        self.update_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.update_btn.setStyleSheet("""
+            QPushButton { 
+                background-color: #4158D0; 
+                border: none; 
+                border-radius: 8px; 
+                color: white; 
+                font-weight: bold;
+            } 
+            QPushButton:hover { background-color: #4b6de3; }
+            QPushButton:disabled { background-color: #25252b; color: #555; }
+        """)
+        
+        self.btn_layout.addWidget(self.close_btn)
+        self.btn_layout.addWidget(self.update_btn)
+        layout.addLayout(self.btn_layout)
+
+    def set_progress(self, value):
+        self.progress_container.show()
+        self.update_btn.setEnabled(False)
+        self.close_btn.setEnabled(False)
+        self.progress_bar.setValue(value)
+
+    def set_status(self, text):
+        self.status_label.setText(text)
