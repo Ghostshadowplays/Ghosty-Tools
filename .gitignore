@@ -154,3 +154,4 @@ cython_debug/
 logs/
 ghostytools_dev/
 .junie/
+.claude/

@@ -13,7 +13,7 @@ import platform
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-                             QPushButton, QLabel, QCheckBox, QGroupBox, 
+                             QPushButton, QLabel, QCheckBox, QGroupBox, QSplitter,
                              QScrollArea, QMessageBox, QProgressBar, QStackedWidget,
                              QFrame, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem,
                              QTreeWidgetItemIterator, QComboBox, QTextEdit, QLineEdit, QDialog, QFormLayout,
@@ -77,10 +77,17 @@ class GhostyTool(QMainWindow):
     def __init__(self):
         super().__init__()
         self.project_root = get_resource_path("")
-        self.setWindowTitle("Ghosty Tool - Professional System Utility")
+        from src.core.update_manager import CURRENT_VERSION
+        self.setWindowTitle(f"Ghosty Tool {CURRENT_VERSION} - Professional System Utility")
         self.setGeometry(100, 100, 960, 600)
-        
-        icon_path = os.path.join(self.project_root, "images", "ghosty icon.ico")
+
+        # Use PNG icon on Linux (better DE integration), ICO on Windows/macOS
+        if sys.platform != 'win32':
+            png_path = os.path.join(self.project_root, "images", "ghosty icon.png")
+            ico_path = os.path.join(self.project_root, "images", "ghosty icon.ico")
+            icon_path = png_path if os.path.exists(png_path) else ico_path
+        else:
+            icon_path = os.path.join(self.project_root, "images", "ghosty icon.ico")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 
@@ -103,6 +110,24 @@ class GhostyTool(QMainWindow):
         self.db_path = os.path.join(config_dir, "vault.db")
         self.password_manager = PasswordManager(self.db_path)
 
+        # Activity log + settings paths
+        self.activity_log_path = os.path.join(config_dir, "activity.json")
+        self.speedtest_history_path = os.path.join(config_dir, "speedtest_history.json")
+        self.settings_path = os.path.join(config_dir, "app_settings.json")
+        self._activity_log = self._load_json(self.activity_log_path, [])
+        self._speedtest_history = self._load_json(self.speedtest_history_path, [])
+        self._app_settings = self._load_json(self.settings_path, {
+            "minimize_to_tray": False,
+            "start_with_windows": False,
+            "alert_refresh_sec": 60,
+            "startup_page": 0
+        })
+        # Ensure minimize_to_tray key is always present (for upgrades from older settings)
+        self._app_settings.setdefault("minimize_to_tray", False)
+
+        # Detect Linux package manager once at startup
+        self.pkg_manager = self._detect_pkg_manager()
+
         # Clipboard security
         self.clipboard_timer = QTimer()
         self.clipboard_timer.setSingleShot(True)
@@ -113,17 +138,23 @@ class GhostyTool(QMainWindow):
         self.diagnostics = Diagnostics(self.update_manager.current_version)
         self._latest_update_info = None
 
-        # Theme Manager
-        self.theme_manager = ThemeManager()
+        # Theme Manager — store theme.json in the user config dir, not next to the exe
+        _theme_config_path = os.path.join(get_config_dir(), "theme.json")
+        self.theme_manager = ThemeManager(_theme_config_path)
         self.appearance_dialog = AppearanceDialog(self.theme_manager, self)
         self.appearance_dialog.theme_changed.connect(self.apply_current_theme)
 
         self.init_ui()
         self.apply_current_theme()
         self.init_tray()
-        
+
         QTimer.singleShot(1000, self.check_for_updates)
         QTimer.singleShot(2000, self.check_for_whats_new)
+
+        # Apply startup page preference (after UI is built)
+        startup_pg = self._app_settings.get("startup_page", 0)
+        if startup_pg > 0:
+            QTimer.singleShot(0, lambda: self.switch_page(startup_pg))
 
         # Timer for system usage updates
         self.usage_timer = QTimer()
@@ -132,6 +163,50 @@ class GhostyTool(QMainWindow):
         self.sensor_timer = QTimer()
         self.sensor_timer.timeout.connect(self.update_sensor_panel)
         self.sensor_timer.start(2000)
+
+    def _load_json(self, path, default):
+        try:
+            if os.path.exists(path):
+                with open(path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return default
+
+    def _save_json(self, path, data):
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to save {path}: {e}")
+
+    def _detect_pkg_manager(self):
+        """Detect the Linux package manager. Returns 'apt', 'dnf', 'pacman', 'zypper', or None."""
+        if sys.platform == 'win32' or sys.platform == 'darwin':
+            return None
+        for pm in ['apt', 'dnf', 'pacman', 'zypper', 'emerge']:
+            if shutil.which(pm):
+                return pm
+        return None
+
+    def log_activity(self, text):
+        """Append an action to the persistent recent activity list (max 15 entries)."""
+        entry = {"time": datetime.now().strftime("%d %b %H:%M"), "text": text}
+        self._activity_log.insert(0, entry)
+        self._activity_log = self._activity_log[:15]
+        self._save_json(self.activity_log_path, self._activity_log)
+        self._refresh_activity_panel()
+
+    def _refresh_activity_panel(self):
+        if not hasattr(self, 'activity_label'):
+            return
+        if not self._activity_log:
+            self.activity_label.setText("No activity recorded yet")
+            return
+        lines = [f"<span style='color:#666'>{e['time']}</span> {e['text']}"
+                 for e in self._activity_log[:5]]
+        self.activity_label.setText("<br>".join(lines))
+        self.activity_label.setTextFormat(Qt.TextFormat.RichText)
 
     def _on_disk_identified(self, main_disk, system_drive):
         self.main_disk = main_disk
@@ -173,14 +248,26 @@ class GhostyTool(QMainWindow):
     def init_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        self.main_layout = QHBoxLayout(central_widget)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setSpacing(0)
+        outer_layout = QHBoxLayout(central_widget)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+
+        # Splitter lets the user drag the sidebar wider/narrower
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.main_splitter.setHandleWidth(4)
+        self.main_splitter.setStyleSheet(
+            "QSplitter::handle { background-color: #222; }"
+            "QSplitter::handle:hover { background-color: #4158D0; }"
+        )
+        outer_layout.addWidget(self.main_splitter)
+        # Keep a reference so existing code using self.main_layout still works
+        self.main_layout = outer_layout
 
         # Sidebar
         self.sidebar = QFrame()
         self.sidebar.setObjectName("Sidebar")
-        self.sidebar.setFixedWidth(220)
+        self.sidebar.setMinimumWidth(180)
+        self.sidebar.setMaximumWidth(380)
         self.sidebar_outer_layout = QVBoxLayout(self.sidebar)
         self.sidebar_outer_layout.setContentsMargins(0, 20, 0, 10)
         self.sidebar_outer_layout.setSpacing(0)
@@ -231,48 +318,64 @@ class GhostyTool(QMainWindow):
         self.add_nav_button("Passwords", 14, "Vault · Generator", icon_text="\uE192" if is_win else "🔑", count=2)
         self.add_nav_button("Customization", 15, "Context Menu · Dark Mode", icon_text="\uE771" if is_win else "🖌", count=4)
         self.add_nav_button("Info", 16, "About · Updates · System", icon_text="\uE946" if is_win else "ⓘ", count=5)
+        self.add_nav_button("Settings", 17, "Preferences · Startup", icon_text="\uE713" if is_win else "⚙️")
 
         # Bottom section for theme toggle
         bottom_container = QWidget()
         bottom_layout = QVBoxLayout(bottom_container)
         bottom_layout.setContentsMargins(10, 10, 10, 10)
         
-        h_theme_layout = QHBoxLayout()
-        palette_icon = "\uECAD" if sys.platform == "win32" else "🎨"
-        self.appearance_btn = QPushButton(palette_icon)
-        if sys.platform == "win32":
-            self.appearance_btn.setFont(QFont("Segoe MDL2 Assets", 14))
-        self.appearance_btn.setToolTip("Appearance Settings")
-        self.appearance_btn.setFixedSize(40, 40)
-        self.appearance_btn.setStyleSheet("QPushButton { background-color: #1a1a1f; border: 1px solid #333; border-radius: 8px; } QPushButton:hover { background-color: #25252b; }")
+        btn_style = (
+            "QPushButton { background-color: #1a1a1f; color: white; border: 1px solid #333;"
+            " border-radius: 8px; font-weight: bold; padding: 0 8px; }"
+            "QPushButton:hover { background-color: #25252b; }"
+        )
+
+        self.appearance_btn = QPushButton("🎨  Appearance")
+        self.appearance_btn.setFixedHeight(38)
+        self.appearance_btn.setStyleSheet(btn_style)
         self.appearance_btn.clicked.connect(self.open_appearance_settings)
-        
-        self.dark_mode_btn = QPushButton("Toggle Theme")
-        self.dark_mode_btn.setFixedHeight(40)
-        self.dark_mode_btn.setStyleSheet("QPushButton { background-color: #1a1a1f; color: white; border: 1px solid #333; border-radius: 8px; font-weight: bold; } QPushButton:hover { background-color: #25252b; }")
+
+        self.dark_mode_btn = QPushButton("🌙  Toggle Theme")
+        self.dark_mode_btn.setFixedHeight(38)
+        self.dark_mode_btn.setStyleSheet(btn_style)
         self.dark_mode_btn.clicked.connect(self.toggle_windows_theme)
-        
+
+        h_theme_layout = QHBoxLayout()
+        h_theme_layout.setSpacing(6)
         h_theme_layout.addWidget(self.appearance_btn)
         h_theme_layout.addWidget(self.dark_mode_btn)
         bottom_layout.addLayout(h_theme_layout)
+
+        # Version badge
+        from src.core.update_manager import CURRENT_VERSION as _VER
+        ver_badge = QLabel(_VER)
+        ver_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ver_badge.setStyleSheet("color: #444; font-size: 10px; background: transparent; padding: 2px 0;")
+        bottom_layout.addWidget(ver_badge)
+
         self.sidebar_outer_layout.addWidget(bottom_container)
 
-        # Platform check - Custom Linux GUI
+        # Platform check - Custom Linux/macOS GUI
         if sys.platform != 'win32':
             # Hide Windows-specific tabs
             for i in [6, 11]:
                 if i < len(self.nav_buttons):
                     self.nav_buttons[i].setVisible(False)
-            
+
             self.dark_mode_btn.setVisible(False)
-            
-            # branding update for Linux
-            title_label.setText("Ghosty Tool 🐧")
+
+            # Platform-specific branding
+            if sys.platform == 'darwin':
+                title_label.setText("Ghosty Tool 🍎")
+            else:
+                title_label.setText("Ghosty Tool 🐧")
         
-        self.main_layout.addWidget(self.sidebar)
+        self.main_splitter.addWidget(self.sidebar)
 
         # Content Area & Terminal
         self.right_container = QWidget()
+        self.right_container.setObjectName("RightPanel")
         self.right_layout = QVBoxLayout(self.right_container)
         self.right_layout.setContentsMargins(0, 0, 0, 0)
         self.right_layout.setSpacing(0)
@@ -378,7 +481,13 @@ class GhostyTool(QMainWindow):
         terminal_layout.addWidget(self.progress_bar)
         
         self.right_layout.addWidget(self.terminal_container)
-        self.main_layout.addWidget(self.right_container)
+        self.main_splitter.addWidget(self.right_container)
+
+        # Default split: sidebar 240px, rest goes to content
+        self.main_splitter.setSizes([240, 720])
+        # Sidebar can be resized but content area should not collapse
+        self.main_splitter.setStretchFactor(0, 0)
+        self.main_splitter.setStretchFactor(1, 1)
 
         self.setup_dashboard_page()
         self.setup_maintenance_page()
@@ -397,6 +506,7 @@ class GhostyTool(QMainWindow):
         self.setup_password_page()
         self.setup_tweaks_page()
         self.setup_about_page()
+        self.setup_settings_page()
 
     def add_nav_button(self, text, index, subtitle="", icon_text="", count=None):
         btn = NavButton(text, subtitle, icon_text, count)
@@ -550,10 +660,19 @@ class GhostyTool(QMainWindow):
         
         # Populate Quick Actions
         actions_layout = QVBoxLayout()
+        if sys.platform == 'win32':
+            update_label = "Check Windows Updates"
+            update_action = self.run_windows_update_check
+        elif sys.platform == 'darwin':
+            update_label = "Check macOS Updates"
+            update_action = lambda: self.log_signal.emit("Run 'softwareupdate -l' in Terminal to check for updates.", "info")
+        else:
+            update_label = "Update System (APT)"
+            update_action = lambda: self.run_system_maintenance()
         quick_actions = [
             ("Run Quick Cleanup", self.run_disk_cleanup),
             ("Update All Apps", lambda: self.switch_page(7)),
-            ("Check Windows Updates", self.run_windows_update_check),
+            (update_label, update_action),
             ("Run Speed Test", self.run_speed_test)
         ]
         for name, callback in quick_actions:
@@ -564,25 +683,101 @@ class GhostyTool(QMainWindow):
             actions_layout.addWidget(btn)
         self.dashboard.actions_card.layout.addLayout(actions_layout)
         
-        # Populate System Alerts
-        alerts_layout = QVBoxLayout()
-        alerts = [
-            ("All SMART indicators healthy", "#00ff88"),
-            ("15 app updates available", "#FBAB7E"),
-            ("Memory issues detected — check System Health", "#f44747"),
-            ("No critical events (last 7 days)", "#00ff88"),
-            ("No pending reboots", "#00ff88")
-        ]
-        for text, color in alerts:
-            lbl = QLabel(f"• {text}")
-            lbl.setStyleSheet(f"color: {color}; font-size: 11px;")
-            alerts_layout.addWidget(lbl)
-        self.dashboard.alerts_card.layout.addLayout(alerts_layout)
+        # System Alerts — populated dynamically via refresh_system_alerts()
+        self.alerts_widget = QWidget()
+        self.alerts_widget_layout = QVBoxLayout(self.alerts_widget)
+        self.alerts_widget_layout.setContentsMargins(0, 0, 0, 0)
+        self.alerts_widget_layout.setSpacing(3)
+        self.dashboard.alerts_card.layout.addWidget(self.alerts_widget)
+        QTimer.singleShot(500, self.refresh_system_alerts)
+
+        # Refresh alerts every 60 seconds
+        self.alerts_timer = QTimer()
+        self.alerts_timer.timeout.connect(self.refresh_system_alerts)
+        self.alerts_timer.start(60000)
         
         # Recent Activity
         self.activity_label = QLabel("No activity recorded yet")
-        self.activity_label.setStyleSheet("color: #666; font-style: italic;")
+        self.activity_label.setStyleSheet("color: #888; font-size: 11px;")
+        self.activity_label.setWordWrap(True)
         self.dashboard.activity_card.layout.addWidget(self.activity_label)
+        self._refresh_activity_panel()
+
+    def refresh_system_alerts(self):
+        """Rebuild the system alerts panel with live data."""
+        if not hasattr(self, 'alerts_widget_layout'):
+            return
+        # Clear existing labels
+        while self.alerts_widget_layout.count():
+            item = self.alerts_widget_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        for text, color in self._get_live_alerts():
+            lbl = QLabel(f"• {text}")
+            lbl.setStyleSheet(f"color: {color}; font-size: 11px;")
+            self.alerts_widget_layout.addWidget(lbl)
+
+    def _get_live_alerts(self):
+        """Generate live system alert tuples of (text, color)."""
+        alerts = []
+
+        # Memory
+        try:
+            mem = psutil.virtual_memory()
+            pct = mem.percent
+            if pct > 85:
+                alerts.append((f"High memory usage: {pct:.0f}% used", "#f44747"))
+            elif pct > 70:
+                alerts.append((f"Memory usage elevated: {pct:.0f}% used", "#FBAB7E"))
+            else:
+                alerts.append((f"Memory OK: {pct:.0f}% used", "#00ff88"))
+        except Exception:
+            pass
+
+        # Disk space on system drive
+        try:
+            drive = os.path.abspath(os.sep)
+            disk = psutil.disk_usage(drive)
+            free_pct = 100 - disk.percent
+            if disk.percent > 90:
+                alerts.append((f"Low disk space: {free_pct:.0f}% free", "#f44747"))
+            elif disk.percent > 75:
+                alerts.append((f"Disk space moderate: {free_pct:.0f}% free", "#FBAB7E"))
+            else:
+                alerts.append((f"Disk space OK: {free_pct:.0f}% free", "#00ff88"))
+        except Exception:
+            pass
+
+        # Pending reboot
+        try:
+            reboot_pending = False
+            if sys.platform == 'win32' and winreg:
+                try:
+                    key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                                         r"SYSTEM\CurrentControlSet\Control\Session Manager")
+                    val = winreg.QueryValueEx(key, "PendingFileRenameOperations")[0]
+                    winreg.CloseKey(key)
+                    reboot_pending = bool(val)
+                except FileNotFoundError:
+                    reboot_pending = False
+            elif sys.platform != 'win32':
+                reboot_pending = os.path.exists('/var/run/reboot-required')
+
+            if reboot_pending:
+                alerts.append(("Reboot required — restart to apply updates", "#FBAB7E"))
+            else:
+                alerts.append(("No pending reboots", "#00ff88"))
+        except Exception:
+            pass
+
+        # App update status (uses cached result from update check)
+        if self._latest_update_info and self._latest_update_info.get("available"):
+            latest = self._latest_update_info.get("latest_version", "")
+            alerts.append((f"App update available: {latest}", "#FBAB7E"))
+        else:
+            alerts.append(("App is up to date", "#00ff88"))
+
+        return alerts
 
     def update_specs(self):
         if hasattr(self, "specs_label"):
@@ -607,44 +802,217 @@ class GhostyTool(QMainWindow):
     def _on_sensors_ready(self, sensors):
         if not hasattr(self, "sensor_label"):
             return
-            
+
+        lhm_visible = not bool(sensors)
+        if hasattr(self, 'lhm_info_label'):
+            self.lhm_info_label.setVisible(lhm_visible)
+        if hasattr(self, 'lhm_download_btn'):
+            self.lhm_download_btn.setVisible(lhm_visible)
+        if hasattr(self, 'lhm_launch_btn'):
+            # Only show Launch button when LHM exe is found on disk
+            self.lhm_launch_btn.setVisible(lhm_visible and bool(self._find_lhm_exe()))
+
         if not sensors:
-            self.sensor_label.setText("Sensors unavailable (start LibreHardwareMonitor)")
+            self.sensor_label.setText(
+                "No sensor data received — LibreHardwareMonitor is not running."
+            )
+            self.sensor_label.setStyleSheet("color: #d7ba7d; font-family: 'Consolas'; font-size: 12px;")
             return
 
-        text = ""
-        def add(name):
-            if name in sensors:
-                v = sensors[name]
-                return f"{name}: {v['value']} {v['unit']}<br>"
-            return ""
+        # Group sensors by their parent type label so output is organised
+        groups = {}
+        for name, info in sensors.items():
+            grp = info.get("type", "Other")
+            groups.setdefault(grp, []).append((name, info["value"]))
 
-        text += "<b>CPU:</b><br>"
-        text += add("CPU Package")
-        text += add("CPU Core #1 Temperature")
-        text += add("CPU Core #1 Clock")
+        # Priority group ordering — put CPU/GPU/Fans first
+        priority = ["CPU", "GPU", "Temperatures", "Fans", "Voltages", "Controls", "Powers", "Clocks"]
+        ordered_groups = sorted(
+            groups.items(),
+            key=lambda kv: next((i for i, p in enumerate(priority) if p.lower() in kv[0].lower()), 99)
+        )
 
-        text += "<br><b>GPU:</b><br>"
-        text += add("GPU Core")
-        text += add("GPU Memory")
-        text += add("GPU Fan")
+        lines = []
+        for grp, items in ordered_groups:
+            lines.append(f"<b style='color:#888'>{grp}</b>")
+            for name, val in items[:12]:          # cap each group at 12 rows
+                lines.append(f"&nbsp;&nbsp;{name}: <span style='color:#00ff88'>{val}</span>")
+            lines.append("")                       # blank line between groups
 
-        self.sensor_label.setText(text)
+        self.sensor_label.setStyleSheet("color: #d4d4d4; font-family: 'Consolas'; font-size: 11px;")
+        self.sensor_label.setText("<br>".join(lines))
         self.sensor_label.setTextFormat(Qt.TextFormat.RichText)
 
-        # Update Dashboard GPU if available
-        gpu_load = sensors.get("GPU Core", {}).get("value")
-        if gpu_load is not None:
+        # Update Dashboard GPU card with whatever GPU load sensor is available
+        gpu_load_val = None
+        for name, info in sensors.items():
+            if "gpu" in name.lower() and ("core" in name.lower() or "load" in name.lower()):
+                gpu_load_val = info["value"]
+                break
+        if gpu_load_val is not None:
             try:
-                val = int(float(gpu_load))
+                val = int(float(str(gpu_load_val).split()[0]))
                 self.dashboard.gpu_card.value_label.setText(f"{val}%")
                 self.dashboard.gpu_card.bar.setValue(val)
-                
-                gpu_mem = sensors.get("GPU Memory", {}).get("value", "N/A")
-                self.dashboard.gpu_card.details_label.setText(f"VRAM Usage: {gpu_mem}%")
             except:
                 pass
 
+
+    def _install_lhm_winget(self):
+        """Install LibreHardwareMonitor silently via winget, with terminal feedback."""
+        if shutil.which("winget") is None:
+            QMessageBox.warning(
+                self, "winget not found",
+                "winget is not available on this system.\n\n"
+                "You can download LibreHardwareMonitor manually from:\n"
+                "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases"
+            )
+            return
+
+        self.lhm_download_btn.setEnabled(False)
+        self.lhm_download_btn.setText("Installing…")
+        self.log_signal.emit("Installing LibreHardwareMonitor via winget…", "info")
+
+        def _do_install():
+            try:
+                result = subprocess.run(
+                    ["winget", "install", "--id", "LibreHardwareMonitor.LibreHardwareMonitor",
+                     "--silent", "--accept-source-agreements", "--accept-package-agreements"],
+                    capture_output=True, text=True,
+                    creationflags=CREATE_NO_WINDOW
+                )
+                if result.returncode == 0:
+                    self.log_signal.emit(
+                        "LibreHardwareMonitor installed — launching it now…",
+                        "success"
+                    )
+                    self.notify_tray("LHM Installed", "LibreHardwareMonitor is launching with the web server pre-configured.")
+                    # Auto-launch on the main thread after a short delay
+                    QTimer.singleShot(1500, self._launch_lhm)
+                else:
+                    err = (result.stderr or result.stdout or "unknown error").strip()
+                    self.log_signal.emit(f"winget install failed: {err}", "error")
+            except Exception as e:
+                self.log_signal.emit(f"Install error: {e}", "error")
+            finally:
+                # Re-enable button on the main thread
+                QTimer.singleShot(0, self._reset_lhm_install_btn)
+
+        threading.Thread(target=_do_install, daemon=True).start()
+
+    def _reset_lhm_install_btn(self):
+        if hasattr(self, 'lhm_download_btn'):
+            self.lhm_download_btn.setEnabled(True)
+            self.lhm_download_btn.setText("⬇  Install LibreHardwareMonitor")
+            # Also check if LHM is now findable and show Launch button
+            if hasattr(self, 'lhm_launch_btn'):
+                self.lhm_launch_btn.setVisible(bool(self._find_lhm_exe()))
+
+    def _find_lhm_exe(self):
+        """Try to locate LibreHardwareMonitor.exe on common install paths."""
+        if sys.platform != "win32":
+            return None
+        search_bases = [
+            os.path.expandvars(r"%ProgramFiles%\LibreHardwareMonitor"),
+            os.path.expandvars(r"%ProgramFiles(x86)%\LibreHardwareMonitor"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\LibreHardwareMonitor"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Packages\LibreHardwareMonitor.LibreHardwareMonitor_Microsoft.Winget.Source_8wekyb3d8bbwe"),
+            os.path.join(os.path.expanduser("~"), "Downloads", "LibreHardwareMonitor"),
+            os.path.join(os.path.expanduser("~"), "Desktop", "LibreHardwareMonitor"),
+        ]
+        for base in search_bases:
+            path = os.path.join(base, "LibreHardwareMonitor.exe")
+            if os.path.exists(path):
+                return path
+        # Broad search inside the winget packages folder (version subfolders)
+        winget_pkgs = os.path.expandvars(
+            r"%LOCALAPPDATA%\Microsoft\WinGet\Packages"
+        )
+        if os.path.isdir(winget_pkgs):
+            for entry in os.scandir(winget_pkgs):
+                if "LibreHardwareMonitor" in entry.name and entry.is_dir():
+                    candidate = os.path.join(entry.path, "LibreHardwareMonitor.exe")
+                    if os.path.exists(candidate):
+                        return candidate
+        return None
+
+    def _configure_lhm_web_server(self):
+        """
+        Write LibreHardwareMonitor's config file to enable the Remote Web Server
+        on port 8085 so the user never has to touch LHM's menus.
+        LHM stores its config as LibreHardwareMonitor.config NEXT TO the exe.
+        """
+        exe = self._find_lhm_exe()
+        if not exe:
+            return False
+        config_path = os.path.splitext(exe)[0] + ".config"
+
+        # Parse existing config if present, otherwise start fresh
+        try:
+            import xml.etree.ElementTree as ET
+            if os.path.exists(config_path):
+                tree = ET.parse(config_path)
+                root = tree.getroot()
+            else:
+                root = ET.Element("settings")
+                tree = ET.ElementTree(root)
+        except Exception:
+            root = ET.Element("settings")
+            tree = ET.ElementTree(root)
+
+        # Update or insert all keys we need
+        keys_to_set = {
+            "httpServer": "true",
+            "httpPort": "8085",
+            "startMinimized": "true",
+            "minimizeToTray": "true",
+        }
+        for elem in root.findall("setting"):
+            name = elem.get("name")
+            if name in keys_to_set:
+                elem.set("value", keys_to_set.pop(name))
+        # Any keys not already present get added
+        for name, value in keys_to_set.items():
+            ET.SubElement(root, "setting", name=name, value=value)
+
+        try:
+            tree.write(config_path, encoding="utf-8", xml_declaration=True)
+            return True
+        except Exception as e:
+            self.log_signal.emit(f"Could not write LHM config: {e}", "error")
+            return False
+
+    def _launch_lhm(self):
+        """Configure LHM's web server automatically, then launch (or restart) it."""
+        exe = self._find_lhm_exe()
+        if not exe:
+            self.log_signal.emit("LibreHardwareMonitor not found on disk. Try installing it first.", "warning")
+            return
+
+        # Kill any running instance so the new config is picked up on restart
+        for proc in psutil.process_iter(['name', 'exe']):
+            try:
+                if proc.info['name'] and 'LibreHardwareMonitor' in proc.info['name']:
+                    proc.kill()
+                    proc.wait(timeout=3)
+            except Exception:
+                pass
+
+        # Write config to auto-enable the web server
+        self._configure_lhm_web_server()
+
+        try:
+            # Launch minimized and without stealing focus
+            si = subprocess.STARTUPINFO()
+            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            si.wShowWindow = 7  # SW_SHOWMINNOACTIVE — minimized, no focus steal
+            subprocess.Popen([exe], startupinfo=si, creationflags=CREATE_NO_WINDOW)
+            self.log_signal.emit(
+                "LibreHardwareMonitor launched in the background — sensors will appear here in a few seconds.",
+                "success"
+            )
+        except Exception as e:
+            self.log_signal.emit(f"Failed to launch LibreHardwareMonitor: {e}", "error")
 
     def enable_full_monitoring(self):
         self.log_signal.emit("Starting Full Monitoring setup...", "info")
@@ -807,7 +1175,11 @@ class GhostyTool(QMainWindow):
             else:
                 item.setForeground(Qt.GlobalColor.green)
             self.security_list.addItem(item)
+        highs = sum(1 for _, s in issues if s in ("Critical", "High"))
         self.log_signal.emit("Security scan completed.", "success")
+        self.notify_tray("Security Scan Complete",
+                         f"{len(issues)} issues found ({highs} high/critical)." if issues else "No issues found.")
+        self.log_activity(f"Security scan: {len(issues)} issues found")
 
     def setup_network_page(self):
         page = QWidget()
@@ -866,13 +1238,19 @@ class GhostyTool(QMainWindow):
         speed_card = DashboardCard("SPEED TEST")
         self.speed_label = QLabel("Result: Not started")
         self.speed_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.speed_label.setStyleSheet("color: #4158D0; font-size: 18px; font-weight: bold; margin: 20px 0;")
+        self.speed_label.setStyleSheet("color: #4158D0; font-size: 18px; font-weight: bold; margin: 10px 0;")
         speed_card.layout.addWidget(self.speed_label)
         run_speed_btn = QPushButton("Run Speed Test")
         run_speed_btn.setFixedHeight(35)
         run_speed_btn.setStyleSheet("background-color: #4158D0; color: white; border-radius: 5px; font-weight: bold;")
         run_speed_btn.clicked.connect(self.run_speed_test)
         speed_card.layout.addWidget(run_speed_btn)
+        # History label
+        self.speed_history_label = QLabel("")
+        self.speed_history_label.setStyleSheet("color: #666; font-size: 10px;")
+        self.speed_history_label.setWordWrap(True)
+        speed_card.layout.addWidget(self.speed_history_label)
+        self._refresh_speed_history()
         row_layout.addWidget(speed_card)
         
         layout.addLayout(row_layout)
@@ -2259,6 +2637,8 @@ class GhostyTool(QMainWindow):
             success, msg = FileShredder.shred(file_path)
             if success:
                 self.log_signal.emit(msg, "success")
+                self.notify_tray("File Shredded", f"Securely deleted: {os.path.basename(file_path)}")
+                self.log_activity(f"Shredded: {os.path.basename(file_path)}")
                 self.shred_path_label.setText("No file selected")
                 self.shred_btn.setEnabled(False)
             else:
@@ -2731,12 +3111,12 @@ class GhostyTool(QMainWindow):
         # Features Card
         features_card = DashboardCard(f"WHAT'S NEW IN {ver}")
         features_text = QLabel(
-            f"• 🏆 <b>{ver} Milestone:</b> Professional All-in-One Hub!<br>"
-            "• 🎨 <b>Appearance:</b> New theme manager and dashboard design.<br>"
-            "• 🌐 <b>Network Hub:</b> New IP Intelligence, DNS Benchmarker, and Speed Test.<br>"
-            "• 🛡️ <b>Privacy & Security:</b> Added Privacy Audit and Browser Cleaner.<br>"
-            "• 🍎 <b>Cross-Platform:</b> Improved macOS and Linux support scripts.<br>"
-            "• 📥 <b>Tray Support:</b> Minimize to system tray with quick access."
+            f"• 🏆 <b>{ver} Release:</b> Bug fixes and platform improvements.<br>"
+            "• 🐧 <b>Linux:</b> Fixed transparent background issue on Linux desktop environments.<br>"
+            "• 🖥️ <b>Hardware:</b> System specs now fully cross-platform (Linux + macOS).<br>"
+            "• ⚡ <b>Speed Test:</b> Fixed speed test failing in the Windows .exe build.<br>"
+            "• 🔔 <b>Dashboard:</b> System alerts are now live — memory, disk, reboot state, and update status.<br>"
+            "• 🎨 <b>Sidebar:</b> Fixed nav icons not rendering on some Windows systems."
         )
         features_text.setTextFormat(Qt.TextFormat.RichText)
         features_text.setWordWrap(True)
@@ -2744,36 +3124,189 @@ class GhostyTool(QMainWindow):
         features_card.layout.addWidget(features_text)
         layout.addWidget(features_card)
 
-        thanks_label = QLabel('Special thanks to <a href="https://github.com/haywardgg" style="color: #4158D0; text-decoration: none;">haywardgg</a> for inspiration and support.')
+        thanks_label = QLabel(
+            'Built by GhostShadow_Plays. Special thanks to '
+            '<a href="https://github.com/haywardgg" style="color: #4158D0; text-decoration: none;">haywardgg</a>'
+            ' — systems admin, vibe coder from Manchester, and founder of a chill coding community '
+            'where devs share projects, help each other out, and keep it low-pressure.'
+        )
         thanks_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         thanks_label.setOpenExternalLinks(True)
         thanks_label.setWordWrap(True)
         thanks_label.setStyleSheet("color: #888; font-size: 11px;")
         layout.addWidget(thanks_label)
-        
+
         links_layout = QHBoxLayout()
+
         github_btn = QPushButton("GitHub")
         github_btn.setFixedHeight(35)
         github_btn.setIcon(QIcon(os.path.join(self.project_root, "images", "GithubLogo.png")))
-        github_btn.clicked.connect(lambda _: webbrowser.open("https://github.com/Ghostshadowplays/Ghosty-Tools")) 
-        
+        github_btn.clicked.connect(lambda _: webbrowser.open("https://github.com/Ghostshadowplays/Ghosty-Tools"))
+
         twitch_btn = QPushButton("Twitch")
         twitch_btn.setFixedHeight(35)
         twitch_btn.setIcon(QIcon(os.path.join(self.project_root, "images", "twitchlogo.png")))
         twitch_btn.clicked.connect(lambda _: webbrowser.open("https://www.twitch.tv/ghostshadow_plays"))
-        
+
+        ghostyware_discord_btn = QPushButton("GhostyWare Discord")
+        ghostyware_discord_btn.setFixedHeight(35)
+        ghostyware_discord_btn.setStyleSheet("background-color: #5865F2; color: white; font-weight: bold; border: none; border-radius: 5px;")
+        ghostyware_discord_btn.setToolTip("Join the official GhostyWare Discord community")
+        ghostyware_discord_btn.clicked.connect(lambda _: webbrowser.open("https://discord.gg/YKsAJYx"))
+
+        hayward_discord_btn = QPushButton("haywardgg's Server")
+        hayward_discord_btn.setFixedHeight(35)
+        hayward_discord_btn.setStyleSheet("background-color: #404eed; color: white; font-weight: bold; border: none; border-radius: 5px;")
+        hayward_discord_btn.setToolTip("Chill coding community — devs helping devs, no pressure")
+        hayward_discord_btn.clicked.connect(lambda _: webbrowser.open("https://discord.gg/UUuafBYMdG"))
+
         update_btn = QPushButton("Check for Updates")
         update_btn.setFixedHeight(35)
         update_btn.clicked.connect(lambda _: self.check_for_updates(True))
-        
+
         links_layout.addWidget(github_btn)
         links_layout.addWidget(twitch_btn)
+        links_layout.addWidget(ghostyware_discord_btn)
+        links_layout.addWidget(hayward_discord_btn)
         links_layout.addWidget(update_btn)
         layout.addLayout(links_layout)
-        
+
+        # Secondary actions row
+        secondary_layout = QHBoxLayout()
+        export_btn = QPushButton("Export System Report")
+        export_btn.setFixedHeight(35)
+        export_btn.setToolTip("Save a full system snapshot to your Desktop")
+        export_btn.clicked.connect(self.export_system_report)
+
+        log_btn = QPushButton("View Logs")
+        log_btn.setFixedHeight(35)
+        log_btn.setToolTip("Open the in-app log viewer")
+        log_btn.clicked.connect(self.show_log_viewer)
+
+        diag_btn = QPushButton("Run Diagnostics")
+        diag_btn.setFixedHeight(35)
+        diag_btn.clicked.connect(self.run_diagnostics)
+
+        secondary_layout.addWidget(export_btn)
+        secondary_layout.addWidget(log_btn)
+        secondary_layout.addWidget(diag_btn)
+        layout.addLayout(secondary_layout)
+
         layout.addStretch()
         self.content_stack.addWidget(page)
 
+    def export_system_report(self):
+        """Generate and save a full system snapshot text file to the Desktop."""
+        try:
+            import platform as pf
+            lines = []
+            lines.append("=" * 60)
+            lines.append(f"  GhostyTools {self.update_manager.current_version} — System Report")
+            lines.append(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            lines.append("=" * 60)
+
+            # OS
+            lines.append("\n[OS INFO]")
+            lines.append(f"  Platform : {pf.system()} {pf.release()}")
+            lines.append(f"  Version  : {pf.version()}")
+            lines.append(f"  Machine  : {pf.machine()}")
+            lines.append(f"  Node     : {pf.node()}")
+
+            # CPU / RAM
+            lines.append("\n[CPU / MEMORY]")
+            lines.append(f"  CPU Cores    : {psutil.cpu_count(logical=False)} physical, {psutil.cpu_count()} logical")
+            lines.append(f"  CPU Usage    : {psutil.cpu_percent(interval=0.5):.1f}%")
+            mem = psutil.virtual_memory()
+            lines.append(f"  RAM Total    : {mem.total // (1024**3)} GB")
+            lines.append(f"  RAM Used     : {mem.used // (1024**3)} GB ({mem.percent:.1f}%)")
+
+            # Disk
+            lines.append("\n[DISK USAGE]")
+            for part in psutil.disk_partitions():
+                try:
+                    usage = psutil.disk_usage(part.mountpoint)
+                    lines.append(f"  {part.mountpoint:20s}  {usage.used // (1024**3)} / {usage.total // (1024**3)} GB  ({usage.percent:.1f}%)")
+                except Exception:
+                    pass
+
+            # Network
+            lines.append("\n[NETWORK]")
+            try:
+                import socket
+                lines.append(f"  Hostname : {socket.gethostname()}")
+                lines.append(f"  Local IP : {socket.gethostbyname(socket.gethostname())}")
+            except Exception:
+                pass
+
+            # Speed test history
+            if self._speedtest_history:
+                lines.append("\n[SPEED TEST HISTORY (last 3)]")
+                for e in self._speedtest_history[:3]:
+                    lines.append(f"  {e['time']}  {e['result'].replace(chr(10), '  ')}")
+
+            # Recent activity
+            if self._activity_log:
+                lines.append("\n[RECENT ACTIVITY]")
+                for e in self._activity_log[:10]:
+                    lines.append(f"  {e['time']}  {e['text']}")
+
+            lines.append("\n" + "=" * 60)
+
+            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+            filename = f"GhostyTools_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            out_path = os.path.join(desktop, filename)
+            with open(out_path, 'w', encoding='utf-8') as f:
+                f.write("\n".join(lines))
+
+            self.log_signal.emit(f"System report saved: {out_path}", "success")
+            self.log_activity("Exported system report")
+            self.notify_tray("Report Exported", f"Saved to Desktop: {filename}")
+            QMessageBox.information(self, "Report Exported", f"System report saved to:\n{out_path}")
+        except Exception as e:
+            self.log_signal.emit(f"Failed to export report: {e}", "error")
+
+    def show_log_viewer(self):
+        """Open a simple in-app log viewer showing recent log entries."""
+        from src.utils.helpers import get_logs_dir
+        logs_dir = get_logs_dir()
+        log_file = os.path.join(logs_dir, f"ghostytools_{datetime.now().strftime('%Y%m%d')}.log")
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Ghosty Tools — Log Viewer")
+        dlg.setMinimumSize(700, 480)
+        vbox = QVBoxLayout(dlg)
+
+        header = QLabel(f"Log: {log_file}")
+        header.setStyleSheet("color: #888; font-size: 11px;")
+        vbox.addWidget(header)
+
+        viewer = QTextEdit()
+        viewer.setReadOnly(True)
+        viewer.setStyleSheet("background-color: #111; color: #d4d4d4; font-family: 'Consolas', monospace; font-size: 11px; border: none;")
+        try:
+            if os.path.exists(log_file):
+                with open(log_file, 'r', encoding='utf-8', errors='replace') as f:
+                    content = f.read()
+                # Show last 300 lines
+                lines = content.splitlines()
+                viewer.setPlainText("\n".join(lines[-300:]))
+                viewer.moveCursor(QTextCursor.MoveOperation.End)
+            else:
+                viewer.setPlainText("No log file found for today.")
+        except Exception as e:
+            viewer.setPlainText(f"Error reading log: {e}")
+        vbox.addWidget(viewer)
+
+        btn_row = QHBoxLayout()
+        open_folder_btn = QPushButton("Open Logs Folder")
+        open_folder_btn.clicked.connect(lambda: webbrowser.open(logs_dir))
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dlg.accept)
+        btn_row.addWidget(open_folder_btn)
+        btn_row.addStretch()
+        btn_row.addWidget(close_btn)
+        vbox.addLayout(btn_row)
+        dlg.exec()
 
     def run_diagnostics(self):
         """Runs self-diagnostics and shows results."""
@@ -2829,6 +3362,206 @@ class GhostyTool(QMainWindow):
         else:
             subprocess.Popen(["xdg-open", logs_dir])
 
+    # ------------------------------------------------------------------ #
+    #  SETTINGS PAGE                                                       #
+    # ------------------------------------------------------------------ #
+    def setup_settings_page(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(30, 20, 30, 20)
+        layout.setSpacing(20)
+
+        header = PageHeader("Settings", "App preferences and startup management")
+        layout.addWidget(header)
+
+        # ── General preferences ────────────────────────────────────────
+        general_card = DashboardCard("GENERAL")
+
+        self._s_minimize_tray = QCheckBox("Minimize to tray when window is minimized")
+        self._s_minimize_tray.setChecked(self._app_settings.get("minimize_to_tray", False))
+        self._s_minimize_tray.stateChanged.connect(self._save_general_settings)
+        general_card.layout.addWidget(self._s_minimize_tray)
+
+        # Alert refresh interval
+        alert_row = QHBoxLayout()
+        alert_label = QLabel("Alert refresh interval:")
+        alert_label.setStyleSheet("color: #d4d4d4;")
+        self._s_alert_interval = QComboBox()
+        self._s_alert_interval.addItems(["30 seconds", "60 seconds", "2 minutes", "5 minutes"])
+        sec_map = {30: 0, 60: 1, 120: 2, 300: 3}
+        cur_sec = self._app_settings.get("alert_refresh_sec", 60)
+        self._s_alert_interval.setCurrentIndex(sec_map.get(cur_sec, 1))
+        self._s_alert_interval.currentIndexChanged.connect(self._save_general_settings)
+        alert_row.addWidget(alert_label)
+        alert_row.addWidget(self._s_alert_interval)
+        alert_row.addStretch()
+        general_card.layout.addLayout(alert_row)
+
+        # Startup page selector
+        startup_row = QHBoxLayout()
+        startup_label = QLabel("Open on startup:")
+        startup_label.setStyleSheet("color: #d4d4d4;")
+        self._s_startup_page = QComboBox()
+        pages = ["Dashboard", "System", "Security", "Network", "Monitor",
+                 "Privacy", "Debloat", "Apps", "Cleanup", "Storage",
+                 "Hardware", "Events", "Services", "Automation",
+                 "Passwords", "Customization", "Info"]
+        self._s_startup_page.addItems(pages)
+        self._s_startup_page.setCurrentIndex(self._app_settings.get("startup_page", 0))
+        self._s_startup_page.currentIndexChanged.connect(self._save_general_settings)
+        startup_row.addWidget(startup_label)
+        startup_row.addWidget(self._s_startup_page)
+        startup_row.addStretch()
+        general_card.layout.addLayout(startup_row)
+
+        layout.addWidget(general_card)
+
+        # ── Startup with Windows (Windows only) ────────────────────────
+        if sys.platform == "win32":
+            startup_card = DashboardCard("STARTUP MANAGER — WINDOWS")
+            win_note = QLabel(
+                "Control whether Ghosty Tools launches automatically when Windows starts."
+            )
+            win_note.setWordWrap(True)
+            win_note.setStyleSheet("color: #888; font-size: 11px;")
+            startup_card.layout.addWidget(win_note)
+
+            self._s_start_windows = QCheckBox("Launch Ghosty Tools at Windows startup")
+            self._s_start_windows.setChecked(self._app_settings.get("start_with_windows", False))
+            self._s_start_windows.stateChanged.connect(self._apply_windows_startup)
+            startup_card.layout.addWidget(self._s_start_windows)
+
+            win_status = QLabel()
+            win_status.setStyleSheet("color: #666; font-size: 10px;")
+            startup_card.layout.addWidget(win_status)
+            self._s_win_startup_status = win_status
+            self._refresh_win_startup_status()
+
+            layout.addWidget(startup_card)
+
+        # ── Startup with Linux (autostart .desktop file) ───────────────
+        elif sys.platform not in ("win32", "darwin"):
+            startup_card = DashboardCard("STARTUP MANAGER — LINUX")
+            linux_note = QLabel(
+                "Adds or removes a .desktop autostart entry for your desktop environment."
+            )
+            linux_note.setWordWrap(True)
+            linux_note.setStyleSheet("color: #888; font-size: 11px;")
+            startup_card.layout.addWidget(linux_note)
+
+            self._s_start_linux = QCheckBox("Launch Ghosty Tools at login")
+            self._s_start_linux.setChecked(self._linux_autostart_exists())
+            self._s_start_linux.stateChanged.connect(self._apply_linux_startup)
+            startup_card.layout.addWidget(self._s_start_linux)
+
+            layout.addWidget(startup_card)
+
+        layout.addStretch()
+        self.content_stack.addWidget(page)
+
+    def _save_general_settings(self):
+        """Persist general settings from the Settings page UI."""
+        sec_values = [30, 60, 120, 300]
+        idx = self._s_alert_interval.currentIndex()
+        new_sec = sec_values[idx] if 0 <= idx < len(sec_values) else 60
+
+        self._app_settings["minimize_to_tray"] = self._s_minimize_tray.isChecked()
+        self._app_settings["alert_refresh_sec"] = new_sec
+        self._app_settings["startup_page"] = self._s_startup_page.currentIndex()
+        self._save_json(self.settings_path, self._app_settings)
+
+        # Apply alert refresh interval live
+        if hasattr(self, 'alerts_timer'):
+            self.alerts_timer.setInterval(new_sec * 1000)
+
+    # ── Windows startup helpers ─────────────────────────────────────────
+    def _refresh_win_startup_status(self):
+        if not hasattr(self, '_s_win_startup_status') or winreg is None:
+            return
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+                0, winreg.KEY_READ
+            )
+            try:
+                winreg.QueryValueEx(key, "GhostyTools")
+                self._s_win_startup_status.setText("Status: registered in registry ✓")
+                self._s_start_windows.setChecked(True)
+            except FileNotFoundError:
+                self._s_win_startup_status.setText("Status: not in startup registry")
+                self._s_start_windows.setChecked(False)
+            winreg.CloseKey(key)
+        except Exception as e:
+            self._s_win_startup_status.setText(f"Status: could not read registry ({e})")
+
+    def _apply_windows_startup(self):
+        if winreg is None:
+            return
+        enabled = self._s_start_windows.isChecked()
+        self._app_settings["start_with_windows"] = enabled
+        self._save_json(self.settings_path, self._app_settings)
+        exe = sys.executable
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+                0, winreg.KEY_SET_VALUE
+            )
+            if enabled:
+                winreg.SetValueEx(key, "GhostyTools", 0, winreg.REG_SZ, f'"{exe}"')
+                self.log_signal.emit("Ghosty Tools added to Windows startup.", "success")
+                self.log_activity("Enabled Windows startup")
+            else:
+                try:
+                    winreg.DeleteValue(key, "GhostyTools")
+                    self.log_signal.emit("Ghosty Tools removed from Windows startup.", "info")
+                    self.log_activity("Disabled Windows startup")
+                except FileNotFoundError:
+                    pass
+            winreg.CloseKey(key)
+            self._refresh_win_startup_status()
+        except Exception as e:
+            self.log_signal.emit(f"Failed to update startup registry: {e}", "error")
+
+    # ── Linux autostart helpers ─────────────────────────────────────────
+    def _linux_autostart_path(self):
+        autostart_dir = os.path.join(os.path.expanduser("~"), ".config", "autostart")
+        return os.path.join(autostart_dir, "ghostytools.desktop")
+
+    def _linux_autostart_exists(self):
+        return os.path.exists(self._linux_autostart_path())
+
+    def _apply_linux_startup(self):
+        enabled = self._s_start_linux.isChecked()
+        desktop_file = self._linux_autostart_path()
+        autostart_dir = os.path.dirname(desktop_file)
+        try:
+            if enabled:
+                os.makedirs(autostart_dir, exist_ok=True)
+                exe = sys.executable
+                content = (
+                    "[Desktop Entry]\n"
+                    "Type=Application\n"
+                    "Name=Ghosty Tools\n"
+                    f"Exec={exe}\n"
+                    "Hidden=false\n"
+                    "NoDisplay=false\n"
+                    "X-GNOME-Autostart-enabled=true\n"
+                    "Comment=GhostyWare system utility\n"
+                )
+                with open(desktop_file, 'w') as f:
+                    f.write(content)
+                self.log_signal.emit("Autostart entry created for Linux.", "success")
+                self.log_activity("Enabled Linux autostart")
+            else:
+                if os.path.exists(desktop_file):
+                    os.remove(desktop_file)
+                    self.log_signal.emit("Autostart entry removed.", "info")
+                    self.log_activity("Disabled Linux autostart")
+        except Exception as e:
+            self.log_signal.emit(f"Failed to update Linux autostart: {e}", "error")
+
     def check_for_whats_new(self):
         """Shows a one-time 'What's New' popup after an update."""
         last_version = self.update_manager.get_last_seen_version()
@@ -2882,6 +3615,7 @@ class GhostyTool(QMainWindow):
             return
             
         self._latest_update_info = update_info
+        self.refresh_system_alerts()
         if update_info.get("available"):
             # Update available: show Banner
             latest_v = update_info.get('latest_version', 'v7.3.2')
@@ -3195,19 +3929,56 @@ rm -- "$0"
             mem = psutil.virtual_memory()
             self.dashboard.mem_card.details_label.setText(f"{mem.used // (1024**3)}GB / {mem.total // (1024**3)}GB used")
             
-            # Simple health score heuristic
-            health = 100 - (cpu * 0.2 + ram * 0.3)
-            self.dashboard.health_circle.value = int(health)
-            
-            status = "Excellent" if health > 90 else "Good" if health > 75 else "Fair" if health > 50 else "Poor"
+            # Multi-factor health score
+            score = 100
+            warnings = []
+
+            # CPU impact (high sustained CPU = -5 to -15)
+            if cpu > 90: score -= 15; warnings.append(f"CPU critical: {int(cpu)}%")
+            elif cpu > 70: score -= 8; warnings.append(f"CPU elevated: {int(cpu)}%")
+            elif cpu > 50: score -= 3
+
+            # RAM impact (-5 to -20)
+            if ram > 90: score -= 20; warnings.append(f"RAM critical: {int(ram)}%")
+            elif ram > 80: score -= 12; warnings.append(f"High RAM: {int(ram)}%")
+            elif ram > 65: score -= 5
+
+            # Disk space impact (-10)
+            try:
+                disk = psutil.disk_usage(os.path.abspath(os.sep))
+                if disk.percent > 90: score -= 10; warnings.append("Disk nearly full")
+                elif disk.percent > 80: score -= 5
+            except Exception: pass
+
+            # Pending reboot (-5)
+            if sys.platform == 'win32' and winreg:
+                try:
+                    k = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager")
+                    if winreg.QueryValueEx(k, "PendingFileRenameOperations")[0]:
+                        score -= 5; warnings.append("Reboot pending")
+                    winreg.CloseKey(k)
+                except Exception: pass
+            elif sys.platform != 'win32' and os.path.exists('/var/run/reboot-required'):
+                score -= 5; warnings.append("Reboot pending")
+
+            # Update available (-3)
+            if self._latest_update_info and self._latest_update_info.get("available"):
+                score -= 3; warnings.append("App update available")
+
+            score = max(0, min(100, score))
+            self.dashboard.health_circle.value = score
+
+            if score >= 90: status = "Excellent"; color = "#00ff88"
+            elif score >= 75: status = "Good"; color = "#4158D0"
+            elif score >= 55: status = "Fair"; color = "#FBAB7E"
+            else: status = "Poor"; color = "#f44747"
+
             self.dashboard.health_circle.status = status
-            
-            if ram > 80:
-                self.dashboard.health_warning.setText(f"⚠ High memory usage ({int(ram)}%) — close unused apps")
-                self.dashboard.health_warning.setStyleSheet("color: #ff4444; font-size: 13px;")
-            elif cpu > 70:
-                self.dashboard.health_warning.setText(f"⚠ High CPU activity ({int(cpu)}%) detected")
-                self.dashboard.health_warning.setStyleSheet("color: #ff4444; font-size: 13px;")
+            self.dashboard.health_circle._color = __import__('PyQt6.QtGui', fromlist=['QColor']).QColor(color)
+
+            if warnings:
+                self.dashboard.health_warning.setText(f"⚠ {warnings[0]}")
+                self.dashboard.health_warning.setStyleSheet(f"color: {color}; font-size: 13px;")
             else:
                 self.dashboard.health_warning.setText("✔ Everything looks good. System is optimized.")
                 self.dashboard.health_warning.setStyleSheet("color: #00ff88; font-size: 13px;")
@@ -3304,13 +4075,42 @@ rm -- "$0"
         self.speed_thread.error_occurred.connect(self._on_speed_test_error)
         self.speed_thread.start()
 
+    def notify_tray(self, title, message, icon=QSystemTrayIcon.MessageIcon.Information, ms=4000):
+        """Show a system tray notification if the tray icon is available."""
+        try:
+            if hasattr(self, 'tray_icon') and self.tray_icon.isVisible():
+                self.tray_icon.showMessage(title, message, icon, ms)
+        except Exception:
+            pass
+
     def _on_speed_test_result(self, res):
         self.speed_label.setText(res)
         self.log_signal.emit(f"Speed test completed:\n{res}", "success")
+        self.notify_tray("Speed Test Complete", res.replace('\n', '  |  '))
+        self.log_activity("Speed test completed")
+        # Save to history
+        entry = {"time": datetime.now().strftime("%Y-%m-%d %H:%M"), "result": res}
+        self._speedtest_history.insert(0, entry)
+        self._speedtest_history = self._speedtest_history[:20]
+        self._save_json(self.speedtest_history_path, self._speedtest_history)
+        self._refresh_speed_history()
 
     def _on_speed_test_error(self, err):
         self.speed_label.setText(f"Error: {err}")
         self.log_signal.emit(f"Speed test failed: {err}", "error")
+
+    def _refresh_speed_history(self):
+        if not hasattr(self, 'speed_history_label'):
+            return
+        if not self._speedtest_history:
+            self.speed_history_label.setText("")
+            return
+        lines = []
+        for e in self._speedtest_history[:3]:
+            short = e['result'].replace('\n', '  ').replace('Download:', '↓').replace('Upload:', '↑').replace('Ping:', 'P:')
+            lines.append(f"<span style='color:#555'>{e['time']}</span> {short}")
+        self.speed_history_label.setText("<br>".join(lines))
+        self.speed_history_label.setTextFormat(Qt.TextFormat.RichText)
 
     def flush_dns(self):
         self.log_signal.emit("Flushing DNS cache...", "info")
@@ -3389,15 +4189,24 @@ rm -- "$0"
     def _on_maintenance_finished(self, res):
         self.log_signal.emit(res, "success")
         QTimer.singleShot(2000, self.progress_bar.hide)
+        self.notify_tray("Maintenance Complete", res[:120])
+        self.log_activity("Full system maintenance completed")
         QMessageBox.information(self, "Maintenance", res)
 
     def run_disk_cleanup(self):
+        reply = QMessageBox.question(
+            self, "Confirm Cleanup",
+            "This will remove temporary files, update caches, and shader caches.\n\nProceed?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
         self.log_signal.emit("Starting Deep Cleanup Engine...", "info")
         from src.core.cleanup_engine import CleanupEngine
         engine = CleanupEngine()
-        
+
         if sys.platform == 'win32':
-            # Run multiple cleanup tasks
             self.log_signal.emit("Cleaning Windows Update cache...", "info")
             engine.clean_windows_update_cache()
             self.log_signal.emit("Cleaning CBS logs...", "info")
@@ -3405,11 +4214,16 @@ rm -- "$0"
             self.log_signal.emit("Cleaning shader caches...", "info")
             engine.clean_shader_cache()
             self.log_signal.emit("Cleanup completed.", "success")
+            self.notify_tray("Cleanup Complete", "Temporary files and caches cleared successfully.")
+            self.log_activity("Deep cleanup completed")
             QMessageBox.information(self, "Cleanup", "Deep cleanup completed successfully.")
         else:
-            self.log_signal.emit("Running Linux system cleanup...", "info")
-            subprocess.Popen(["bash", "-c", "sudo apt-get clean && sudo apt-get autoremove -y"], shell=False)
+            pm = self.pkg_manager or 'apt'
+            cmd = f"sudo {pm} clean && sudo {pm} autoremove -y"
+            self.log_signal.emit(f"Running Linux cleanup ({pm})...", "info")
+            subprocess.Popen(["bash", "-c", cmd], shell=False)
             self.log_signal.emit("Linux cleanup started in background.", "success")
+            self.log_activity(f"Linux system cleanup started ({pm})")
 
     def run_windows_update_check(self):
         if sys.platform == 'win32':
@@ -3945,6 +4759,41 @@ rm -- "$0"
         self.sensor_label.setStyleSheet("color: #00ff88; font-family: 'Consolas'; font-size: 12px;")
         self.sensor_label.setWordWrap(True)
         sensor_card.layout.addWidget(self.sensor_label)
+
+        # Shown only when LHM is not running
+        self.lhm_info_label = QLabel(
+            "Sensor data requires <b>LibreHardwareMonitor</b>. "
+            "Click Install or Launch below — Ghosty Tools will configure it automatically."
+        )
+        self.lhm_info_label.setStyleSheet("color: #888; font-size: 11px;")
+        self.lhm_info_label.setWordWrap(True)
+        self.lhm_info_label.hide()
+        sensor_card.layout.addWidget(self.lhm_info_label)
+
+        lhm_btn_row = QHBoxLayout()
+        self.lhm_download_btn = QPushButton("⬇  Install LibreHardwareMonitor")
+        self.lhm_download_btn.setFixedHeight(34)
+        self.lhm_download_btn.setStyleSheet(
+            "QPushButton { background-color: #4158D0; color: white; font-weight: bold; border-radius: 6px; border: none; }"
+            "QPushButton:hover { background-color: #4b6de3; }"
+        )
+        self.lhm_download_btn.clicked.connect(self._install_lhm_winget)
+        self.lhm_download_btn.hide()
+
+        self.lhm_launch_btn = QPushButton("Launch LibreHardwareMonitor")
+        self.lhm_launch_btn.setFixedHeight(34)
+        self.lhm_launch_btn.setStyleSheet(
+            "QPushButton { background-color: #1a1a1f; color: #d4d4d4; border: 1px solid #333; border-radius: 6px; }"
+            "QPushButton:hover { background-color: #25252b; }"
+        )
+        self.lhm_launch_btn.clicked.connect(self._launch_lhm)
+        self.lhm_launch_btn.hide()
+
+        lhm_btn_row.addWidget(self.lhm_download_btn)
+        lhm_btn_row.addWidget(self.lhm_launch_btn)
+        lhm_btn_row.addStretch()
+        sensor_card.layout.addLayout(lhm_btn_row)
+
         layout.addWidget(sensor_card)
         
         # Diagnostics Card
@@ -4176,5 +5025,6 @@ rm -- "$0"
     def changeEvent(self, event):
         if event.type() == event.Type.WindowStateChange:
             if self.windowState() & Qt.WindowState.WindowMinimized:
-                QTimer.singleShot(0, self.hide)
+                if self._app_settings.get("minimize_to_tray", True):
+                    QTimer.singleShot(0, self.hide)
         super().changeEvent(event)

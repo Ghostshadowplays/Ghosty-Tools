@@ -123,6 +123,9 @@ class ThemeManager:
                 color: {colors['text']};
                 font-family: 'Segoe UI';
             }}
+            QWidget#RightPanel {{
+                background-color: {colors['background']};
+            }}
             QFrame#Sidebar {{
                 background-color: {colors['background']};
                 border-right: 1px solid #222;
@@ -245,5 +248,13 @@ class ThemeManager:
             }}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
                 height: 0px;
+            }}
+            QFrame#DashboardCard {{
+                background-color: {colors['surface']};
+                border: 1px solid #333;
+                border-radius: 10px;
+            }}
+            QFrame#DashboardCard:hover {{
+                border-color: {colors['primary']};
             }}
         """

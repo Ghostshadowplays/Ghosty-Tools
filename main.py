@@ -8,21 +8,28 @@ from src.gui.main_window import GhostyTool
 from src.utils.helpers import get_logs_dir, get_os_info
 
 # Determine version
-VERSION = "v7.3.1"
+VERSION = "v7.3.2"
 
 def setup_logging():
     """Configure logging to both file and console."""
+    # In PyInstaller noconsole builds sys.stdout/stderr are None — redirect to devnull
+    # so any module that writes to them at import time doesn't crash.
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, 'w')
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, 'w')
+
     logs_dir = get_logs_dir()
     log_file = os.path.join(logs_dir, f"ghostytools_{datetime.now().strftime('%Y%m%d')}.log")
-    
-    # Configure logging
+
+    handlers = [logging.FileHandler(log_file, encoding='utf-8')]
+    if sys.stdout is not None:
+        handlers.append(logging.StreamHandler(sys.stdout))
+
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(log_file, encoding='utf-8'),
-            logging.StreamHandler(sys.stdout)
-        ]
+        handlers=handlers
     )
     return log_file
 

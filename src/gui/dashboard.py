@@ -20,14 +20,15 @@ class NavButton(QPushButton):
         self.icon_label = QLabel(icon_text)
         self.icon_label.setFixedWidth(30)
         self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        # Use Segoe MDL2 Assets for cleaner icons on Windows
-        if sys.platform == "win32":
-            self.icon_label.setFont(QFont("Segoe MDL2 Assets", 15))
-        else:
-            self.icon_label.setFont(QFont("Segoe UI", 15))
 
-        self.icon_label.setStyleSheet("color: #888; background: transparent;")
+        # font-family must be declared in the inline stylesheet, not via setFont(),
+        # because the global QWidget stylesheet cascades down and overrides setFont().
+        if sys.platform == "win32":
+            self._icon_font_css = "font-family: 'Segoe MDL2 Assets'; font-size: 15px;"
+        else:
+            self._icon_font_css = "font-size: 15px;"
+
+        self.icon_label.setStyleSheet(f"color: #888; background: transparent; {self._icon_font_css}")
         layout.addWidget(self.icon_label)
         
         # Text container
@@ -70,6 +71,7 @@ class NavButton(QPushButton):
         return self._title
 
     def update_style(self):
+        icon_font = getattr(self, '_icon_font_css', '')
         if self.isChecked():
             self.setStyleSheet("""
                 NavButton {
@@ -79,7 +81,7 @@ class NavButton(QPushButton):
                 }
             """)
             self.title_label.setStyleSheet("font-size: 14px; font-weight: bold; color: white; background: transparent;")
-            self.icon_label.setStyleSheet("color: #4158D0; background: transparent;")
+            self.icon_label.setStyleSheet(f"color: #4158D0; background: transparent; {icon_font}")
             self.chevron_label.setStyleSheet("font-size: 18px; color: #4158D0; background: transparent;")
         else:
             self.setStyleSheet("""
@@ -93,7 +95,7 @@ class NavButton(QPushButton):
                 }
             """)
             self.title_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #d4d4d4; background: transparent;")
-            self.icon_label.setStyleSheet("color: #888; background: transparent;")
+            self.icon_label.setStyleSheet(f"color: #888; background: transparent; {icon_font}")
             self.chevron_label.setStyleSheet("font-size: 18px; color: #444; background: transparent;")
 
 class CircularProgressBar(QWidget):

@@ -28,13 +28,18 @@ class SpeedTestWorker(QThread):
     error_occurred = pyqtSignal(str)
 
     def run(self):
-        # speedtest-cli may fail when sys.stdout is None (in noconsole EXE)
-        # We need to ensure it has a valid stream to write to BEFORE importing.
+        # speedtest-cli may fail when sys.stdout/stderr is None (in noconsole EXE)
+        # We need to ensure both streams are valid BEFORE importing.
         original_stdout = sys.stdout
-        null_file = None
+        original_stderr = sys.stderr
+        null_stdout = None
+        null_stderr = None
         if sys.stdout is None:
-            null_file = open(os.devnull, 'w')
-            sys.stdout = null_file
+            null_stdout = open(os.devnull, 'w')
+            sys.stdout = null_stdout
+        if sys.stderr is None:
+            null_stderr = open(os.devnull, 'w')
+            sys.stderr = null_stderr
 
         global speedtest
         if speedtest is None:
@@ -45,8 +50,11 @@ class SpeedTestWorker(QThread):
                 logger.error(f"Failed to import speedtest: {e}")
                 self.error_occurred.emit(f"The 'speedtest-cli' module failed to load: {e}")
                 sys.stdout = original_stdout
-                if null_file:
-                    null_file.close()
+                sys.stderr = original_stderr
+                if null_stdout:
+                    null_stdout.close()
+                if null_stderr:
+                    null_stderr.close()
                 return
 
         try:
@@ -55,12 +63,12 @@ class SpeedTestWorker(QThread):
             # We check for both 'headers' and '_headers' to support different versions.
             st = speedtest.Speedtest(secure=True)
             user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            
+
             if hasattr(st, 'headers'):
                 st.headers['User-Agent'] = user_agent
             elif hasattr(st, '_headers'):
                 st._headers['User-Agent'] = user_agent
-            
+
             st.get_best_server()
             download_speed = st.download() / 1_000_000
             upload_speed = st.upload() / 1_000_000
@@ -74,8 +82,11 @@ class SpeedTestWorker(QThread):
             self.error_occurred.emit(error_msg)
         finally:
             sys.stdout = original_stdout
-            if null_file:
-                null_file.close()
+            sys.stderr = original_stderr
+            if null_stdout:
+                null_stdout.close()
+            if null_stderr:
+                null_stderr.close()
 
 class MaintenanceWorker(QThread):
     finished = pyqtSignal(str)
@@ -259,114 +270,227 @@ class SensorWorker(QThread):
     
     def run(self):
         try:
-            r = requests.get("http://localhost:8085/data.json", timeout=1)
+            r = requests.get("http://localhost:8085/data.json", timeout=2)
             data = r.json()
-            
+
             sensors = {}
-            def walk(node):
-                if "Children" in node:
-                    for child in node["Children"]:
-                        walk(child)
-                if "Sensors" in node:
-                    for s in node["Sensors"]:
-                        sensors[s["Name"]] = {
-                            "value": s["Value"],
-                            "type": s["SensorType"],
-                            "unit": s["Unit"]
-                        }
+            # LHM API uses nested "Children" throughout — leaf nodes (no children)
+            # with a non-dash "Value" are the actual sensor readings.
+            def walk(node, group=""):
+                children = node.get("Children", [])
+                if children:
+                    for child in children:
+                        walk(child, node.get("Text", group))
+                else:
+                    val = node.get("Value", "-")
+                    if val and val != "-":
+                        name = node.get("Text", "")
+                        if name:
+                            sensors[name] = {
+                                "value": val,
+                                "type": group,
+                                "unit": ""
+                            }
+
             walk(data)
-            self.finished.emit(sensors)
+            self.finished.emit(sensors if sensors else None)
         except:
             self.finished.emit(None)
 
 class SpecsWorker(QThread):
     finished = pyqtSignal(str)
-    
+
     def run(self):
         from src.utils.helpers import run_command
         try:
-            # CPU
-            cpu_res = run_command(["wmic", "cpu", "get", "name"])
-            cpu_lines = [line.strip() for line in cpu_res.stdout.split('\n') if line.strip()]
-            cpu_info = cpu_lines[1] if len(cpu_lines) > 1 else "Unknown CPU"
-
-            # GPU
-            gpu_res = run_command(["wmic", "path", "win32_VideoController", "get", "Name,PNPDeviceID,AdapterRAM,DriverVersion", "/format:csv"])
-
-            lines = [l.strip() for l in gpu_res.stdout.split("\n") if l.strip()]
-            if len(lines) < 2:
-                gpu_info = "Unknown GPU"
-            else:
-                header = lines[0].split(",")
-                gpus = []
-                for line in lines[1:]:
-                    parts = line.split(",")
-                    row = dict(zip(header, parts))
-                    name = row.get("Name", "").strip()
-                    pnp = row.get("PNPDeviceID", "").strip()
-                    vram = row.get("AdapterRAM", "").strip()
-                    driver = row.get("DriverVersion", "").strip()
-                    try:
-                        vram_gb = f"{int(vram) / (1024**3):.1f} GB"
-                    except:
-                        vram_gb = "Unknown VRAM"
-                    gpu_type = "PCIe GPU" if "PCI\\" in pnp.upper() else "Integrated GPU"
-                    gpus.append(f"{gpu_type}: {name} ({vram_gb}, Driver {driver})")
-                gpu_info = "<br>".join(gpus) if gpus else "Unknown GPU"
-
-            # Motherboard
-            mobo_res = run_command(["wmic", "baseboard", "get", "product,manufacturer"])
-            mobo_lines = [line.strip() for line in mobo_res.stdout.split('\n') if line.strip()]
-            mobo_info = mobo_lines[1] if len(mobo_lines) > 1 else "Unknown Motherboard"
-
-            # OS Info
-            try:
-                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion")
-                build_number = int(winreg.QueryValueEx(key, "CurrentBuild")[0])
-                product_name = winreg.QueryValueEx(key, "ProductName")[0]
-                try:
-                    display_version = winreg.QueryValueEx(key, "DisplayVersion")[0]
-                except FileNotFoundError:
-                    try:
-                        display_version = winreg.QueryValueEx(key, "ReleaseId")[0]
-                    except FileNotFoundError:
-                        display_version = "Unknown"
-                os_name = "Windows 11" if build_number >= 22000 else "Windows 10"
-                winreg.CloseKey(key)
-            except Exception:
-                os_name = platform.system()
-                product_name = "Unknown Edition"
-                display_version = "Unknown"
-                build_number = 0
-
-            # Install Date
-            install_date = ""
             if sys.platform == 'win32':
-                try:
-                    ps_cmd = ["powershell", "-NoProfile", "-Command", "(Get-CimInstance Win32_OperatingSystem).InstallDate.ToString('yyyy-MM-dd HH:mm')"]
-                    ins = run_command(ps_cmd)
-                    install_date = ins.stdout.strip()
-                except Exception:
-                    install_date = ""
+                specs = self._gather_windows_specs(run_command)
+            elif sys.platform == 'darwin':
+                specs = self._gather_macos_specs(run_command)
             else:
-                try:
-                    # Linux install date (approximate by checking oldest file in /var/log or similar)
-                    res = run_command(["ls", "-ld", "/var/log/installer"])
-                    if res.returncode == 0:
-                        install_date = " ".join(res.stdout.split()[5:8])
-                except: pass
-
-            specs = f"<b>OS:</b> {os_name} (Build {build_number})<br>"
-            specs += f"<b>Edition:</b> {product_name} (Version {display_version})<br>"
-            if install_date:
-                specs += f"<b>Install Date:</b> {install_date}<br>"
-            specs += f"<b>CPU:</b> {cpu_info}<br>"
-            specs += f"<b>GPU:</b><br>{gpu_info}<br>"
-            specs += f"<b>Motherboard:</b> {mobo_info}<br>"
+                specs = self._gather_linux_specs(run_command)
             self.finished.emit(specs)
         except Exception as e:
             logger.error(f"SpecsWorker error: {e}")
             self.finished.emit(f"Error gathering specs: {e}")
+
+    def _gather_windows_specs(self, run_command):
+        # CPU
+        cpu_res = run_command(["wmic", "cpu", "get", "name"])
+        cpu_lines = [line.strip() for line in cpu_res.stdout.split('\n') if line.strip()]
+        cpu_info = cpu_lines[1] if len(cpu_lines) > 1 else "Unknown CPU"
+
+        # GPU
+        gpu_res = run_command(["wmic", "path", "win32_VideoController", "get", "Name,PNPDeviceID,AdapterRAM,DriverVersion", "/format:csv"])
+        lines = [l.strip() for l in gpu_res.stdout.split("\n") if l.strip()]
+        if len(lines) < 2:
+            gpu_info = "Unknown GPU"
+        else:
+            header = lines[0].split(",")
+            gpus = []
+            for line in lines[1:]:
+                parts = line.split(",")
+                row = dict(zip(header, parts))
+                name = row.get("Name", "").strip()
+                pnp = row.get("PNPDeviceID", "").strip()
+                vram = row.get("AdapterRAM", "").strip()
+                driver = row.get("DriverVersion", "").strip()
+                try:
+                    vram_gb = f"{int(vram) / (1024**3):.1f} GB"
+                except Exception:
+                    vram_gb = "Unknown VRAM"
+                gpu_type = "PCIe GPU" if "PCI\\" in pnp.upper() else "Integrated GPU"
+                gpus.append(f"{gpu_type}: {name} ({vram_gb}, Driver {driver})")
+            gpu_info = "<br>".join(gpus) if gpus else "Unknown GPU"
+
+        # Motherboard
+        mobo_res = run_command(["wmic", "baseboard", "get", "product,manufacturer"])
+        mobo_lines = [line.strip() for line in mobo_res.stdout.split('\n') if line.strip()]
+        mobo_info = mobo_lines[1] if len(mobo_lines) > 1 else "Unknown Motherboard"
+
+        # OS Info
+        try:
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion")
+            build_number = int(winreg.QueryValueEx(key, "CurrentBuild")[0])
+            product_name = winreg.QueryValueEx(key, "ProductName")[0]
+            try:
+                display_version = winreg.QueryValueEx(key, "DisplayVersion")[0]
+            except FileNotFoundError:
+                try:
+                    display_version = winreg.QueryValueEx(key, "ReleaseId")[0]
+                except FileNotFoundError:
+                    display_version = "Unknown"
+            os_name = "Windows 11" if build_number >= 22000 else "Windows 10"
+            winreg.CloseKey(key)
+        except Exception:
+            os_name = platform.system()
+            product_name = "Unknown Edition"
+            display_version = "Unknown"
+            build_number = 0
+
+        # Install Date
+        install_date = ""
+        try:
+            ps_cmd = ["powershell", "-NoProfile", "-Command", "(Get-CimInstance Win32_OperatingSystem).InstallDate.ToString('yyyy-MM-dd HH:mm')"]
+            ins = run_command(ps_cmd)
+            install_date = ins.stdout.strip()
+        except Exception:
+            install_date = ""
+
+        specs = f"<b>OS:</b> {os_name} (Build {build_number})<br>"
+        specs += f"<b>Edition:</b> {product_name} (Version {display_version})<br>"
+        if install_date:
+            specs += f"<b>Install Date:</b> {install_date}<br>"
+        specs += f"<b>CPU:</b> {cpu_info}<br>"
+        specs += f"<b>GPU:</b><br>{gpu_info}<br>"
+        specs += f"<b>Motherboard:</b> {mobo_info}<br>"
+        return specs
+
+    def _gather_linux_specs(self, run_command):
+        # CPU
+        cpu_info = "Unknown CPU"
+        try:
+            res = run_command(["lscpu"])
+            for line in res.stdout.splitlines():
+                if line.startswith("Model name"):
+                    cpu_info = line.split(":", 1)[1].strip()
+                    break
+        except Exception:
+            pass
+
+        # GPU
+        gpu_info = "Unknown GPU"
+        try:
+            res = run_command(["lspci"])
+            gpus = [l.split(":", 2)[-1].strip() for l in res.stdout.splitlines()
+                    if "VGA" in l or "3D" in l or "Display" in l]
+            if gpus:
+                gpu_info = "<br>".join(gpus)
+        except Exception:
+            pass
+
+        # Motherboard
+        mobo_info = "Unknown Motherboard"
+        try:
+            vendor = ""
+            name = ""
+            for dmi_file, label in [("/sys/devices/virtual/dmi/id/board_vendor", "vendor"),
+                                     ("/sys/devices/virtual/dmi/id/board_name", "name")]:
+                res = run_command(["cat", dmi_file])
+                if res.returncode == 0:
+                    if label == "vendor":
+                        vendor = res.stdout.strip()
+                    else:
+                        name = res.stdout.strip()
+            if vendor or name:
+                mobo_info = f"{vendor} {name}".strip()
+        except Exception:
+            pass
+
+        # OS Info
+        os_name = platform.system()
+        os_version = platform.release()
+        try:
+            with open("/etc/os-release") as f:
+                for line in f:
+                    if line.startswith("PRETTY_NAME="):
+                        os_name = line.split("=", 1)[1].strip().strip('"')
+                        break
+        except Exception:
+            pass
+
+        # Install date (approximate)
+        install_date = ""
+        try:
+            res = run_command(["stat", "-c", "%y", "/lost+found"])
+            if res.returncode == 0:
+                install_date = res.stdout.strip().split(".")[0]
+        except Exception:
+            pass
+
+        specs = f"<b>OS:</b> {os_name} (Kernel {os_version})<br>"
+        if install_date:
+            specs += f"<b>Install Date (approx):</b> {install_date}<br>"
+        specs += f"<b>CPU:</b> {cpu_info}<br>"
+        specs += f"<b>GPU:</b><br>{gpu_info}<br>"
+        specs += f"<b>Motherboard:</b> {mobo_info}<br>"
+        return specs
+
+    def _gather_macos_specs(self, run_command):
+        # Use system_profiler for hardware overview
+        cpu_info = "Unknown CPU"
+        gpu_info = "Unknown GPU"
+        mobo_info = "Unknown Model"
+
+        try:
+            res = run_command(["system_profiler", "SPHardwareDataType"])
+            for line in res.stdout.splitlines():
+                line = line.strip()
+                if "Chip:" in line or "Processor Name:" in line:
+                    cpu_info = line.split(":", 1)[1].strip()
+                elif "Model Name:" in line or "Model Identifier:" in line:
+                    mobo_info = line.split(":", 1)[1].strip()
+        except Exception:
+            pass
+
+        try:
+            res = run_command(["system_profiler", "SPDisplaysDataType"])
+            gpus = []
+            for line in res.stdout.splitlines():
+                line = line.strip()
+                if "Chipset Model:" in line:
+                    gpus.append(line.split(":", 1)[1].strip())
+            if gpus:
+                gpu_info = "<br>".join(gpus)
+        except Exception:
+            pass
+
+        os_name = platform.mac_ver()[0] or platform.system()
+        specs = f"<b>OS:</b> macOS {os_name}<br>"
+        specs += f"<b>Model:</b> {mobo_info}<br>"
+        specs += f"<b>CPU:</b> {cpu_info}<br>"
+        specs += f"<b>GPU:</b><br>{gpu_info}<br>"
+        return specs
 
 class MainDiskWorker(QThread):
     finished = pyqtSignal(str, str) # main_disk, system_drive
