@@ -75,10 +75,12 @@ class UpdateManager:
             return remote != local
 
     def backup_current_binary(self):
-        """Creates a backup of the current binary before update."""
+        """Creates a backup of the current binary in the user config dir, not next to the exe."""
         try:
             current_exe = sys.executable
-            backup_path = current_exe + ".bak"
+            exe_name = os.path.basename(current_exe)
+            backup_dir = self.config_dir  # %APPDATA%\GhostyTools
+            backup_path = os.path.join(backup_dir, exe_name + ".bak")
             shutil.copy2(current_exe, backup_path)
             logger.info(f"Created backup of current binary at {backup_path}")
             return backup_path

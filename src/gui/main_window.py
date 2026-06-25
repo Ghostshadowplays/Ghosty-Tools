@@ -3779,17 +3779,16 @@ class GhostyTool(QMainWindow):
             update_dir = os.path.dirname(new_file)
             script_path = os.path.join(update_dir, "apply_update.bat")
             current_pid = os.getpid()
-            
-            # Use short paths or quotes to handle spaces in filenames
+
             safe_new = new_file
             safe_current = current_file
-            
-            # The batch script will:
-            # 1. Wait for the main app to close
-            # 2. Delete the old EXE
-            # 3. Move the new EXE to the old location
-            # 4. Restart the app
-            # 5. Delete itself
+
+            # Pass the PyInstaller temp extraction folder so the batch can
+            # clean it up before launching the new exe — prevents the new exe
+            # from finding and trying to reuse a stale _MEI* folder which
+            # causes "Failed to load Python DLL" errors.
+            old_mei = getattr(sys, '_MEIPASS', '')
+
             batch_content = f"""@echo off
 setlocal enabledelayedexpansion
 title Ghosty Tools Update Assistant
@@ -3806,6 +3805,15 @@ tasklist /FI "PID eq {current_pid}" 2>NUL | find /I "{current_pid}" >NUL
 if "%ERRORLEVEL%"=="0" (
     timeout /t 1 /nobreak >nul
     goto wait_loop
+)
+
+:: Extra pause to let the old process fully release its temp files
+timeout /t 3 /nobreak >nul
+
+:: Clean up old PyInstaller extraction folder to prevent DLL conflicts
+if exist "{old_mei}" (
+    echo Cleaning up old runtime files...
+    rd /s /q "{old_mei}" >nul 2>&1
 )
 
 echo.
@@ -3851,7 +3859,9 @@ echo.
 echo Cleanup...
 del /f /q "{safe_new}" >nul 2>&1
 
+:: Brief pause before launch so the new exe starts with a clean slate
 echo Restarting Ghosty Tools...
+timeout /t 2 /nobreak >nul
 start "" "{safe_current}"
 
 :: Self-destruct and exit
