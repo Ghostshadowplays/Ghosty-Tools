@@ -17,20 +17,22 @@ from utils.helpers import setup_app_logging
 setup_app_logging()
 logger = logging.getLogger(__name__)
 
+
 def main():
     """Main entry point for Ghosty Tools."""
     try:
         app = QApplication(sys.argv)
-        
+
         # Initialize the main window
         window = GhostyTool()
         window.show()
-        
+
         # Execute the application
         sys.exit(app.exec())
     except Exception as e:
         logger.critical(f"Application failed to start: {e}", exc_info=True)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

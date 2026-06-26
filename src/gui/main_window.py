@@ -57,7 +57,7 @@ from src.core.system_tools_installer import SystemToolsInstaller, ToolCategory
 from src.core.security_scanner import SecurityScanner
 from src.core.update_manager import UpdateManager, UpdateWorker
 from src.core.diagnostics import Diagnostics
-from src.gui.dialogs import MasterPasswordDialog, HostsEditorDialog, AppearanceDialog, UpdateDialog
+from src.gui.dialogs import MasterPasswordDialog, HostsEditorDialog, AppearanceDialog, UpdateDialog, TidyDesktopDialog, GameCompatibilityDialog
 from src.gui.dashboard import DashboardPage, DashboardCard, PageHeader, NavButton, NotificationBanner
 from src.utils.theme_manager import ThemeManager
 from src.utils.helpers import is_admin, elevate_privileges, get_config_dir, ensure_private_file, get_resource_path, get_logs_dir, get_os_info
@@ -120,10 +120,12 @@ class GhostyTool(QMainWindow):
             "minimize_to_tray": False,
             "start_with_windows": False,
             "alert_refresh_sec": 60,
-            "startup_page": 0
+            "startup_page": 0,
+            "shortcut_prompted": False
         })
-        # Ensure minimize_to_tray key is always present (for upgrades from older settings)
+        # Ensure keys are always present (for upgrades from older settings)
         self._app_settings.setdefault("minimize_to_tray", False)
+        self._app_settings.setdefault("shortcut_prompted", False)
 
         # Detect Linux package manager once at startup
         self.pkg_manager = self._detect_pkg_manager()
@@ -150,6 +152,10 @@ class GhostyTool(QMainWindow):
 
         QTimer.singleShot(1000, self.check_for_updates)
         QTimer.singleShot(2000, self.check_for_whats_new)
+
+        # First-launch: prompt to create a desktop shortcut (Windows only)
+        if sys.platform == 'win32' and not self._app_settings.get("shortcut_prompted", False):
+            QTimer.singleShot(1500, self._prompt_desktop_shortcut)
 
         # Apply startup page preference (after UI is built)
         startup_pg = self._app_settings.get("startup_page", 0)
@@ -428,7 +434,7 @@ class GhostyTool(QMainWindow):
 
         # Live Terminal Feed
         self.terminal_container = QGroupBox("Live Terminal Feed")
-        self.terminal_container.setFixedHeight(150)
+        self.terminal_container.setFixedHeight(220)
         self.terminal_container.setStyleSheet("""
             QGroupBox {
                 color: #4158D0;
@@ -748,18 +754,24 @@ class GhostyTool(QMainWindow):
         except Exception:
             pass
 
-        # Pending reboot
+        # Pending reboot — use specific Windows Update / CBS keys instead of
+        # PendingFileRenameOperations which is almost always non-empty and unreliable.
         try:
             reboot_pending = False
             if sys.platform == 'win32' and winreg:
-                try:
-                    key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
-                                         r"SYSTEM\CurrentControlSet\Control\Session Manager")
-                    val = winreg.QueryValueEx(key, "PendingFileRenameOperations")[0]
-                    winreg.CloseKey(key)
-                    reboot_pending = bool(val)
-                except FileNotFoundError:
-                    reboot_pending = False
+                _wu_keys = [
+                    r"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired",
+                    r"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending",
+                    r"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending",
+                ]
+                for _k in _wu_keys:
+                    try:
+                        _h = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, _k)
+                        winreg.CloseKey(_h)
+                        reboot_pending = True
+                        break
+                    except OSError:
+                        pass
             elif sys.platform != 'win32':
                 reboot_pending = os.path.exists('/var/run/reboot-required')
 
@@ -940,47 +952,62 @@ class GhostyTool(QMainWindow):
         """
         Write LibreHardwareMonitor's config file to enable the Remote Web Server
         on port 8085 so the user never has to touch LHM's menus.
-        LHM stores its config as LibreHardwareMonitor.config NEXT TO the exe.
+        Writes to both the AppData location and next to the exe to cover all LHM versions.
         """
-        exe = self._find_lhm_exe()
-        if not exe:
-            return False
-        config_path = os.path.splitext(exe)[0] + ".config"
+        import xml.etree.ElementTree as ET
 
-        # Parse existing config if present, otherwise start fresh
-        try:
-            import xml.etree.ElementTree as ET
-            if os.path.exists(config_path):
-                tree = ET.parse(config_path)
-                root = tree.getroot()
-            else:
-                root = ET.Element("settings")
-                tree = ET.ElementTree(root)
-        except Exception:
-            root = ET.Element("settings")
-            tree = ET.ElementTree(root)
-
-        # Update or insert all keys we need
         keys_to_set = {
             "httpServer": "true",
             "httpPort": "8085",
             "startMinimized": "true",
             "minimizeToTray": "true",
         }
-        for elem in root.findall("setting"):
-            name = elem.get("name")
-            if name in keys_to_set:
-                elem.set("value", keys_to_set.pop(name))
-        # Any keys not already present get added
-        for name, value in keys_to_set.items():
-            ET.SubElement(root, "setting", name=name, value=value)
 
-        try:
-            tree.write(config_path, encoding="utf-8", xml_declaration=True)
-            return True
-        except Exception as e:
-            self.log_signal.emit(f"Could not write LHM config: {e}", "error")
-            return False
+        def _write_config(config_path):
+            try:
+                os.makedirs(os.path.dirname(config_path), exist_ok=True)
+                if os.path.exists(config_path):
+                    try:
+                        tree = ET.parse(config_path)
+                        root = tree.getroot()
+                    except Exception:
+                        root = ET.Element("settings")
+                        tree = ET.ElementTree(root)
+                else:
+                    root = ET.Element("settings")
+                    tree = ET.ElementTree(root)
+
+                remaining = dict(keys_to_set)
+                for elem in root.findall("setting"):
+                    name = elem.get("name")
+                    if name in remaining:
+                        elem.set("value", remaining.pop(name))
+                for name, value in remaining.items():
+                    ET.SubElement(root, "setting", name=name, value=value)
+
+                tree.write(config_path, encoding="utf-8", xml_declaration=True)
+                return True
+            except Exception as e:
+                self.log_signal.emit(f"Could not write LHM config to {config_path}: {e}", "warning")
+                return False
+
+        success = False
+
+        # 1. AppData location (works for both winget installs and manual installs)
+        appdata = os.environ.get("APPDATA", "")
+        if appdata:
+            appdata_config = os.path.join(appdata, "LibreHardwareMonitor", "LibreHardwareMonitor.config")
+            if _write_config(appdata_config):
+                success = True
+
+        # 2. Next to the exe (portable installs)
+        exe = self._find_lhm_exe()
+        if exe:
+            exe_config = os.path.splitext(exe)[0] + ".config"
+            if _write_config(exe_config):
+                success = True
+
+        return success
 
     def _launch_lhm(self):
         """Configure LHM's web server automatically, then launch (or restart) it."""
@@ -1465,12 +1492,14 @@ class GhostyTool(QMainWindow):
         self.debloat_tree.setStyleSheet("""
             QTreeWidget {
                 background-color: #1a1a1f;
+                alternate-background-color: #202025;
                 border: 1px solid #333;
                 border-radius: 10px;
                 color: #d4d4d4;
                 padding: 10px;
             }
             QTreeWidget::item { padding: 8px; border-bottom: 1px solid #25252b; }
+            QTreeWidget::item:alternate { background-color: #202025; }
             QTreeWidget::item:selected { background-color: #4158D0; color: white; }
             QHeaderView::section {
                 background-color: #25252b;
@@ -1641,12 +1670,14 @@ class GhostyTool(QMainWindow):
         self.tools_tree.setStyleSheet("""
             QTreeWidget {
                 background-color: #1a1a1f;
+                alternate-background-color: #202025;
                 border: 1px solid #333;
                 border-radius: 10px;
                 color: #d4d4d4;
                 padding: 10px;
             }
             QTreeWidget::item { padding: 8px; border-bottom: 1px solid #25252b; }
+            QTreeWidget::item:alternate { background-color: #202025; }
             QHeaderView::section {
                 background-color: #25252b;
                 color: #888;
@@ -1721,12 +1752,14 @@ class GhostyTool(QMainWindow):
         self.cleanup_tree.setStyleSheet("""
             QTreeWidget {
                 background-color: #1a1a1f;
+                alternate-background-color: #202025;
                 border: 1px solid #333;
                 border-radius: 10px;
                 color: #d4d4d4;
                 padding: 10px;
             }
             QTreeWidget::item { padding: 8px; border-bottom: 1px solid #25252b; }
+            QTreeWidget::item:alternate { background-color: #202025; }
             QHeaderView::section {
                 background-color: #25252b;
                 color: #888;
@@ -1736,6 +1769,7 @@ class GhostyTool(QMainWindow):
                 font-size: 11px;
             }
         """)
+        self.cleanup_tree.hide()
         layout.addWidget(self.cleanup_tree)
 
         btn_layout = QHBoxLayout()
@@ -1757,6 +1791,7 @@ class GhostyTool(QMainWindow):
 
     def scan_cleanup_items(self):
         self.log_signal.emit("Scanning for unused applications and old files...", "info")
+        self.cleanup_tree.show()
         self.cleanup_tree.clear()
         
         # Create category nodes immediately
@@ -2578,7 +2613,8 @@ class GhostyTool(QMainWindow):
             win_tools = [
                 ("Gaming Mode", "gaming"), ("WinGet Apps", "winget"),
                 ("Flush DNS", "dns"), ("Print Spooler", "spooler"),
-                ("Verify Files", "sfc"), ("Hosts Editor", "hosts")
+                ("Verify Files", "sfc"), ("Hosts Editor", "hosts"),
+                ("Tidy Desktop", "tidy_desktop"), ("Game Analyzer", "game_analyzer"),
             ]
             for i, (name, cmd) in enumerate(win_tools):
                 btn = QPushButton(name)
@@ -2651,7 +2687,13 @@ class GhostyTool(QMainWindow):
         # Admin check for privileged tools
         if tool in ["gaming", "spooler", "sfc", "hosts"]:
             if not is_admin():
-                self.log_signal.emit(f"Error: Administrator privileges are required to run {tool}.", "error")
+                self.log_signal.emit(f"Administrator privileges required for: {tool}.", "error")
+                QMessageBox.warning(
+                    self, "Admin Required",
+                    f"This tool requires administrator privileges.\n\n"
+                    f"Click 'Elevate' in the header bar to restart Ghosty Tools as administrator, "
+                    f"then try again."
+                )
                 return
 
         if tool == "gaming":
@@ -2680,6 +2722,12 @@ class GhostyTool(QMainWindow):
             threading.Thread(target=run_sfc, daemon=True).start()
         elif tool == "hosts":
             dialog = HostsEditorDialog(self)
+            dialog.exec()
+        elif tool == "tidy_desktop":
+            dialog = TidyDesktopDialog(self)
+            dialog.exec()
+        elif tool == "game_analyzer":
+            dialog = GameCompatibilityDialog(self)
             dialog.exec()
 
     def run_linux_tool(self, tool):
@@ -2994,8 +3042,26 @@ class GhostyTool(QMainWindow):
         layout.setContentsMargins(30, 20, 30, 20)
         layout.setSpacing(20)
 
-        header = PageHeader("System Tweaks", "Optimize your Windows experience with performance and privacy enhancements.")
+        header = PageHeader("System Tweaks", "Optimize system performance and privacy settings.")
         layout.addWidget(header)
+
+        if sys.platform != 'win32':
+            notice_card = DashboardCard("NOT AVAILABLE ON THIS PLATFORM")
+            msg = QLabel(
+                f"System Tweaks are Windows-only registry and system settings.\n\n"
+                f"They are not available on {platform.system()}.\n\n"
+                f"Use your system's built-in settings or a platform-specific tool to manage performance and privacy."
+            )
+            msg.setStyleSheet("color: #888; font-size: 13px; padding: 10px;")
+            msg.setWordWrap(True)
+            notice_card.layout.addWidget(msg)
+            layout.addWidget(notice_card)
+            layout.addStretch()
+            scroll.setWidget(page)
+            self.content_stack.addWidget(scroll)
+            # Still need self.tweaks defined so toggle_all_tweaks doesn't crash
+            self.tweaks = {}
+            return
 
         self.tweaks = {
             "delete_temp": QCheckBox("Delete Temporary Files"),
@@ -3267,9 +3333,21 @@ class GhostyTool(QMainWindow):
 
     def show_log_viewer(self):
         """Open a simple in-app log viewer showing recent log entries."""
-        from src.utils.helpers import get_logs_dir
         logs_dir = get_logs_dir()
-        log_file = os.path.join(logs_dir, f"ghostytools_{datetime.now().strftime('%Y%m%d')}.log")
+
+        # Find the most recent log file — prefer today's, fall back to newest available
+        today_log = os.path.join(logs_dir, f"ghostytools_{datetime.now().strftime('%Y%m%d')}.log")
+        if os.path.exists(today_log):
+            log_file = today_log
+        else:
+            try:
+                candidates = sorted(
+                    [f for f in os.listdir(logs_dir) if f.startswith("ghostytools_") and f.endswith(".log")],
+                    reverse=True
+                )
+                log_file = os.path.join(logs_dir, candidates[0]) if candidates else today_log
+            except Exception:
+                log_file = today_log
 
         dlg = QDialog(self)
         dlg.setWindowTitle("Ghosty Tools — Log Viewer")
@@ -3292,7 +3370,7 @@ class GhostyTool(QMainWindow):
                 viewer.setPlainText("\n".join(lines[-300:]))
                 viewer.moveCursor(QTextCursor.MoveOperation.End)
             else:
-                viewer.setPlainText("No log file found for today.")
+                viewer.setPlainText(f"No log files found in:\n{logs_dir}")
         except Exception as e:
             viewer.setPlainText(f"Error reading log: {e}")
         vbox.addWidget(viewer)
@@ -3377,7 +3455,7 @@ class GhostyTool(QMainWindow):
         # ── General preferences ────────────────────────────────────────
         general_card = DashboardCard("GENERAL")
 
-        self._s_minimize_tray = QCheckBox("Minimize to tray when window is minimized")
+        self._s_minimize_tray = QCheckBox("Minimize to tray when window is closed")
         self._s_minimize_tray.setChecked(self._app_settings.get("minimize_to_tray", False))
         self._s_minimize_tray.stateChanged.connect(self._save_general_settings)
         general_card.layout.addWidget(self._s_minimize_tray)
@@ -3561,6 +3639,50 @@ class GhostyTool(QMainWindow):
                     self.log_activity("Disabled Linux autostart")
         except Exception as e:
             self.log_signal.emit(f"Failed to update Linux autostart: {e}", "error")
+
+    def _prompt_desktop_shortcut(self):
+        """On first launch, ask the user if they'd like a desktop shortcut."""
+        self._app_settings["shortcut_prompted"] = True
+        self._save_json(self.settings_path, self._app_settings)
+
+        reply = QMessageBox.question(
+            self, "Create Desktop Shortcut",
+            "Welcome to Ghosty Tools!\n\nWould you like to create a desktop shortcut for easy access?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self._create_desktop_shortcut()
+
+    def _create_desktop_shortcut(self):
+        """Create a desktop shortcut pointing to this executable."""
+        try:
+            if getattr(sys, 'frozen', False):
+                target = sys.executable
+            else:
+                target = os.path.abspath(sys.argv[0])
+
+            desktop = os.path.join(os.environ.get('USERPROFILE', os.path.expanduser('~')), 'Desktop')
+            icon_path = os.path.join(self.project_root, "images", "ghosty icon.ico")
+            shortcut_path = os.path.join(desktop, "Ghosty Tools.lnk")
+
+            ps_cmd = (
+                f"$ws = New-Object -ComObject WScript.Shell; "
+                f"$sc = $ws.CreateShortcut('{shortcut_path}'); "
+                f"$sc.TargetPath = '{target}'; "
+                f"$sc.WorkingDirectory = '{os.path.dirname(target)}'; "
+            )
+            if os.path.exists(icon_path):
+                ps_cmd += f"$sc.IconLocation = '{icon_path}'; "
+            ps_cmd += "$sc.Description = 'Ghosty Tools - System Utility'; $sc.Save()"
+
+            subprocess.run(
+                ["powershell", "-NoProfile", "-Command", ps_cmd],
+                shell=False,
+                creationflags=CREATE_NO_WINDOW
+            )
+            self.log_signal.emit("Desktop shortcut created successfully.", "success")
+        except Exception as e:
+            self.log_signal.emit(f"Failed to create desktop shortcut: {e}", "error")
 
     def check_for_whats_new(self):
         """Shows a one-time 'What's New' popup after an update."""
@@ -3858,6 +3980,10 @@ echo Update applied successfully!
 echo.
 echo Cleanup...
 del /f /q "{safe_new}" >nul 2>&1
+
+:: Recreate desktop shortcut pointing to the new exe location
+echo Updating desktop shortcut...
+powershell -NoProfile -Command "$desktop = [Environment]::GetFolderPath('Desktop'); $lnk = Join-Path $desktop 'Ghosty Tools.lnk'; if (Test-Path $lnk) {{ Remove-Item $lnk -Force }}; $ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut($lnk); $s.TargetPath = '{safe_current}'; $s.WorkingDirectory = [System.IO.Path]::GetDirectoryName('{safe_current}'); $s.Description = 'Ghosty Tools'; $s.Save()" >nul 2>&1
 
 :: Brief pause before launch so the new exe starts with a clean slate
 echo Restarting Ghosty Tools...
@@ -4811,6 +4937,7 @@ rm -- "$0"
         self.hw_info_text = QTextEdit()
         self.hw_info_text.setReadOnly(True)
         self.hw_info_text.setStyleSheet("QTextEdit { background-color: transparent; color: #d4d4d4; border: none; font-family: 'Consolas'; font-size: 11px; }")
+        self.hw_info_text.hide()
         diag_card.layout.addWidget(self.hw_info_text)
         layout.addWidget(diag_card)
         
@@ -4822,8 +4949,19 @@ rm -- "$0"
         
         self.content_stack.addWidget(page)
 
+        # On first load: if LHM exe exists but sensors aren't active yet, pre-configure it
+        # so the Remote Web Server is enabled before the user even clicks Launch
+        if sys.platform == 'win32':
+            QTimer.singleShot(500, self._auto_configure_lhm_if_installed)
+
+    def _auto_configure_lhm_if_installed(self):
+        """Silently write LHM config if the exe is found but sensors haven't started yet."""
+        if self._find_lhm_exe():
+            self._configure_lhm_web_server()
+
     def refresh_hardware_health(self):
         from src.core.hardware_info import HardwareInfo
+        self.hw_info_text.show()
         self.log_to_terminal("Fetching hardware health...")
         info = []
         info.append("--- Disk Health ---")
@@ -4926,6 +5064,7 @@ rm -- "$0"
                 color: white;
             }
         """)
+        self.services_list.hide()
         svc_card.layout.addWidget(self.services_list)
         layout.addWidget(svc_card)
         
@@ -4950,6 +5089,7 @@ rm -- "$0"
 
     def refresh_services(self):
         from src.core.services_manager import ServicesManager
+        self.services_list.show()
         self.services_list.clear()
         services = ServicesManager.get_services()
         if isinstance(services, list):
@@ -4991,6 +5131,7 @@ rm -- "$0"
                 padding: 10px;
             }
         """)
+        self.report_display.hide()
         report_card.layout.addWidget(self.report_display)
         layout.addWidget(report_card)
 
@@ -5015,6 +5156,7 @@ rm -- "$0"
 
     def show_system_report(self):
         from src.core.automation import Automation
+        self.report_display.show()
         self.automation_status.setText("Status: Generating Report...")
         self.automation_status.setStyleSheet("color: #ffa500; font-size: 14px; font-weight: bold;")
         
@@ -5032,9 +5174,19 @@ rm -- "$0"
             else:
                 self.show_and_raise()
 
+    def closeEvent(self, event):
+        if self._app_settings.get("minimize_to_tray", False):
+            event.ignore()
+            self.hide()
+            if hasattr(self, 'tray_icon') and self.tray_icon.isVisible():
+                self.tray_icon.showMessage(
+                    "Ghosty Tools",
+                    "Running in the background. Click the tray icon to restore.",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2500
+                )
+        else:
+            event.accept()
+
     def changeEvent(self, event):
-        if event.type() == event.Type.WindowStateChange:
-            if self.windowState() & Qt.WindowState.WindowMinimized:
-                if self._app_settings.get("minimize_to_tray", True):
-                    QTimer.singleShot(0, self.hide)
         super().changeEvent(event)

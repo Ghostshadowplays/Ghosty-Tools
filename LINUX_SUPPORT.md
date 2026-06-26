@@ -2,9 +2,9 @@
 
 Ghosty Tools is fully cross-platform with native support for Linux desktop environments.
 
-## Status: Stable
+## Status: Stable — v7.3.3
 
-Core features have **platform-specific Linux implementations**. Windows-only features (Debloat, Registry Tweaks, Event Viewer) are automatically hidden when running on Linux.
+Core features have **platform-specific Linux implementations**. Windows-only features (Debloat, Registry Tweaks, Tidy Desktop, Game Analyzer, Event Viewer) are automatically hidden or replaced with a platform notice when running on Linux.
 
 ---
 
@@ -21,14 +21,16 @@ Core features have **platform-specific Linux implementations**. Windows-only fea
 | Privacy Audit & Browser Cleaner | ✅ Full |
 | Secure File Shredder | ✅ Full |
 | System Maintenance (apt/dnf/pacman/zypper) | ✅ Package-manager aware |
-| Security Scanner (ufw, ssh, root checks) | ✅ Full |
+| Security Scanner (ufw, ssh, sudo, world-writable checks) | ✅ Full (5 checks) |
 | Password Generator & ShadowKeys Vault | ✅ Full |
 | Hardware Specs (CPU, GPU, RAM, Board) | ✅ Full (via lscpu, lspci, /sys) |
 | Linux Autostart Manager | ✅ Full (~/.config/autostart/) |
 | Software Installer | ✅ Translated to apt-get |
 | App Appearance / Theme | ✅ Full |
 | System Tray & Notifications | ✅ Full |
-| Debloat / Registry Tweaks | ❌ Windows only (hidden) |
+| Debloat / Registry Tweaks | ❌ Windows only (platform notice shown) |
+| Tidy Desktop | ❌ Windows only |
+| Game Compatibility Analyzer | ❌ Windows only |
 | Event Viewer | ❌ Windows only (hidden) |
 | LibreHardwareMonitor Sensors | ❌ Windows only |
 
@@ -125,4 +127,6 @@ The easiest way to install on Debian-based systems is via the official `.deb` pa
 
 ---
 
-*We are continuously expanding Linux support. Ideas and contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).*
+---
+
+*Ghosty Tools v7.3.3 — We are continuously expanding Linux support. Ideas and contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).*

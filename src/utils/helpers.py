@@ -69,38 +69,77 @@ def is_admin():
             return False
 
 def elevate_privileges():
-    """Attempt to elevate privileges. Only implemented for Windows."""
-    if sys.platform != 'win32':
-        logger.warning("Elevation not implemented for this platform.")
-        return
+    """Attempt to elevate privileges (restart the app with root/admin rights)."""
+    import subprocess
 
-    import ctypes
-    if getattr(sys, 'frozen', False):
-        # Running as compiled EXE
-        executable = sys.executable
-        params = ' '.join([f'"{arg}"' for arg in sys.argv[1:]])
+    if sys.platform == 'win32':
+        import ctypes
+        if getattr(sys, 'frozen', False):
+            executable = sys.executable
+            params = ' '.join([f'"{arg}"' for arg in sys.argv[1:]])
+        else:
+            executable = sys.executable
+            params = ' '.join([f'"{sys.argv[0]}"'] + [f'"{arg}"' for arg in sys.argv[1:]])
+
+        try:
+            for key in list(os.environ.keys()):
+                if key == '_MEIPASS' or key.startswith('PYI'):
+                    del os.environ[key]
+            if 'PATH' in os.environ:
+                paths = os.environ['PATH'].split(os.pathsep)
+                os.environ['PATH'] = os.pathsep.join([p for p in paths if '_MEI' not in p])
+            ctypes.windll.shell32.ShellExecuteW(None, "runas", executable, params, None, 1)
+        except Exception as e:
+            logger.error(f"Failed to elevate privileges: {e}")
+        sys.exit()
+
     else:
-        # Running as Python script
-        executable = sys.executable
-        # Re-run the current script
-        params = ' '.join([f'"{sys.argv[0]}"'] + [f'"{arg}"' for arg in sys.argv[1:]])
+        # Linux / macOS — relaunch with pkexec (preferred) or sudo
+        if getattr(sys, 'frozen', False):
+            cmd = [sys.executable] + sys.argv[1:]
+        else:
+            cmd = [sys.executable] + sys.argv
 
-    try:
-        # Prepare environment: remove PyInstaller variables to ensure the new process extracts itself correctly
-        # instead of trying to use the current process's temporary directory.
-        for key in list(os.environ.keys()):
-            if key == '_MEIPASS' or key.startswith('PYI'):
-                del os.environ[key]
-        
-        # Clean PATH of any _MEI references to prevent loading DLLs from the wrong temp folder
-        if 'PATH' in os.environ:
-            paths = os.environ['PATH'].split(os.pathsep)
-            os.environ['PATH'] = os.pathsep.join([p for p in paths if '_MEI' not in p])
-            
-        ctypes.windll.shell32.ShellExecuteW(None, "runas", executable, params, None, 1)
-    except Exception as e:
-        logger.error(f"Failed to elevate privileges: {e}")
-    sys.exit()
+        import shutil
+        if sys.platform == 'darwin':
+            # macOS: use osascript to request admin via GUI
+            script_args = ' '.join(f'"{a}"' for a in cmd)
+            apple_script = f'do shell script "{script_args}" with administrator privileges'
+            try:
+                subprocess.Popen(['osascript', '-e', apple_script])
+                sys.exit()
+            except Exception as e:
+                logger.error(f"macOS elevation failed: {e}")
+                return
+        else:
+            # Linux: prefer pkexec (GUI prompt), fall back to gksudo/kdesudo, then plain sudo in terminal
+            if shutil.which('pkexec'):
+                elevate_cmd = ['pkexec'] + cmd
+            elif shutil.which('gksudo'):
+                elevate_cmd = ['gksudo', '--'] + cmd
+            elif shutil.which('kdesudo'):
+                elevate_cmd = ['kdesudo', '--'] + cmd
+            else:
+                # Last resort: try running in a terminal with sudo
+                terminal = (shutil.which('x-terminal-emulator') or
+                            shutil.which('gnome-terminal') or
+                            shutil.which('konsole') or
+                            shutil.which('xterm'))
+                if terminal:
+                    sudo_cmd = 'sudo ' + ' '.join(f'"{a}"' for a in cmd)
+                    try:
+                        subprocess.Popen([terminal, '-e', f'bash -c "{sudo_cmd}; exec bash"'])
+                        sys.exit()
+                    except Exception as e:
+                        logger.error(f"Terminal elevation failed: {e}")
+                        return
+                logger.error("No suitable elevation tool found (pkexec, gksudo, kdesudo, or terminal with sudo).")
+                return
+            try:
+                subprocess.Popen(elevate_cmd)
+                sys.exit()
+            except Exception as e:
+                logger.error(f"Linux elevation failed: {e}")
 
 def ensure_private_file(path: str):
     """Best-effort to restrict file visibility/permissions for sensitive files.
