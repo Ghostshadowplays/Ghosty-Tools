@@ -62,9 +62,10 @@ def is_admin():
             logger.error(f"Error checking admin privileges: {e}")
             return False
     else:
-        # Linux/Mac
+        # Linux/Mac: use geteuid() (effective UID), not getuid() (real UID).
+        # sudo sets the effective UID to 0 but leaves the real UID as the original user.
         try:
-            return os.getuid() == 0
+            return os.geteuid() == 0
         except AttributeError:
             return False
 

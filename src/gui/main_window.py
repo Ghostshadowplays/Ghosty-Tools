@@ -66,6 +66,52 @@ from PyQt6.QtGui import QAction
 
 logger = logging.getLogger(__name__)
 
+
+class _DropZoneFrame(QFrame):
+    """A drag-and-drop target that emits file_dropped(path) when an .exe is dropped."""
+    file_dropped = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+        self.setMinimumHeight(64)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._default_style = (
+            "QFrame { border: 2px dashed #444; border-radius: 8px; "
+            "background-color: #1a1a1f; color: #888; }"
+        )
+        self._hover_style = (
+            "QFrame { border: 2px dashed #4158D0; border-radius: 8px; "
+            "background-color: #1e1e2a; color: #aaa; }"
+        )
+        self.setStyleSheet(self._default_style)
+        lbl = QLabel("⬇  Drop game .exe here", self)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl.setStyleSheet("color: #666; font-size: 12px; background: transparent; border: none;")
+        lay = QVBoxLayout(self)
+        lay.addWidget(lbl)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            if any(u.toLocalFile().lower().endswith(".exe")
+                   for u in event.mimeData().urls()):
+                self.setStyleSheet(self._hover_style)
+                event.acceptProposedAction()
+                return
+        event.ignore()
+
+    def dragLeaveEvent(self, event):
+        self.setStyleSheet(self._default_style)
+
+    def dropEvent(self, event):
+        self.setStyleSheet(self._default_style)
+        for url in event.mimeData().urls():
+            path = url.toLocalFile()
+            if path.lower().endswith(".exe"):
+                self.file_dropped.emit(path)
+                break
+
+
 class GhostyTool(QMainWindow):
     log_signal = pyqtSignal(str, str)
     cleanup_item_signal = pyqtSignal(str, dict)
@@ -121,11 +167,13 @@ class GhostyTool(QMainWindow):
             "start_with_windows": False,
             "alert_refresh_sec": 60,
             "startup_page": 0,
-            "shortcut_prompted": False
+            "shortcut_prompted": False,
+            "gaming_mode_active": False
         })
         # Ensure keys are always present (for upgrades from older settings)
         self._app_settings.setdefault("minimize_to_tray", False)
         self._app_settings.setdefault("shortcut_prompted", False)
+        self._app_settings.setdefault("gaming_mode_active", False)
 
         # Detect Linux package manager once at startup
         self.pkg_manager = self._detect_pkg_manager()
@@ -325,6 +373,7 @@ class GhostyTool(QMainWindow):
         self.add_nav_button("Customization", 15, "Context Menu · Dark Mode", icon_text="\uE771" if is_win else "🖌", count=4)
         self.add_nav_button("Info", 16, "About · Updates · System", icon_text="\uE946" if is_win else "ⓘ", count=5)
         self.add_nav_button("Settings", 17, "Preferences · Startup", icon_text="\uE713" if is_win else "⚙️")
+        self.add_nav_button("Gaming", 18, "Game Mode · Compatibility", icon_text="\uE7FC" if is_win else "🎮")
 
         # Bottom section for theme toggle
         bottom_container = QWidget()
@@ -513,6 +562,7 @@ class GhostyTool(QMainWindow):
         self.setup_tweaks_page()
         self.setup_about_page()
         self.setup_settings_page()
+        self.setup_gaming_page()
 
     def add_nav_button(self, text, index, subtitle="", icon_text="", count=None):
         btn = NavButton(text, subtitle, icon_text, count)
@@ -2611,10 +2661,9 @@ class GhostyTool(QMainWindow):
         
         if sys.platform == "win32":
             win_tools = [
-                ("Gaming Mode", "gaming"), ("WinGet Apps", "winget"),
-                ("Flush DNS", "dns"), ("Print Spooler", "spooler"),
-                ("Verify Files", "sfc"), ("Hosts Editor", "hosts"),
-                ("Tidy Desktop", "tidy_desktop"), ("Game Analyzer", "game_analyzer"),
+                ("WinGet Apps", "winget"), ("Flush DNS", "dns"),
+                ("Print Spooler", "spooler"), ("Verify Files", "sfc"),
+                ("Hosts Editor", "hosts"), ("Tidy Desktop", "tidy_desktop"),
             ]
             for i, (name, cmd) in enumerate(win_tools):
                 btn = QPushButton(name)
@@ -3536,6 +3585,521 @@ class GhostyTool(QMainWindow):
 
         layout.addStretch()
         self.content_stack.addWidget(page)
+
+    # ------------------------------------------------------------------ #
+    def setup_gaming_page(self):
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
+
+        page = QWidget()
+        page.setStyleSheet("background-color: transparent;")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(30, 20, 30, 20)
+        layout.setSpacing(20)
+
+        header = PageHeader("Gaming", "Optimise your system for gaming and check game compatibility.")
+        layout.addWidget(header)
+
+        # ── Gaming Mode card ──────────────────────────────────────────────
+        gm_card = DashboardCard("GAMING MODE")
+
+        self._gaming_status_lbl = QLabel()
+        self._update_gaming_status_label()
+        self._gaming_status_lbl.setStyleSheet("font-size: 13px; font-weight: bold;")
+        gm_card.layout.addWidget(self._gaming_status_lbl)
+
+        info_lbl = QLabel(
+            "Applies Ultimate Performance power plan, disables Xbox Game DVR, "
+            "disables Nagle's algorithm, raises MMCSS priority, disables SysMain, "
+            "and pauses Windows Update for a smoother gaming experience."
+        )
+        info_lbl.setStyleSheet("color: #888; font-size: 11px;")
+        info_lbl.setWordWrap(True)
+        gm_card.layout.addWidget(info_lbl)
+
+        gm_btn_row = QHBoxLayout()
+
+        self._gaming_enable_btn = QPushButton("Enable Gaming Mode")
+        self._gaming_enable_btn.setFixedHeight(40)
+        self._gaming_enable_btn.setStyleSheet(
+            "QPushButton { background-color: #4158D0; color: white; font-weight: bold; "
+            "border-radius: 7px; border: none; }"
+            "QPushButton:hover { background-color: #4b6de3; }"
+            "QPushButton:disabled { background-color: #25252b; color: #555; }"
+        )
+        self._gaming_enable_btn.clicked.connect(self._toggle_gaming_mode)
+        gm_btn_row.addWidget(self._gaming_enable_btn)
+
+        self._gaming_revert_btn = QPushButton("Revert to Defaults")
+        self._gaming_revert_btn.setFixedHeight(40)
+        self._gaming_revert_btn.setEnabled(self._app_settings.get("gaming_mode_active", False))
+        self._gaming_revert_btn.setStyleSheet(
+            "QPushButton { background-color: #f0a050; color: #111; font-weight: bold; "
+            "border-radius: 7px; border: none; }"
+            "QPushButton:hover { background-color: #f5b870; }"
+            "QPushButton:disabled { background-color: #25252b; color: #555; }"
+        )
+        self._gaming_revert_btn.clicked.connect(self._revert_gaming_mode)
+        gm_btn_row.addWidget(self._gaming_revert_btn)
+
+        gm_card.layout.addLayout(gm_btn_row)
+        layout.addWidget(gm_card)
+
+        # ── Game Compatibility Analyzer card ─────────────────────────────
+        compat_card = DashboardCard("GAME COMPATIBILITY ANALYZER")
+
+        compat_desc = QLabel(
+            "Type a game name below or drop its .exe onto the drop zone. "
+            "For games not in the built-in database, enter the requirements manually."
+        )
+        compat_desc.setStyleSheet("color: #888; font-size: 11px;")
+        compat_desc.setWordWrap(True)
+        compat_card.layout.addWidget(compat_desc)
+
+        # Drop zone
+        self._game_drop_zone = _DropZoneFrame()
+        self._game_drop_zone.file_dropped.connect(self._on_game_exe_dropped)
+        compat_card.layout.addWidget(self._game_drop_zone)
+
+        # Search row
+        search_row = QHBoxLayout()
+        self._game_name_input = QLineEdit()
+        self._game_name_input.setPlaceholderText("Game name (e.g. Cyberpunk 2077, Elden Ring, Fortnite...)")
+        self._game_name_input.setMinimumHeight(36)
+        self._game_name_input.setStyleSheet(
+            "QLineEdit { background-color: #1e1e24; border: 1px solid #333; border-radius: 6px; "
+            "padding: 4px 8px; color: #d4d4d4; }"
+            "QLineEdit:focus { border: 1px solid #4158D0; }"
+        )
+        self._game_name_input.returnPressed.connect(self._analyze_game_compat)
+        search_row.addWidget(self._game_name_input)
+
+        analyze_btn = QPushButton("Analyze")
+        analyze_btn.setFixedHeight(36)
+        analyze_btn.setStyleSheet(
+            "QPushButton { background-color: #4158D0; border: none; border-radius: 6px; "
+            "color: white; font-weight: bold; padding: 0 18px; }"
+            "QPushButton:hover { background-color: #4b6de3; }"
+        )
+        analyze_btn.clicked.connect(self._analyze_game_compat)
+        search_row.addWidget(analyze_btn)
+        compat_card.layout.addLayout(search_row)
+
+        # System specs label
+        self._gaming_specs_lbl = QLabel("Detecting system specs...")
+        self._gaming_specs_lbl.setStyleSheet(
+            "background-color: #1e1e24; border: 1px solid #2a2a30; border-radius: 6px; "
+            "padding: 8px; color: #888; font-size: 11px;"
+        )
+        self._gaming_specs_lbl.setWordWrap(True)
+        compat_card.layout.addWidget(self._gaming_specs_lbl)
+
+        # Manual requirements widget (shown when game not in DB)
+        self._manual_req_widget = QWidget()
+        self._manual_req_widget.hide()
+        mreq_layout = QVBoxLayout(self._manual_req_widget)
+        mreq_layout.setContentsMargins(0, 0, 0, 0)
+        mreq_layout.setSpacing(6)
+        mreq_lbl = QLabel("Game not in database — enter requirements to compare:")
+        mreq_lbl.setStyleSheet("color: #f0a050; font-size: 11px; font-weight: bold;")
+        mreq_layout.addWidget(mreq_lbl)
+
+        mreq_grid = QGridLayout()
+        mreq_grid.setSpacing(6)
+        field_style = (
+            "QLineEdit { background-color: #1e1e24; border: 1px solid #333; border-radius: 5px; "
+            "padding: 3px 6px; color: #d4d4d4; }"
+        )
+        lbl_style = "color: #aaa; font-size: 11px;"
+
+        def _mf(placeholder):
+            f = QLineEdit()
+            f.setPlaceholderText(placeholder)
+            f.setFixedHeight(30)
+            f.setStyleSheet(field_style)
+            return f
+
+        mreq_grid.addWidget(QLabel("Min RAM (GB)", styleSheet=lbl_style), 0, 0)
+        self._mreq_ram_min = _mf("e.g. 8")
+        mreq_grid.addWidget(self._mreq_ram_min, 0, 1)
+        mreq_grid.addWidget(QLabel("Rec RAM (GB)", styleSheet=lbl_style), 0, 2)
+        self._mreq_ram_rec = _mf("e.g. 16")
+        mreq_grid.addWidget(self._mreq_ram_rec, 0, 3)
+
+        mreq_grid.addWidget(QLabel("Min CPU cores", styleSheet=lbl_style), 1, 0)
+        self._mreq_cpu_min = _mf("e.g. 4")
+        mreq_grid.addWidget(self._mreq_cpu_min, 1, 1)
+        mreq_grid.addWidget(QLabel("Rec CPU cores", styleSheet=lbl_style), 1, 2)
+        self._mreq_cpu_rec = _mf("e.g. 8")
+        mreq_grid.addWidget(self._mreq_cpu_rec, 1, 3)
+
+        mreq_grid.addWidget(QLabel("Min VRAM (GB)", styleSheet=lbl_style), 2, 0)
+        self._mreq_vram_min = _mf("e.g. 4")
+        mreq_grid.addWidget(self._mreq_vram_min, 2, 1)
+        mreq_grid.addWidget(QLabel("Rec VRAM (GB)", styleSheet=lbl_style), 2, 2)
+        self._mreq_vram_rec = _mf("e.g. 8")
+        mreq_grid.addWidget(self._mreq_vram_rec, 2, 3)
+
+        mreq_grid.addWidget(QLabel("Min Storage (GB)", styleSheet=lbl_style), 3, 0)
+        self._mreq_disk_min = _mf("e.g. 50")
+        mreq_grid.addWidget(self._mreq_disk_min, 3, 1)
+        mreq_grid.addWidget(QLabel("Rec Storage (GB)", styleSheet=lbl_style), 3, 2)
+        self._mreq_disk_rec = _mf("e.g. 50")
+        mreq_grid.addWidget(self._mreq_disk_rec, 3, 3)
+
+        mreq_layout.addLayout(mreq_grid)
+
+        compare_btn = QPushButton("Compare with my specs")
+        compare_btn.setFixedHeight(34)
+        compare_btn.setStyleSheet(
+            "QPushButton { background-color: #25252b; border: 1px solid #444; border-radius: 6px; "
+            "color: #ccc; font-weight: bold; }"
+            "QPushButton:hover { background-color: #2e2e36; }"
+        )
+        compare_btn.clicked.connect(self._analyze_manual_reqs)
+        mreq_layout.addWidget(compare_btn)
+        compat_card.layout.addWidget(self._manual_req_widget)
+
+        # Results
+        self._game_results_text = QTextEdit()
+        self._game_results_text.setReadOnly(True)
+        self._game_results_text.setMinimumHeight(180)
+        self._game_results_text.hide()
+        self._game_results_text.setStyleSheet(
+            "QTextEdit { background-color: #1e1e24; border: 1px solid #333; border-radius: 6px; "
+            "color: #d4d4d4; font-family: Consolas, monospace; font-size: 12px; }"
+        )
+        compat_card.layout.addWidget(self._game_results_text)
+
+        layout.addWidget(compat_card)
+        layout.addStretch()
+        scroll.setWidget(page)
+        self.content_stack.addWidget(scroll)
+
+        # Fetch specs in background
+        self._gaming_sys_specs = {}
+        threading.Thread(target=self._fetch_gaming_page_specs, daemon=True).start()
+
+    def _update_gaming_status_label(self):
+        active = self._app_settings.get("gaming_mode_active", False)
+        if active:
+            self._gaming_status_lbl.setText("🎮  Gaming Mode: ACTIVE")
+            self._gaming_status_lbl.setStyleSheet("font-size: 13px; font-weight: bold; color: #4ec994;")
+        else:
+            self._gaming_status_lbl.setText("🎮  Gaming Mode: Inactive")
+            self._gaming_status_lbl.setStyleSheet("font-size: 13px; font-weight: bold; color: #888;")
+
+    def _toggle_gaming_mode(self):
+        if sys.platform != 'win32':
+            QMessageBox.information(self, "Gaming Mode", "Gaming Mode is only available on Windows.")
+            return
+        from src.core.platform_tools.windows import WindowsTools
+        self._gaming_enable_btn.setEnabled(False)
+        self._gaming_enable_btn.setText("Applying...")
+
+        def _run():
+            success, msg = WindowsTools.toggle_gaming_mode(True)
+            self._app_settings["gaming_mode_active"] = True
+            self._save_settings()
+            self.log_signal.emit(msg, "success" if success else "error")
+            # Update UI on main thread
+            QTimer.singleShot(0, self._on_gaming_mode_applied)
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _on_gaming_mode_applied(self):
+        self._gaming_enable_btn.setEnabled(True)
+        self._gaming_enable_btn.setText("Enable Gaming Mode")
+        self._gaming_revert_btn.setEnabled(True)
+        self._update_gaming_status_label()
+        QMessageBox.information(self, "Gaming Mode", "Gaming Mode applied!\nUse 'Revert to Defaults' to undo.")
+
+    def _revert_gaming_mode(self):
+        if sys.platform != 'win32':
+            return
+        reply = QMessageBox.question(
+            self, "Revert Gaming Mode",
+            "This will restore Balanced power plan, re-enable SysMain, Windows Update, and other defaults.\n\nContinue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        from src.core.platform_tools.windows import WindowsTools
+        self._gaming_revert_btn.setEnabled(False)
+        self._gaming_revert_btn.setText("Reverting...")
+
+        def _run():
+            success, msg = WindowsTools.toggle_gaming_mode(False)
+            self._app_settings["gaming_mode_active"] = False
+            self._save_settings()
+            self.log_signal.emit(msg, "success" if success else "error")
+            QTimer.singleShot(0, self._on_gaming_mode_reverted)
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _on_gaming_mode_reverted(self):
+        self._gaming_revert_btn.setEnabled(False)
+        self._gaming_revert_btn.setText("Revert to Defaults")
+        self._update_gaming_status_label()
+        QMessageBox.information(self, "Gaming Mode", "System restored to defaults.")
+
+    def _fetch_gaming_page_specs(self):
+        try:
+            mem = psutil.virtual_memory()
+            ram_gb = mem.total / (1024 ** 3)
+            cpu_cores = psutil.cpu_count(logical=False) or psutil.cpu_count()
+            cpu_name = platform.processor() or "Unknown CPU"
+            gpu_vram_gb = 0.0
+            gpu_name = "Unknown GPU"
+            if sys.platform == "win32":
+                try:
+                    from src.utils.helpers import run_command
+                    res = run_command([
+                        "powershell", "-NoProfile", "-Command",
+                        "Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM | Format-List"
+                    ], timeout=8)
+                    for line in res.stdout.strip().splitlines():
+                        if line.startswith("Name"):
+                            gpu_name = line.split(":", 1)[-1].strip()
+                        elif line.startswith("AdapterRAM") and ":" in line:
+                            raw = line.split(":", 1)[-1].strip()
+                            try:
+                                gpu_vram_gb = int(raw) / (1024 ** 3)
+                            except ValueError:
+                                pass
+                except Exception:
+                    pass
+            disk_free_gb = 0.0
+            try:
+                du = psutil.disk_usage(os.path.abspath(os.sep))
+                disk_free_gb = du.free / (1024 ** 3)
+            except Exception:
+                pass
+            self._gaming_sys_specs = {
+                "ram_gb": ram_gb, "cpu_cores": cpu_cores,
+                "cpu_name": cpu_name, "gpu_vram_gb": gpu_vram_gb,
+                "gpu_name": gpu_name, "disk_free_gb": disk_free_gb,
+            }
+            spec_text = (
+                f"CPU: {cpu_name} ({cpu_cores} physical cores)  |  "
+                f"RAM: {ram_gb:.1f} GB  |  "
+                f"GPU: {gpu_name} ({gpu_vram_gb:.1f} GB VRAM)  |  "
+                f"Free disk: {disk_free_gb:.1f} GB"
+            )
+            from PyQt6.QtCore import QMetaObject, Q_ARG
+            QMetaObject.invokeMethod(
+                self._gaming_specs_lbl, "setText",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(str, spec_text)
+            )
+        except Exception as e:
+            pass
+
+    def _on_game_exe_dropped(self, path):
+        """Called when a .exe is dropped onto the drop zone."""
+        name = os.path.splitext(os.path.basename(path))[0]
+        # Try to get product name from PE version info on Windows
+        if sys.platform == "win32":
+            try:
+                from src.utils.helpers import run_command
+                ps = (
+                    f"(Get-Item '{path}').VersionInfo.ProductName"
+                )
+                res = run_command(["powershell", "-NoProfile", "-Command", ps], timeout=5)
+                product = res.stdout.strip()
+                if product and product.lower() not in ("", "null"):
+                    name = product
+            except Exception:
+                pass
+        self._game_name_input.setText(name)
+        self._analyze_game_compat()
+
+    _GAME_DB = {
+        "minecraft": {"name": "Minecraft (Java)", "min": {"ram_gb": 2, "cpu_cores": 2, "gpu_vram_gb": 0.5, "storage_gb": 4}, "rec": {"ram_gb": 4, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 8}},
+        "minecraft java": {"name": "Minecraft (Java)", "min": {"ram_gb": 2, "cpu_cores": 2, "gpu_vram_gb": 0.5, "storage_gb": 4}, "rec": {"ram_gb": 4, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 8}},
+        "fortnite": {"name": "Fortnite", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 29}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 4, "storage_gb": 29}},
+        "cyberpunk 2077": {"name": "Cyberpunk 2077", "min": {"ram_gb": 8, "cpu_cores": 6, "gpu_vram_gb": 6, "storage_gb": 70}, "rec": {"ram_gb": 12, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 70}},
+        "cyberpunk": {"name": "Cyberpunk 2077", "min": {"ram_gb": 8, "cpu_cores": 6, "gpu_vram_gb": 6, "storage_gb": 70}, "rec": {"ram_gb": 12, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 70}},
+        "elden ring": {"name": "Elden Ring", "min": {"ram_gb": 12, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 60}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 60}},
+        "valorant": {"name": "VALORANT", "min": {"ram_gb": 4, "cpu_cores": 2, "gpu_vram_gb": 1, "storage_gb": 8}, "rec": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 8}},
+        "apex legends": {"name": "Apex Legends", "min": {"ram_gb": 6, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 56}, "rec": {"ram_gb": 8, "cpu_cores": 6, "gpu_vram_gb": 4, "storage_gb": 56}},
+        "apex": {"name": "Apex Legends", "min": {"ram_gb": 6, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 56}, "rec": {"ram_gb": 8, "cpu_cores": 6, "gpu_vram_gb": 4, "storage_gb": 56}},
+        "gta v": {"name": "Grand Theft Auto V", "min": {"ram_gb": 4, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 72}, "rec": {"ram_gb": 8, "cpu_cores": 6, "gpu_vram_gb": 2, "storage_gb": 72}},
+        "gta5": {"name": "Grand Theft Auto V", "min": {"ram_gb": 4, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 72}, "rec": {"ram_gb": 8, "cpu_cores": 6, "gpu_vram_gb": 2, "storage_gb": 72}},
+        "gta 5": {"name": "Grand Theft Auto V", "min": {"ram_gb": 4, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 72}, "rec": {"ram_gb": 8, "cpu_cores": 6, "gpu_vram_gb": 2, "storage_gb": 72}},
+        "csgo": {"name": "CS:GO / CS2", "min": {"ram_gb": 4, "cpu_cores": 2, "gpu_vram_gb": 0.5, "storage_gb": 15}, "rec": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 15}},
+        "cs2": {"name": "CS2", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 30}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 4, "storage_gb": 30}},
+        "counter-strike": {"name": "CS2", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 30}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 4, "storage_gb": 30}},
+        "counter strike": {"name": "CS2", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 30}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 4, "storage_gb": 30}},
+        "red dead redemption 2": {"name": "Red Dead Redemption 2", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 150}, "rec": {"ram_gb": 12, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 150}},
+        "rdr2": {"name": "Red Dead Redemption 2", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 150}, "rec": {"ram_gb": 12, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 150}},
+        "the witcher 3": {"name": "The Witcher 3", "min": {"ram_gb": 6, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 35}, "rec": {"ram_gb": 8, "cpu_cores": 6, "gpu_vram_gb": 4, "storage_gb": 35}},
+        "witcher 3": {"name": "The Witcher 3", "min": {"ram_gb": 6, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 35}, "rec": {"ram_gb": 8, "cpu_cores": 6, "gpu_vram_gb": 4, "storage_gb": 35}},
+        "call of duty warzone": {"name": "Call of Duty: Warzone", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 175}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 175}},
+        "warzone": {"name": "Call of Duty: Warzone", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 175}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 175}},
+        "league of legends": {"name": "League of Legends", "min": {"ram_gb": 2, "cpu_cores": 2, "gpu_vram_gb": 0.5, "storage_gb": 16}, "rec": {"ram_gb": 4, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 16}},
+        "lol": {"name": "League of Legends", "min": {"ram_gb": 2, "cpu_cores": 2, "gpu_vram_gb": 0.5, "storage_gb": 16}, "rec": {"ram_gb": 4, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 16}},
+        "overwatch": {"name": "Overwatch 2", "min": {"ram_gb": 6, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 50}, "rec": {"ram_gb": 8, "cpu_cores": 6, "gpu_vram_gb": 4, "storage_gb": 50}},
+        "overwatch 2": {"name": "Overwatch 2", "min": {"ram_gb": 6, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 50}, "rec": {"ram_gb": 8, "cpu_cores": 6, "gpu_vram_gb": 4, "storage_gb": 50}},
+        "baldur's gate 3": {"name": "Baldur's Gate 3", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 150}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 150}},
+        "baldurs gate 3": {"name": "Baldur's Gate 3", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 150}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 150}},
+        "bg3": {"name": "Baldur's Gate 3", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 150}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 4, "storage_gb": 150}},
+        "dota 2": {"name": "Dota 2", "min": {"ram_gb": 4, "cpu_cores": 2, "gpu_vram_gb": 0.5, "storage_gb": 15}, "rec": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 15}},
+        "rust": {"name": "Rust", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 20}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 4, "storage_gb": 20}},
+        "pubg": {"name": "PUBG: Battlegrounds", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 40}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 4, "storage_gb": 40}},
+        "palworld": {"name": "Palworld", "min": {"ram_gb": 16, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 40}, "rec": {"ram_gb": 32, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 40}},
+        "helldivers 2": {"name": "Helldivers 2", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 100}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 100}},
+        "black myth wukong": {"name": "Black Myth: Wukong", "min": {"ram_gb": 16, "cpu_cores": 4, "gpu_vram_gb": 8, "storage_gb": 130}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 16, "storage_gb": 130}},
+        "black myth: wukong": {"name": "Black Myth: Wukong", "min": {"ram_gb": 16, "cpu_cores": 4, "gpu_vram_gb": 8, "storage_gb": 130}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 16, "storage_gb": 130}},
+        "star wars outlaws": {"name": "Star Wars Outlaws", "min": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 65}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 12, "storage_gb": 65}},
+        "star wars jedi survivor": {"name": "Star Wars Jedi: Survivor", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 8, "storage_gb": 130}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 12, "storage_gb": 130}},
+        "hogwarts legacy": {"name": "Hogwarts Legacy", "min": {"ram_gb": 16, "cpu_cores": 4, "gpu_vram_gb": 8, "storage_gb": 85}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 12, "storage_gb": 85}},
+        "alan wake 2": {"name": "Alan Wake 2", "min": {"ram_gb": 16, "cpu_cores": 6, "gpu_vram_gb": 8, "storage_gb": 90}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 12, "storage_gb": 90}},
+        "resident evil 4": {"name": "Resident Evil 4 Remake", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 60}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 60}},
+        "re4": {"name": "Resident Evil 4 Remake", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 60}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 60}},
+        "the last of us": {"name": "The Last of Us Part I", "min": {"ram_gb": 16, "cpu_cores": 6, "gpu_vram_gb": 8, "storage_gb": 100}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 16, "storage_gb": 100}},
+        "last of us": {"name": "The Last of Us Part I", "min": {"ram_gb": 16, "cpu_cores": 6, "gpu_vram_gb": 8, "storage_gb": 100}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 16, "storage_gb": 100}},
+        "god of war": {"name": "God of War (2018)", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 70}, "rec": {"ram_gb": 8, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 70}},
+        "god of war ragnarok": {"name": "God of War Ragnarök", "min": {"ram_gb": 8, "cpu_cores": 6, "gpu_vram_gb": 4, "storage_gb": 190}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 190}},
+        "spider-man": {"name": "Marvel's Spider-Man Remastered", "min": {"ram_gb": 16, "cpu_cores": 4, "gpu_vram_gb": 6, "storage_gb": 75}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 12, "storage_gb": 75}},
+        "spiderman": {"name": "Marvel's Spider-Man Remastered", "min": {"ram_gb": 16, "cpu_cores": 4, "gpu_vram_gb": 6, "storage_gb": 75}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 12, "storage_gb": 75}},
+        "dying light 2": {"name": "Dying Light 2", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 60}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 60}},
+        "doom eternal": {"name": "DOOM Eternal", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 50}, "rec": {"ram_gb": 8, "cpu_cores": 6, "gpu_vram_gb": 8, "storage_gb": 50}},
+        "doom": {"name": "DOOM Eternal", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 50}, "rec": {"ram_gb": 8, "cpu_cores": 6, "gpu_vram_gb": 8, "storage_gb": 50}},
+        "ark survival": {"name": "ARK: Survival Evolved", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 60}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 4, "storage_gb": 60}},
+        "ark": {"name": "ARK: Survival Evolved", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 60}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 4, "storage_gb": 60}},
+        "7 days to die": {"name": "7 Days to Die", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 15}, "rec": {"ram_gb": 12, "cpu_cores": 6, "gpu_vram_gb": 4, "storage_gb": 15}},
+        "no man's sky": {"name": "No Man's Sky", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 15}, "rec": {"ram_gb": 16, "cpu_cores": 6, "gpu_vram_gb": 8, "storage_gb": 15}},
+        "no mans sky": {"name": "No Man's Sky", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 15}, "rec": {"ram_gb": 16, "cpu_cores": 6, "gpu_vram_gb": 8, "storage_gb": 15}},
+        "satisfactory": {"name": "Satisfactory", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 15}, "rec": {"ram_gb": 16, "cpu_cores": 6, "gpu_vram_gb": 6, "storage_gb": 15}},
+        "factorio": {"name": "Factorio", "min": {"ram_gb": 4, "cpu_cores": 2, "gpu_vram_gb": 0.5, "storage_gb": 1}, "rec": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 1, "storage_gb": 2}},
+        "stardew valley": {"name": "Stardew Valley", "min": {"ram_gb": 2, "cpu_cores": 2, "gpu_vram_gb": 0.25, "storage_gb": 1}, "rec": {"ram_gb": 4, "cpu_cores": 2, "gpu_vram_gb": 0.5, "storage_gb": 1}},
+        "stardew": {"name": "Stardew Valley", "min": {"ram_gb": 2, "cpu_cores": 2, "gpu_vram_gb": 0.25, "storage_gb": 1}, "rec": {"ram_gb": 4, "cpu_cores": 2, "gpu_vram_gb": 0.5, "storage_gb": 1}},
+        "terraria": {"name": "Terraria", "min": {"ram_gb": 2, "cpu_cores": 2, "gpu_vram_gb": 0.25, "storage_gb": 0.2}, "rec": {"ram_gb": 4, "cpu_cores": 2, "gpu_vram_gb": 0.5, "storage_gb": 0.2}},
+        "path of exile": {"name": "Path of Exile", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 40}, "rec": {"ram_gb": 16, "cpu_cores": 6, "gpu_vram_gb": 4, "storage_gb": 40}},
+        "poe": {"name": "Path of Exile", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 40}, "rec": {"ram_gb": 16, "cpu_cores": 6, "gpu_vram_gb": 4, "storage_gb": 40}},
+        "destiny 2": {"name": "Destiny 2", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 2, "storage_gb": 105}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 4, "storage_gb": 105}},
+        "halo infinite": {"name": "Halo Infinite", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 50}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 50}},
+        "halo": {"name": "Halo Infinite", "min": {"ram_gb": 8, "cpu_cores": 4, "gpu_vram_gb": 4, "storage_gb": 50}, "rec": {"ram_gb": 16, "cpu_cores": 8, "gpu_vram_gb": 8, "storage_gb": 50}},
+    }
+
+    def _analyze_game_compat(self):
+        query = self._game_name_input.text().strip()
+        if not query:
+            return
+        self._manual_req_widget.hide()
+        self._game_results_text.clear()
+
+        entry = self._GAME_DB.get(query.lower())
+        if not entry:
+            for key, val in self._GAME_DB.items():
+                if query.lower() in key or key in query.lower():
+                    entry = val
+                    break
+
+        if not entry:
+            self._manual_req_widget.show()
+            self._game_results_text.setHtml(
+                f"<p style='color:#f0a050;'>&#9888; <b>{query}</b> is not in the built-in database.</p>"
+                "<p style='color:#888;'>Enter the game's minimum and recommended requirements above, "
+                "then click <b>Compare with my specs</b>.</p>"
+            )
+            self._game_results_text.show()
+            return
+
+        self._manual_req_widget.hide()
+        self._render_compat_result(entry["name"], entry["min"], entry["rec"])
+
+    def _analyze_manual_reqs(self):
+        def _f(widget, default=0.0):
+            try:
+                return float(widget.text().strip()) if widget.text().strip() else default
+            except ValueError:
+                return default
+
+        mn = {
+            "ram_gb": _f(self._mreq_ram_min),
+            "cpu_cores": _f(self._mreq_cpu_min),
+            "gpu_vram_gb": _f(self._mreq_vram_min),
+            "storage_gb": _f(self._mreq_disk_min),
+        }
+        rc = {
+            "ram_gb": _f(self._mreq_ram_rec) or mn["ram_gb"],
+            "cpu_cores": _f(self._mreq_cpu_rec) or mn["cpu_cores"],
+            "gpu_vram_gb": _f(self._mreq_vram_rec) or mn["gpu_vram_gb"],
+            "storage_gb": _f(self._mreq_disk_rec) or mn["storage_gb"],
+        }
+        if not any(mn.values()):
+            QMessageBox.warning(self, "No Requirements", "Please enter at least one requirement field.")
+            return
+        game_name = self._game_name_input.text().strip() or "Custom Game"
+        self._render_compat_result(game_name, mn, rc)
+
+    def _render_compat_result(self, game_name, mn, rc):
+        if not self._gaming_sys_specs:
+            self._game_results_text.setHtml(
+                "<p style='color:#888;'>Still detecting system specs — please wait a moment and try again.</p>"
+            )
+            self._game_results_text.show()
+            return
+
+        s = self._gaming_sys_specs
+
+        def check(label, have, need_min, need_rec, unit=""):
+            if not need_min and not need_rec:
+                return ""
+            ok_rec = have >= need_rec if need_rec else True
+            ok_min = have >= need_min if need_min else True
+            if ok_rec:
+                icon, color, verdict = "&#10003;", "#4ec994", "Exceeds recommended"
+            elif ok_min:
+                icon, color = "&#9888;", "#f0a050"
+                verdict = f"Meets minimum (rec: {need_rec}{unit})" if need_rec else "Meets minimum"
+            else:
+                icon, color = "&#10007;", "#f44747"
+                verdict = f"Below minimum (need: {need_min}{unit}, rec: {need_rec}{unit})"
+            return (
+                f"<tr><td style='padding:3px 8px; color:#aaa;'>{label}</td>"
+                f"<td style='padding:3px 8px; color:#d4d4d4;'>{have:.1f}{unit}</td>"
+                f"<td style='padding:3px 8px; color:{color};'>{icon} {verdict}</td></tr>"
+            )
+
+        rows = (
+            check("RAM", s["ram_gb"], mn["ram_gb"], rc["ram_gb"], " GB") +
+            check("CPU Cores", float(s["cpu_cores"]), float(mn["cpu_cores"]), float(rc["cpu_cores"])) +
+            check("GPU VRAM", s["gpu_vram_gb"], mn["gpu_vram_gb"], rc["gpu_vram_gb"], " GB") +
+            check("Free Disk", s["disk_free_gb"], mn["storage_gb"], rc["storage_gb"], " GB")
+        )
+        checks = [
+            (s["ram_gb"], mn["ram_gb"], rc["ram_gb"]),
+            (float(s["cpu_cores"]), float(mn["cpu_cores"]), float(rc["cpu_cores"])),
+            (s["gpu_vram_gb"], mn["gpu_vram_gb"], rc["gpu_vram_gb"]),
+            (s["disk_free_gb"], mn["storage_gb"], rc["storage_gb"]),
+        ]
+        score = sum(25 if h >= r else (12 if h >= m else 0) for h, m, r in checks if m or r)
+        if score >= 90:
+            verdict_color, verdict_text = "#4ec994", "Ready to Play (High Settings)"
+        elif score >= 60:
+            verdict_color, verdict_text = "#f0a050", "Playable (Low/Medium Settings)"
+        elif score >= 30:
+            verdict_color, verdict_text = "#f0a050", "Barely Playable (Minimum Settings)"
+        else:
+            verdict_color, verdict_text = "#f44747", "Not Recommended"
+
+        self._game_results_text.setHtml(
+            f"<h3 style='color:#4158D0; margin:0 0 6px 0;'>{game_name}</h3>"
+            f"<p style='color:{verdict_color}; font-size:14px; margin:0 0 10px 0;'>"
+            f"<b>Compatibility Score: {score}/100 &mdash; {verdict_text}</b></p>"
+            f"<table style='width:100%; border-collapse:collapse;'>"
+            f"<tr style='background-color:#25252b;'>"
+            f"<th style='text-align:left; padding:4px 8px; color:#888;'>Component</th>"
+            f"<th style='text-align:left; padding:4px 8px; color:#888;'>Your System</th>"
+            f"<th style='text-align:left; padding:4px 8px; color:#888;'>Status</th></tr>"
+            f"{rows}</table>"
+        )
+        self._game_results_text.show()
+
 
     def _save_general_settings(self):
         """Persist general settings from the Settings page UI."""

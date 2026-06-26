@@ -877,6 +877,8 @@ class GameCompatibilityDialog(QDialog):
             "QLineEdit:focus { border: 1px solid #4158D0; }"
         )
         self.game_input.returnPressed.connect(self._analyze)
+        # Disable drops on the text field so drag events reach the dialog
+        self.game_input.setAcceptDrops(False)
         input_row.addWidget(self.game_input)
 
         browse_btn = QPushButton("Browse...")
@@ -906,8 +908,19 @@ class GameCompatibilityDialog(QDialog):
         self.specs_lbl.setWordWrap(True)
         layout.addWidget(self.specs_lbl)
 
+        # Visual drop zone hint
+        drop_hint = QLabel("⬇  Drop .exe here to auto-detect game")
+        drop_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_hint.setStyleSheet(
+            "QLabel { border: 2px dashed #333; border-radius: 7px; color: #555; "
+            "font-size: 11px; padding: 8px; background-color: #1a1a1f; }"
+        )
+        drop_hint.setAcceptDrops(False)
+        layout.addWidget(drop_hint)
+
         self.result_area = QTextEdit()
         self.result_area.setReadOnly(True)
+        self.result_area.setAcceptDrops(False)
         self.result_area.setStyleSheet(
             "QTextEdit { background-color: #1e1e24; border: 1px solid #333; border-radius: 6px; "
             "color: #d4d4d4; font-family: Consolas, monospace; font-size: 12px; }"
@@ -942,7 +955,22 @@ class GameCompatibilityDialog(QDialog):
         for url in event.mimeData().urls():
             path = url.toLocalFile()
             if path.lower().endswith(".exe"):
-                self.game_input.setText(os.path.splitext(os.path.basename(path))[0])
+                name = os.path.splitext(os.path.basename(path))[0]
+                # Try to read ProductName from PE version info on Windows
+                if sys.platform == "win32":
+                    try:
+                        from src.utils.helpers import run_command
+                        res = run_command(
+                            ["powershell", "-NoProfile", "-Command",
+                             f"(Get-Item '{path}').VersionInfo.ProductName"],
+                            timeout=5
+                        )
+                        product = res.stdout.strip()
+                        if product and product.lower() not in ("", "null"):
+                            name = product
+                    except Exception:
+                        pass
+                self.game_input.setText(name)
                 self._analyze()
                 break
 
@@ -1025,8 +1053,10 @@ class GameCompatibilityDialog(QDialog):
             db_list = ", ".join(sorted(set(v["name"] for v in self._DB.values())))
             self.result_area.setHtml(
                 f"<p style='color:#f0a050;'>&#9888; <b>{query}</b> is not in the built-in database.</p>"
-                f"<p style='color:#888;'>Try a shorter or alternate name.<br>"
-                f"Available games: {db_list}</p>"
+                f"<p style='color:#888;'>Try a shorter or alternate name (e.g. 'cyberpunk', 'bg3', 'cs2').<br><br>"
+                f"<b>Tip:</b> Use the full <b>Gaming</b> page (sidebar) to enter manual requirements "
+                f"for any game not in the database.<br><br>"
+                f"Built-in games: {db_list}</p>"
             )
             return
         if not self._sys_specs:
