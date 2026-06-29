@@ -1,8 +1,8 @@
 Pillow>=10.0.0
-psutil>=5.9.0
+psutil>=7.2.2
 speedtest-cli>=2.1.3
-PyQt6>=6.5.0
-cryptography>=42.0.0
-pyperclip>=1.8.0
-requests>=2.31.0
+PyQt6>=6.11.0
+cryptography>=49.0.0
+pyperclip>=1.11.0
+requests>=2.34.2
 pywin32; sys_platform == 'win32'
