@@ -1,7 +1,7 @@
 Pillow>=10.0.0
 psutil>=5.9.0
 speedtest-cli>=2.1.3
-PyQt6>=6.5.0
+PyQt6>=6.11.0
 cryptography>=42.0.0
 pyperclip>=1.8.0
 requests>=2.31.0
