@@ -51,8 +51,27 @@ class ThemeManager:
             "surface": "#241c15",
             "text": "#ffffff",
             "accent": "#FBAB7E"
+        },
+        "Clean Light": {
+            "primary": "#4158D0",
+            "secondary": "#8B5CF6",
+            "background": "#f0f0f5",
+            "surface": "#ffffff",
+            "text": "#1a1a2e",
+            "accent": "#4158D0"
+        },
+        "Light Warm": {
+            "primary": "#d97706",
+            "secondary": "#f59e0b",
+            "background": "#faf8f5",
+            "surface": "#ffffff",
+            "text": "#1c1309",
+            "accent": "#d97706"
         }
     }
+
+    # Which themes count as "light" mode
+    LIGHT_THEMES = {"Clean Light", "Light Warm"}
 
     def __init__(self, config_path="config/theme.json"):
         self.config_path = config_path

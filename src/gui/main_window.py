@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGr
                              QFrame, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem,
                              QTreeWidgetItemIterator, QComboBox, QTextEdit, QLineEdit, QDialog, QFormLayout,
                              QApplication)
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot, QTimer, QSize
 from PyQt6.QtGui import QIcon, QFont, QColor, QTextCursor, QTextCharFormat
 import psutil
 try:
@@ -583,6 +583,21 @@ class GhostyTool(QMainWindow):
         if QMessageBox.question(self, "Elevate", "Restart app with administrator privileges?") == QMessageBox.StandardButton.Yes:
             elevate_privileges()
 
+    @staticmethod
+    def _make_admin_notice() -> "QLabel":
+        """Return a styled warning label shown when the app is not running as admin."""
+        lbl = QLabel(
+            "⚠️  Administrator privileges required.  "
+            "Click <b>Elevate</b> in the toolbar, then re-open this page."
+        )
+        lbl.setStyleSheet(
+            "color: #d7ba7d; font-size: 11px; background-color: #2a2215; "
+            "border: 1px solid #5a4a20; border-radius: 5px; padding: 6px 10px;"
+        )
+        lbl.setWordWrap(True)
+        lbl.setVisible(not is_admin())
+        return lbl
+
     def clear_clipboard(self):
         pyperclip.copy("")
         self.log_signal.emit("Clipboard cleared for security.", "info")
@@ -1113,6 +1128,7 @@ class GhostyTool(QMainWindow):
         
         header = PageHeader("Maintenance & Repairs", "Keep your system running smoothly with repair and optimization tools.")
         layout.addWidget(header)
+        layout.addWidget(self._make_admin_notice())
 
         # Core Maintenance Card
         maint_card = DashboardCard("CORE MAINTENANCE")
@@ -1524,7 +1540,8 @@ class GhostyTool(QMainWindow):
         
         header = PageHeader("Bloatware Remover", "Identify and remove pre-installed Windows applications and telemetry.")
         layout.addWidget(header)
-        
+        layout.addWidget(self._make_admin_notice())
+
         # Info Card
         info_card = DashboardCard("")
         info_layout = info_card.layout
@@ -3112,6 +3129,8 @@ class GhostyTool(QMainWindow):
             self.tweaks = {}
             return
 
+        layout.addWidget(self._make_admin_notice())
+
         self.tweaks = {
             "delete_temp": QCheckBox("Delete Temporary Files"),
             "disable_telemetry": QCheckBox("Disable Telemetry"),
@@ -3381,55 +3400,114 @@ class GhostyTool(QMainWindow):
             self.log_signal.emit(f"Failed to export report: {e}", "error")
 
     def show_log_viewer(self):
-        """Open a simple in-app log viewer showing recent log entries."""
+        """Open an in-app log viewer with file selector, line count, and refresh."""
+        from PyQt6.QtWidgets import QComboBox
         logs_dir = get_logs_dir()
 
-        # Find the most recent log file — prefer today's, fall back to newest available
-        today_log = os.path.join(logs_dir, f"ghostytools_{datetime.now().strftime('%Y%m%d')}.log")
-        if os.path.exists(today_log):
-            log_file = today_log
-        else:
-            try:
-                candidates = sorted(
-                    [f for f in os.listdir(logs_dir) if f.startswith("ghostytools_") and f.endswith(".log")],
-                    reverse=True
-                )
-                log_file = os.path.join(logs_dir, candidates[0]) if candidates else today_log
-            except Exception:
-                log_file = today_log
+        # Collect all available log files, newest first
+        today_name = f"ghostytools_{datetime.now().strftime('%Y%m%d')}.log"
+        try:
+            log_files = sorted(
+                [f for f in os.listdir(logs_dir) if f.startswith("ghostytools_") and f.endswith(".log")],
+                reverse=True
+            )
+        except Exception:
+            log_files = []
+        if not log_files:
+            log_files = [today_name]
 
         dlg = QDialog(self)
         dlg.setWindowTitle("Ghosty Tools — Log Viewer")
-        dlg.setMinimumSize(700, 480)
+        dlg.setMinimumSize(780, 540)
+        dlg.setStyleSheet("background-color: #16161a; color: #d4d4d4;")
         vbox = QVBoxLayout(dlg)
+        vbox.setContentsMargins(14, 12, 14, 12)
+        vbox.setSpacing(8)
 
-        header = QLabel(f"Log: {log_file}")
-        header.setStyleSheet("color: #888; font-size: 11px;")
-        vbox.addWidget(header)
+        # Header row: title + file selector
+        header_row = QHBoxLayout()
+        title_lbl = QLabel("Log Viewer")
+        title_lbl.setStyleSheet("font-size: 15px; font-weight: bold; color: #4158D0;")
+        header_row.addWidget(title_lbl)
+        header_row.addStretch()
 
+        file_combo = QComboBox()
+        file_combo.addItems(log_files)
+        file_combo.setFixedWidth(240)
+        file_combo.setStyleSheet(
+            "QComboBox { background-color: #1e1e24; border: 1px solid #333; border-radius: 5px; "
+            "color: #d4d4d4; padding: 4px 8px; } "
+            "QComboBox::drop-down { border: none; } "
+            "QComboBox QAbstractItemView { background-color: #1e1e24; color: #d4d4d4; selection-background-color: #4158D0; }"
+        )
+        header_row.addWidget(file_combo)
+        vbox.addLayout(header_row)
+
+        # Info bar: path + line count
+        info_lbl = QLabel()
+        info_lbl.setStyleSheet("color: #666; font-size: 10px;")
+        vbox.addWidget(info_lbl)
+
+        # Log text area
         viewer = QTextEdit()
         viewer.setReadOnly(True)
-        viewer.setStyleSheet("background-color: #111; color: #d4d4d4; font-family: 'Consolas', monospace; font-size: 11px; border: none;")
-        try:
-            if os.path.exists(log_file):
-                with open(log_file, 'r', encoding='utf-8', errors='replace') as f:
-                    content = f.read()
-                # Show last 300 lines
-                lines = content.splitlines()
-                viewer.setPlainText("\n".join(lines[-300:]))
-                viewer.moveCursor(QTextCursor.MoveOperation.End)
-            else:
-                viewer.setPlainText(f"No log files found in:\n{logs_dir}")
-        except Exception as e:
-            viewer.setPlainText(f"Error reading log: {e}")
+        viewer.setStyleSheet(
+            "QTextEdit { background-color: #111; color: #d4d4d4; "
+            "font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; "
+            "border: 1px solid #2a2a30; border-radius: 4px; }"
+        )
         vbox.addWidget(viewer)
 
+        def load_log(fname):
+            log_path = os.path.join(logs_dir, fname)
+            try:
+                if os.path.exists(log_path):
+                    with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
+                        content = f.read()
+                    lines = content.splitlines()
+                    shown = lines[-500:]
+                    viewer.setPlainText("\n".join(shown))
+                    viewer.moveCursor(QTextCursor.MoveOperation.End)
+                    skipped = max(0, len(lines) - 500)
+                    skip_note = f"  (showing last 500 of {len(lines)} lines)" if skipped else ""
+                    info_lbl.setText(f"{log_path}{skip_note}")
+                else:
+                    viewer.setPlainText(f"Log file not yet created:\n{log_path}")
+                    info_lbl.setText(log_path)
+            except Exception as e:
+                viewer.setPlainText(f"Error reading log: {e}")
+
+        load_log(log_files[0])
+        file_combo.currentTextChanged.connect(load_log)
+
+        # Button row
         btn_row = QHBoxLayout()
         open_folder_btn = QPushButton("Open Logs Folder")
+        open_folder_btn.setFixedHeight(32)
+        open_folder_btn.setStyleSheet(
+            "QPushButton { background-color: #1e1e24; border: 1px solid #444; border-radius: 5px; color: #ccc; padding: 0 12px; }"
+            "QPushButton:hover { background-color: #28282e; }"
+        )
         open_folder_btn.clicked.connect(lambda: webbrowser.open(logs_dir))
+
+        refresh_btn = QPushButton("Refresh")
+        refresh_btn.setFixedHeight(32)
+        refresh_btn.setStyleSheet(
+            "QPushButton { background-color: #1e1e24; border: 1px solid #444; border-radius: 5px; color: #ccc; padding: 0 12px; }"
+            "QPushButton:hover { background-color: #28282e; }"
+        )
+        refresh_btn.clicked.connect(lambda: load_log(file_combo.currentText()))
+
         close_btn = QPushButton("Close")
+        close_btn.setFixedHeight(32)
+        close_btn.setStyleSheet(
+            "QPushButton { background-color: #4158D0; border: none; border-radius: 5px; color: white; font-weight: bold; padding: 0 16px; }"
+            "QPushButton:hover { background-color: #4b6de3; }"
+        )
         close_btn.clicked.connect(dlg.accept)
+
         btn_row.addWidget(open_folder_btn)
+        btn_row.addWidget(refresh_btn)
         btn_row.addStretch()
         btn_row.addWidget(close_btn)
         vbox.addLayout(btn_row)
@@ -3618,10 +3696,29 @@ class GhostyTool(QMainWindow):
         info_lbl.setWordWrap(True)
         gm_card.layout.addWidget(info_lbl)
 
+        # Admin notice — shown only when not elevated
+        self._gaming_admin_notice = QLabel(
+            "⚠️  Administrator privileges required.  "
+            "Click <b>Elevate</b> in the toolbar, then re-open the Gaming page."
+        )
+        self._gaming_admin_notice.setStyleSheet(
+            "color: #d7ba7d; font-size: 11px; background-color: #2a2215; "
+            "border: 1px solid #5a4a20; border-radius: 5px; padding: 6px 10px;"
+        )
+        self._gaming_admin_notice.setWordWrap(True)
+        self._gaming_admin_notice.setVisible(not is_admin())
+        gm_card.layout.addWidget(self._gaming_admin_notice)
+
         gm_btn_row = QHBoxLayout()
+
+        _admin = is_admin()
 
         self._gaming_enable_btn = QPushButton("Enable Gaming Mode")
         self._gaming_enable_btn.setFixedHeight(40)
+        self._gaming_enable_btn.setEnabled(_admin)
+        self._gaming_enable_btn.setToolTip(
+            "" if _admin else "Requires administrator privileges — click Elevate in the toolbar"
+        )
         self._gaming_enable_btn.setStyleSheet(
             "QPushButton { background-color: #4158D0; color: white; font-weight: bold; "
             "border-radius: 7px; border: none; }"
@@ -3633,7 +3730,10 @@ class GhostyTool(QMainWindow):
 
         self._gaming_revert_btn = QPushButton("Revert to Defaults")
         self._gaming_revert_btn.setFixedHeight(40)
-        self._gaming_revert_btn.setEnabled(self._app_settings.get("gaming_mode_active", False))
+        self._gaming_revert_btn.setEnabled(_admin and self._app_settings.get("gaming_mode_active", False))
+        self._gaming_revert_btn.setToolTip(
+            "" if _admin else "Requires administrator privileges — click Elevate in the toolbar"
+        )
         self._gaming_revert_btn.setStyleSheet(
             "QPushButton { background-color: #f0a050; color: #111; font-weight: bold; "
             "border-radius: 7px; border: none; }"
@@ -3801,17 +3901,20 @@ class GhostyTool(QMainWindow):
         def _run():
             success, msg = WindowsTools.toggle_gaming_mode(True)
             self._app_settings["gaming_mode_active"] = True
-            self._save_settings()
+            self._save_json(self.settings_path, self._app_settings)
             self.log_signal.emit(msg, "success" if success else "error")
-            # Update UI on main thread
-            QTimer.singleShot(0, self._on_gaming_mode_applied)
+            # Queue the UI update on the main thread via QMetaObject
+            from PyQt6.QtCore import QMetaObject, Qt as _Qt
+            QMetaObject.invokeMethod(self, "_on_gaming_mode_applied", _Qt.ConnectionType.QueuedConnection)
 
         threading.Thread(target=_run, daemon=True).start()
 
+    @pyqtSlot()
     def _on_gaming_mode_applied(self):
-        self._gaming_enable_btn.setEnabled(True)
+        admin = is_admin()
+        self._gaming_enable_btn.setEnabled(admin)
         self._gaming_enable_btn.setText("Enable Gaming Mode")
-        self._gaming_revert_btn.setEnabled(True)
+        self._gaming_revert_btn.setEnabled(admin)  # mode is active, revert is now available
         self._update_gaming_status_label()
         QMessageBox.information(self, "Gaming Mode", "Gaming Mode applied!\nUse 'Revert to Defaults' to undo.")
 
@@ -3832,15 +3935,19 @@ class GhostyTool(QMainWindow):
         def _run():
             success, msg = WindowsTools.toggle_gaming_mode(False)
             self._app_settings["gaming_mode_active"] = False
-            self._save_settings()
+            self._save_json(self.settings_path, self._app_settings)
             self.log_signal.emit(msg, "success" if success else "error")
-            QTimer.singleShot(0, self._on_gaming_mode_reverted)
+            from PyQt6.QtCore import QMetaObject, Qt as _Qt
+            QMetaObject.invokeMethod(self, "_on_gaming_mode_reverted", _Qt.ConnectionType.QueuedConnection)
 
         threading.Thread(target=_run, daemon=True).start()
 
+    @pyqtSlot()
     def _on_gaming_mode_reverted(self):
-        self._gaming_revert_btn.setEnabled(False)
+        admin = is_admin()
+        self._gaming_revert_btn.setEnabled(False)  # mode no longer active, nothing to revert
         self._gaming_revert_btn.setText("Revert to Defaults")
+        self._gaming_enable_btn.setEnabled(admin)  # can re-enable again
         self._update_gaming_status_label()
         QMessageBox.information(self, "Gaming Mode", "System restored to defaults.")
 
@@ -3896,16 +4003,80 @@ class GhostyTool(QMainWindow):
         except Exception as e:
             pass
 
+    @staticmethod
+    def _lookup_steam_game_name(exe_path: str) -> str:
+        """Try to find the Steam game name for a dropped exe by reading appmanifest ACF files."""
+        try:
+            exe_dir = os.path.dirname(os.path.abspath(exe_path))
+            # Walk up until we find a 'steamapps/common' ancestor
+            steamapps_dir = None
+            check = exe_dir
+            for _ in range(6):
+                parent = os.path.dirname(check)
+                if os.path.basename(check).lower() == "common":
+                    candidate = os.path.dirname(check)  # steamapps dir
+                    if os.path.isdir(candidate):
+                        steamapps_dir = candidate
+                    break
+                check = parent
+                if check == parent:
+                    break
+            if not steamapps_dir:
+                # Also check common Steam install locations directly
+                common_steam_roots = [
+                    r"C:\Program Files (x86)\Steam\steamapps",
+                    r"C:\Program Files\Steam\steamapps",
+                    os.path.expanduser("~/.steam/steam/steamapps"),
+                    os.path.expanduser("~/Library/Application Support/Steam/steamapps"),
+                ]
+                for root in common_steam_roots:
+                    common = os.path.join(root, "common")
+                    if os.path.isdir(common) and exe_dir.startswith(common):
+                        steamapps_dir = root
+                        break
+            if not steamapps_dir:
+                return ""
+            # The install dir is the top-level folder inside 'common' for this game
+            common_path = os.path.join(steamapps_dir, "common")
+            rel = os.path.relpath(exe_dir, common_path)
+            install_dir = rel.split(os.sep)[0]  # first path component
+            # Scan all appmanifest_*.acf files for a matching installdir
+            for acf_name in os.listdir(steamapps_dir):
+                if not (acf_name.startswith("appmanifest_") and acf_name.endswith(".acf")):
+                    continue
+                acf_path = os.path.join(steamapps_dir, acf_name)
+                try:
+                    with open(acf_path, "r", encoding="utf-8", errors="replace") as f:
+                        acf_text = f.read()
+                    # Simple key/value parse — no need for a full VDF parser
+                    acf_installdir = ""
+                    acf_name_val = ""
+                    for line in acf_text.splitlines():
+                        line = line.strip()
+                        if line.startswith('"installdir"'):
+                            acf_installdir = line.split('"')[3]
+                        elif line.startswith('"name"'):
+                            acf_name_val = line.split('"')[3]
+                    if acf_installdir.lower() == install_dir.lower() and acf_name_val:
+                        return acf_name_val
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return ""
+
     def _on_game_exe_dropped(self, path):
         """Called when a .exe is dropped onto the drop zone."""
         name = os.path.splitext(os.path.basename(path))[0]
-        # Try to get product name from PE version info on Windows
-        if sys.platform == "win32":
+        # 1. Try Steam ACF lookup first — most reliable for Steam games
+        steam_name = self._lookup_steam_game_name(path)
+        if steam_name:
+            name = steam_name
+        elif sys.platform == "win32":
+            # 2. Fall back to PE VersionInfo.ProductName
             try:
                 from src.utils.helpers import run_command
-                ps = (
-                    f"(Get-Item '{path}').VersionInfo.ProductName"
-                )
+                ps = f"(Get-Item '{path}').VersionInfo.ProductName"
                 res = run_command(["powershell", "-NoProfile", "-Command", ps], timeout=5)
                 product = res.stdout.strip()
                 if product and product.lower() not in ("", "null"):
@@ -4494,13 +4665,12 @@ if "%ERRORLEVEL%"=="0" (
 )
 
 :: Extra pause to let the old process fully release its temp files
-timeout /t 3 /nobreak >nul
+timeout /t 5 /nobreak >nul
 
-:: Clean up old PyInstaller extraction folder to prevent DLL conflicts
-if exist "{old_mei}" (
-    echo Cleaning up old runtime files...
-    rd /s /q "{old_mei}" >nul 2>&1
-)
+:: Clean up ALL stale PyInstaller extraction folders to prevent DLL conflicts
+echo Cleaning up stale runtime files...
+for /d %%i in ("%TEMP%\_MEI*") do rd /s /q "%%i" >nul 2>&1
+if exist "{old_mei}" rd /s /q "{old_mei}" >nul 2>&1
 
 echo.
 echo Applying update...
@@ -5606,7 +5776,8 @@ rm -- "$0"
         from src.gui.dashboard import PageHeader, DashboardCard
         header = PageHeader("Advanced Services Manager", "Monitor and manage system services.")
         layout.addWidget(header)
-        
+        layout.addWidget(self._make_admin_notice())
+
         svc_card = DashboardCard("SYSTEM SERVICES")
         self.services_list = QListWidget()
         self.services_list.setStyleSheet("""

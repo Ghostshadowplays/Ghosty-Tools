@@ -13,6 +13,16 @@ Official Website: [ghostyware.com](https://ghostyware.com)
 
 Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows, Linux, and macOS environments. Built with a focus on **Security First**, it combines system maintenance, security auditing, and professional-grade password management into a single, sleek interface.
 
+## 🆕 What's New in v7.3.5
+
+- 🎮 **Gaming Mode fixed:** `@staticmethod` decorator added to `toggle_gaming_mode` — previously the `enable` parameter defaulted to `True` when called as a class method, meaning "Revert to Defaults" was silently enabling instead of reverting. Both Enable and Revert now work correctly.
+- 🧵 **Gaming Mode no longer hangs:** `QTimer.singleShot` callbacks from background threads now use the 3-argument form (`singleShot(0, context, callback)`) to ensure they run on the main thread — eliminating the UI freeze.
+- 🗂️ **Log Viewer upgraded:** File selector dropdown to switch between all available log files, Refresh button, line count indicator, and a cleaner styled layout.
+- 🧹 **Tidy Desktop enhanced:** Un-recognised files now appear in an "Other / Unrecognised" section (collapsed, unchecked by default). Every category has a tick-box — un-tick to skip the whole category or individual files. Parent-to-child check propagation for one-click category control.
+- 🎮 **Steam game detection:** Dropping a game `.exe` now first looks up the Steam `appmanifest_*.acf` file to get the official game title — works for any installed Steam game, not just those in the built-in database.
+- 🎨 **Appearance slider fixed:** Background intensity slider no longer chops/stutters on drag — `valueChanged` now only updates the internal value while dragging; the theme rebuild and save happen only once on `sliderReleased`.
+- 🔧 **DLL error on update fixed:** Batch updater now cleans **all** `_MEI*` folders in `%TEMP%` (not just one specific path) before relaunching — eliminates "Failed to load Python DLL" errors after self-updates. Wait time before relaunch increased from 3 s to 5 s.
+
 ## 🆕 What's New in v7.3.4 (Hotfix)
 
 - 🐧 **Linux sudo fix:** `is_admin()` now uses `os.geteuid()` instead of `os.getuid()` — sudo correctly grants admin mode on Linux (real UID vs effective UID).
@@ -117,10 +127,12 @@ Ghosty Tools is a high-performance, modular utility designed to secure and optim
 - **Minimize Behaviour:** By default, minimising keeps the window in the taskbar and Task View. Tray-on-minimize is optional in Settings.
 
 ## 🌍 Cross-Platform Support
-Ghosty Tools v7.3.4 is fully optimised for **Windows**, **Linux**, and **macOS**.
+Ghosty Tools v7.3.5 is fully optimised for **Windows**, **Linux**, and **macOS**.
 - **Windows:** Deep system tweaks, Winget integration, registry startup manager, and PowerShell-based maintenance.
 - **Linux:** UFW firewall management, package manager detection (apt/dnf/pacman/zypper), autostart `.desktop` management, and native log viewing.
 - **macOS:** Homebrew integration, app residue cleaning, and native maintenance scripts.
+
+> **Note for Linux & macOS users:** Core features (Dashboard, Network Hub, Security Scanner, Task Manager, Privacy Audit, Password Vault) are fully functional on all platforms. Some Windows-specific features (Debloat, Registry Tweaks, Tidy Desktop, Game Compatibility Analyzer, Event Viewer) are automatically hidden or replaced with a platform notice on non-Windows systems. macOS support continues to expand — see [LINUX_SUPPORT.md](LINUX_SUPPORT.md) for build instructions and a full feature matrix.
 
 See [LINUX_SUPPORT.md](LINUX_SUPPORT.md) for Linux build instructions.
 

@@ -24,7 +24,8 @@ class WindowsTools(BasePlatformTools):
         # This requires careful registry manipulation.
         return True, "Context menu analysis complete (Feature in development)."
 
-    def toggle_gaming_mode(self, enable=True):
+    @staticmethod
+    def toggle_gaming_mode(enable=True):
         """Optimize system for gaming with a comprehensive set of performance tweaks."""
         if sys.platform != "win32":
             return False, "Not on Windows."
@@ -83,22 +84,25 @@ class WindowsTools(BasePlatformTools):
             results.append("Windows Game Mode enabled.")
 
             # 4. Disable Nagle's algorithm (reduces network latency in games)
+            # Must use the adapter GUID, not the InterfaceIndex, for the registry path.
             try:
                 ps_iface = (
                     "Get-NetAdapter -Physical | Where-Object Status -eq 'Up' | "
-                    "Select-Object -ExpandProperty InterfaceIndex"
+                    "Select-Object -ExpandProperty InterfaceGuid"
                 )
                 r2 = run_command(["powershell", "-NoProfile", "-Command", ps_iface])
-                for idx in r2.stdout.strip().splitlines():
-                    idx = idx.strip()
-                    if idx:
+                nagle_applied = False
+                for guid in r2.stdout.strip().splitlines():
+                    guid = guid.strip().strip("{}")
+                    if guid:
                         iface_key = (
-                            rf"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{{{idx}}}"
+                            rf"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{{{guid}}}"
                         )
-                        # TcpAckFrequency=1 and TCPNoDelay=1 disable Nagle
                         reg_set(HKLM, iface_key, "TcpAckFrequency", DWORD, 1)
                         reg_set(HKLM, iface_key, "TCPNoDelay", DWORD, 1)
-                results.append("Nagle's algorithm disabled (lower network latency).")
+                        nagle_applied = True
+                if nagle_applied:
+                    results.append("Nagle's algorithm disabled (lower network latency).")
             except Exception as e:
                 errors.append(f"Nagle tweak: {e}")
 

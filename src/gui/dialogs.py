@@ -247,7 +247,8 @@ class AppearanceDialog(QFrame):
         self.init_ui()
         self.update_style()
         self.update_preset_buttons()
-        
+        self._sync_mode_buttons()
+
         if hasattr(self, 'bg_slider'):
             self.bg_slider.setValue(self.tm.bg_intensity)
 
@@ -327,31 +328,38 @@ class AppearanceDialog(QFrame):
         self.light_btn = QPushButton("Light")
         self.custom_btn = QPushButton("Custom")
         
+        _mode_style = """
+            QPushButton {
+                background-color: #1a1a1f;
+                border: 1px solid #333;
+                border-radius: 8px;
+                color: white;
+                font-weight: bold;
+            }
+            QPushButton:checked {
+                background-color: #252535;
+                border: 2px solid #4158D0;
+                color: #7b9ef4;
+            }
+            QPushButton:hover {
+                border-color: #555;
+            }
+        """
         for i, btn in enumerate([self.dark_btn, self.light_btn, self.custom_btn]):
             btn.setCheckable(True)
             btn.setFixedHeight(45)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             self.mode_group.addButton(btn, i)
-            # ...
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #1a1a1f;
-                    border: 1px solid #333;
-                    border-radius: 8px;
-                    color: white;
-                    font-weight: bold;
-                }
-                QPushButton:checked {
-                    background-color: #333;
-                    border: 2px solid #4158D0;
-                }
-                QPushButton:hover {
-                    border-color: #555;
-                }
-            """)
+            btn.setStyleSheet(_mode_style)
             type_layout.addWidget(btn)
-        
-        self.dark_btn.setChecked(True)
+
+        # Wire up mode buttons
+        self.dark_btn.clicked.connect(self._apply_dark_mode)
+        self.light_btn.clicked.connect(self._apply_light_mode)
+        self.custom_btn.clicked.connect(self._apply_custom_mode)
+
+        # Reflect current mode in button state
+        self._sync_mode_buttons()
         layout.addLayout(type_layout)
 
         # Presets Section
@@ -379,13 +387,125 @@ class AppearanceDialog(QFrame):
         self.bg_slider.setRange(0, 100)
         self.bg_slider.setValue(50)
         self.bg_slider.setMinimumHeight(30)
-        self.bg_slider.valueChanged.connect(self.on_bg_adjustment)
+        # valueChanged updates the stored value instantly (no save / no full repaint)
+        self.bg_slider.valueChanged.connect(self._on_bg_preview)
+        # sliderReleased fires once when the user lets go — saves and rebuilds the theme
+        self.bg_slider.sliderReleased.connect(self.on_bg_adjustment)
         layout.addWidget(self.bg_slider)
+
+        # Custom accent color row — hidden unless Custom mode is active
+        self._custom_section = QWidget()
+        cs_layout = QVBoxLayout(self._custom_section)
+        cs_layout.setContentsMargins(0, 0, 0, 0)
+        cs_layout.setSpacing(6)
+
+        cs_label = QLabel("CUSTOM ACCENT COLOUR")
+        cs_label.setStyleSheet("color: #888; font-weight: bold; margin-top: 15px; font-size: 11px;")
+        cs_layout.addWidget(cs_label)
+
+        cs_row = QHBoxLayout()
+        self._custom_preview = QFrame()
+        self._custom_preview.setFixedSize(36, 36)
+        self._custom_preview.setStyleSheet(
+            f"background-color: {self.tm.custom_colors.get('primary', '#4158D0')}; "
+            "border-radius: 6px; border: 1px solid #444;"
+        )
+        cs_row.addWidget(self._custom_preview)
+
+        self._pick_color_btn = QPushButton("Pick Accent Colour…")
+        self._pick_color_btn.setFixedHeight(36)
+        self._pick_color_btn.setStyleSheet(
+            "QPushButton { background-color: #1e1e24; border: 1px solid #444; border-radius: 6px; color: #ccc; padding: 0 12px; }"
+            "QPushButton:hover { background-color: #28282e; }"
+        )
+        self._pick_color_btn.clicked.connect(self._pick_custom_accent)
+        cs_row.addWidget(self._pick_color_btn)
+        cs_row.addStretch()
+        cs_layout.addLayout(cs_row)
+
+        layout.addWidget(self._custom_section)
+        self._custom_section.setVisible(self.tm.current_theme == "Custom")
 
         layout.addStretch()
 
-    def on_bg_adjustment(self, value):
+    def _sync_mode_buttons(self):
+        """Set the correct Dark/Light/Custom toggle based on the active theme."""
+        light_themes = getattr(ThemeManager, "LIGHT_THEMES", set())
+        if self.tm.current_theme == "Custom":
+            self.custom_btn.setChecked(True)
+        elif self.tm.current_theme in light_themes:
+            self.light_btn.setChecked(True)
+        else:
+            self.dark_btn.setChecked(True)
+        # _custom_section may not exist yet when called during init_ui
+        if hasattr(self, "_custom_section"):
+            self._custom_section.setVisible(self.tm.current_theme == "Custom")
+
+    def _apply_dark_mode(self):
+        """Switch to a dark preset (keep current if already dark, else use Midnight Ind)."""
+        light_themes = getattr(ThemeManager, "LIGHT_THEMES", set())
+        if self.tm.current_theme in light_themes or self.tm.current_theme == "Custom":
+            self.tm.set_theme("Midnight Ind")
+        self._custom_section.setVisible(False)
+        self.theme_changed.emit()
+        self.update_style()
+        self.update_preset_buttons()
+
+    def _apply_light_mode(self):
+        """Switch to the Clean Light theme."""
+        self.tm.set_theme("Clean Light")
+        self._custom_section.setVisible(False)
+        self.theme_changed.emit()
+        self.update_style()
+        self.update_preset_buttons()
+
+    def _apply_custom_mode(self):
+        """Switch to Custom mode — show accent colour picker."""
+        # Seed custom_colors from the current theme if not already set
+        if not self.tm.custom_colors:
+            base = ThemeManager.DEFAULT_THEMES.get(self.tm.current_theme,
+                    ThemeManager.DEFAULT_THEMES["Midnight Ind"])
+            self.tm.custom_colors = dict(base)
+        self.tm.set_theme("Custom")
+        self._custom_section.setVisible(True)
+        accent = self.tm.custom_colors.get("primary", "#4158D0")
+        self._custom_preview.setStyleSheet(
+            f"background-color: {accent}; border-radius: 6px; border: 1px solid #444;"
+        )
+        self.theme_changed.emit()
+        self.update_style()
+        self.update_preset_buttons()
+
+    def _pick_custom_accent(self):
+        """Open a colour dialog and apply the chosen accent colour to the custom theme."""
+        from PyQt6.QtWidgets import QColorDialog
+        from PyQt6.QtGui import QColor
+        current = self.tm.custom_colors.get("primary", "#4158D0")
+        color = QColorDialog.getColor(QColor(current), self, "Choose Accent Colour")
+        if not color.isValid():
+            return
+        hex_color = color.name()
+        if not self.tm.custom_colors:
+            base = ThemeManager.DEFAULT_THEMES.get("Midnight Ind")
+            self.tm.custom_colors = dict(base)
+        self.tm.custom_colors["primary"] = hex_color
+        self.tm.custom_colors["accent"]  = hex_color
+        self.tm.current_theme = "Custom"
+        self.tm.save_settings()
+        self._custom_preview.setStyleSheet(
+            f"background-color: {hex_color}; border-radius: 6px; border: 1px solid #444;"
+        )
+        self.theme_changed.emit()
+        self.update_style()
+        self.update_preset_buttons()
+
+    def _on_bg_preview(self, value):
+        """Update bg_intensity on every drag tick without triggering a full theme rebuild."""
         self.tm.bg_intensity = value
+
+    def on_bg_adjustment(self):
+        """Save settings and emit theme_changed once the slider is released."""
+        self.tm.bg_intensity = self.bg_slider.value()
         self.tm.save_settings()
         self.theme_changed.emit()
         self.update_style()
@@ -446,6 +566,7 @@ class AppearanceDialog(QFrame):
 
     def apply_preset(self, name):
         self.tm.set_theme(name)
+        self._sync_mode_buttons()
         self.theme_changed.emit()
         self.update_style()
         self.update_preset_buttons()
@@ -605,79 +726,111 @@ class UpdateDialog(QDialog):
 
 
 class TidyDesktopDialog(QDialog):
-    """Scans the desktop, groups loose files by type, and lets the user
-    move them to the appropriate user library folder."""
+    """Scans the desktop, groups files by type, and lets the user choose
+    per-category whether to move to a library folder or a Desktop sub-folder."""
 
-    # Maps extension → (destination folder name, display category)
+    from PyQt6.QtWidgets import QComboBox as _QComboBox
+
+    # Extension → category name
     _EXT_MAP = {
         # Images
-        ".jpg": ("Pictures", "Images"), ".jpeg": ("Pictures", "Images"),
-        ".png": ("Pictures", "Images"), ".gif": ("Pictures", "Images"),
-        ".bmp": ("Pictures", "Images"), ".webp": ("Pictures", "Images"),
-        ".svg": ("Pictures", "Images"), ".ico": ("Pictures", "Images"),
-        ".tiff": ("Pictures", "Images"), ".tif": ("Pictures", "Images"),
-        ".heic": ("Pictures", "Images"), ".raw": ("Pictures", "Images"),
+        ".jpg": "Images", ".jpeg": "Images", ".png": "Images", ".gif": "Images",
+        ".bmp": "Images", ".webp": "Images", ".svg": "Images", ".ico": "Images",
+        ".tiff": "Images", ".tif": "Images", ".heic": "Images", ".raw": "Images",
+        ".cr2": "Images", ".nef": "Images", ".arw": "Images", ".dng": "Images",
         # Videos
-        ".mp4": ("Videos", "Videos"), ".mkv": ("Videos", "Videos"),
-        ".avi": ("Videos", "Videos"), ".mov": ("Videos", "Videos"),
-        ".wmv": ("Videos", "Videos"), ".flv": ("Videos", "Videos"),
-        ".webm": ("Videos", "Videos"), ".m4v": ("Videos", "Videos"),
-        # Audio
-        ".mp3": ("Music", "Music"), ".wav": ("Music", "Music"),
-        ".flac": ("Music", "Music"), ".aac": ("Music", "Music"),
-        ".ogg": ("Music", "Music"), ".m4a": ("Music", "Music"),
-        ".wma": ("Music", "Music"),
+        ".mp4": "Videos", ".mkv": "Videos", ".avi": "Videos", ".mov": "Videos",
+        ".wmv": "Videos", ".flv": "Videos", ".webm": "Videos", ".m4v": "Videos",
+        ".ts": "Videos", ".vob": "Videos", ".3gp": "Videos",
+        # Music
+        ".mp3": "Music", ".wav": "Music", ".flac": "Music", ".aac": "Music",
+        ".ogg": "Music", ".m4a": "Music", ".wma": "Music", ".opus": "Music",
+        ".aiff": "Music", ".alac": "Music",
         # Documents
-        ".pdf": ("Documents", "Documents"), ".doc": ("Documents", "Documents"),
-        ".docx": ("Documents", "Documents"), ".xls": ("Documents", "Documents"),
-        ".xlsx": ("Documents", "Documents"), ".ppt": ("Documents", "Documents"),
-        ".pptx": ("Documents", "Documents"), ".txt": ("Documents", "Documents"),
-        ".odt": ("Documents", "Documents"), ".ods": ("Documents", "Documents"),
-        ".csv": ("Documents", "Documents"), ".rtf": ("Documents", "Documents"),
+        ".pdf": "Documents", ".doc": "Documents", ".docx": "Documents",
+        ".xls": "Documents", ".xlsx": "Documents", ".ppt": "Documents",
+        ".pptx": "Documents", ".txt": "Documents", ".odt": "Documents",
+        ".ods": "Documents", ".odp": "Documents", ".csv": "Documents",
+        ".rtf": "Documents", ".md": "Documents", ".epub": "Documents",
+        ".pages": "Documents", ".numbers": "Documents", ".key": "Documents",
         # Archives
-        ".zip": ("Downloads", "Archives"), ".rar": ("Downloads", "Archives"),
-        ".7z": ("Downloads", "Archives"), ".tar": ("Downloads", "Archives"),
-        ".gz": ("Downloads", "Archives"), ".bz2": ("Downloads", "Archives"),
-        ".xz": ("Downloads", "Archives"),
-        # Executables / Installers
-        ".exe": ("Downloads", "Installers"), ".msi": ("Downloads", "Installers"),
-        ".dmg": ("Downloads", "Installers"), ".pkg": ("Downloads", "Installers"),
-        ".deb": ("Downloads", "Installers"), ".rpm": ("Downloads", "Installers"),
+        ".zip": "Archives", ".rar": "Archives", ".7z": "Archives",
+        ".tar": "Archives", ".gz": "Archives", ".bz2": "Archives",
+        ".xz": "Archives", ".zst": "Archives", ".cab": "Archives",
+        # Installers
+        ".exe": "Installers", ".msi": "Installers", ".dmg": "Installers",
+        ".pkg": "Installers", ".deb": "Installers", ".rpm": "Installers",
+        ".appimage": "Installers", ".run": "Installers",
+        # Code / Scripts
+        ".py": "Code", ".js": "Code", ".ts": "Code", ".html": "Code",
+        ".css": "Code", ".json": "Code", ".xml": "Code", ".yaml": "Code",
+        ".yml": "Code", ".sh": "Code", ".bat": "Code", ".ps1": "Code",
+        ".cpp": "Code", ".c": "Code", ".h": "Code", ".java": "Code",
+        ".cs": "Code", ".go": "Code", ".rs": "Code", ".php": "Code",
+        ".rb": "Code", ".sql": "Code",
+        # Fonts
+        ".ttf": "Fonts", ".otf": "Fonts", ".woff": "Fonts", ".woff2": "Fonts",
     }
+
+    # Per-category config: library folder name + desktop subfolder name
+    _CAT_CFG = {
+        "Images":     {"lib": "Pictures",  "desk": "Images"},
+        "Videos":     {"lib": "Videos",    "desk": "Videos"},
+        "Music":      {"lib": "Music",     "desk": "Music"},
+        "Documents":  {"lib": "Documents", "desk": "Documents"},
+        "Archives":   {"lib": "Downloads", "desk": "Archives"},
+        "Installers": {"lib": "Downloads", "desk": "Installers"},
+        "Code":       {"lib": "Documents", "desk": "Code"},
+        "Fonts":      {"lib": "Documents", "desk": "Fonts"},
+        "Other":      {"lib": None,        "desk": "Other Files"},
+    }
+
+    _DEST_LIBRARY = 0   # combo index → move to library folder
+    _DEST_DESKTOP = 1   # combo index → group in Desktop subfolder
+    _DEST_SKIP    = 2   # combo index → skip this category
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Tidy Desktop")
-        self.setMinimumSize(620, 500)
+        self.setMinimumSize(760, 600)
         self.setStyleSheet("background-color: #16161a; color: #d4d4d4;")
-        self._pending = {}   # {dest_folder: [src_path, ...]}
+        self._cat_combos = {}   # category → QComboBox (destination selector)
+        self._cat_items  = {}   # category → QTreeWidgetItem (header)
+        self._file_srcs  = {}   # (category, filename) → full src path
         self._init_ui()
         self._scan()
 
     def _init_ui(self):
+        from PyQt6.QtWidgets import QComboBox
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 14, 18, 14)
         layout.setSpacing(10)
 
+        # Title row
+        hdr_row = QHBoxLayout()
         title = QLabel("Tidy Desktop")
         title.setStyleSheet("font-size: 17px; font-weight: bold; color: #4158D0;")
-        layout.addWidget(title)
+        hdr_row.addWidget(title)
+        hdr_row.addStretch()
+        layout.addLayout(hdr_row)
 
         desc = QLabel(
-            "Files will be moved to the corresponding user library folder.\n"
-            "Shortcuts (.lnk) and folders are never touched."
+            "Choose what to do with each category of file found on your Desktop.\n"
+            "Shortcuts (.lnk/.url) and existing folders are never touched."
         )
         desc.setStyleSheet("color: #888; font-size: 11px;")
         layout.addWidget(desc)
 
+        # Tree: col 0 = filename, col 1 = destination choice (combo for headers)
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["File", "Destination"])
-        self.tree.setColumnWidth(0, 340)
+        self.tree.setHeaderLabels(["File / Category", "Destination"])
+        self.tree.setColumnWidth(0, 360)
+        self.tree.setColumnWidth(1, 280)
         self.tree.setAlternatingRowColors(True)
         self.tree.setStyleSheet(
             "QTreeWidget { background-color: #1e1e24; border: 1px solid #333; border-radius: 5px; }"
             "QTreeWidget::item:alternate { background-color: #202025; }"
-            "QTreeWidget::item { padding: 2px; }"
+            "QTreeWidget::item { padding: 3px 2px; }"
         )
         layout.addWidget(self.tree)
 
@@ -695,7 +848,6 @@ class TidyDesktopDialog(QDialog):
         )
         self.rescan_btn.clicked.connect(self._scan)
         btn_row.addWidget(self.rescan_btn)
-
         btn_row.addStretch()
 
         self.cancel_btn = QPushButton("Cancel")
@@ -719,86 +871,182 @@ class TidyDesktopDialog(QDialog):
 
         layout.addLayout(btn_row)
 
+    def _make_dest_combo(self, category: str):
+        """Build a destination QComboBox for a category header row."""
+        from PyQt6.QtWidgets import QComboBox
+        cfg = self._CAT_CFG.get(category, {"lib": None, "desk": category})
+        combo = QComboBox()
+        combo.setStyleSheet(
+            "QComboBox { background-color: #252530; border: 1px solid #444; border-radius: 4px; "
+            "color: #d4d4d4; padding: 2px 6px; min-width: 240px; }"
+            "QComboBox::drop-down { border: none; }"
+            "QComboBox QAbstractItemView { background-color: #1e1e24; color: #d4d4d4; "
+            "selection-background-color: #4158D0; }"
+        )
+        user_home = os.path.expanduser("~")
+        desktop   = os.path.join(user_home, "Desktop")
+        if cfg["lib"]:
+            combo.addItem(f"📁  Move to  ~/{cfg['lib']}/",           self._DEST_LIBRARY)
+        combo.addItem(    f"🗂️  Group on Desktop  → {cfg['desk']}/", self._DEST_DESKTOP)
+        combo.addItem(    f"⏭️  Skip this category",                  self._DEST_SKIP)
+        # Default: library if available, else desktop grouping
+        combo.setCurrentIndex(0)
+        return combo
+
     def _scan(self):
+        from PyQt6.QtWidgets import QComboBox
+        self.tree.blockSignals(True)
         self.tree.clear()
-        self._pending.clear()
+        self._cat_combos.clear()
+        self._cat_items.clear()
+        self._file_srcs.clear()
         self.tidy_btn.setEnabled(False)
 
-        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+        user_home = os.path.expanduser("~")
+        desktop   = os.path.join(user_home, "Desktop")
         if not os.path.isdir(desktop):
             self.status_lbl.setText("Desktop folder not found.")
+            self.tree.blockSignals(False)
             return
 
-        user_home = os.path.expanduser("~")
-        groups = {}  # category → [(src_path, dest_folder)]
-
+        groups = {}  # category → [src_path, ...]
         for name in os.listdir(desktop):
             src = os.path.join(desktop, name)
             if os.path.isdir(src):
                 continue
             ext = os.path.splitext(name)[1].lower()
-            if ext == ".lnk":
-                continue  # keep shortcuts
-            if ext not in self._EXT_MAP:
+            if ext in (".lnk", ".url"):
                 continue
-            dest_folder, category = self._EXT_MAP[ext]
-            groups.setdefault(category, []).append((src, dest_folder))
-
-        if not groups:
-            self.status_lbl.setText("Desktop is already tidy — nothing to move.")
-            return
+            category = self._EXT_MAP.get(ext, "Other")
+            groups.setdefault(category, []).append(src)
 
         total = 0
-        for category, items in sorted(groups.items()):
-            cat_item = QTreeWidgetItem(self.tree, [category, ""])
+        for category in sorted(groups.keys()):
+            files = sorted(groups[category], key=os.path.basename)
+            cfg   = self._CAT_CFG.get(category, {"lib": None, "desk": category})
+
+            cat_item = QTreeWidgetItem(self.tree)
+            cat_item.setText(0, f"  {category}  ({len(files)} file{'s' if len(files) != 1 else ''})")
             cat_item.setFont(0, QFont("Segoe UI", 9, QFont.Weight.Bold))
-            cat_item.setForeground(0, QColor("#4158D0"))
-            for src, dest_folder in sorted(items, key=lambda x: os.path.basename(x[0])):
-                dest_dir = os.path.join(user_home, dest_folder)
-                child = QTreeWidgetItem(cat_item, [os.path.basename(src), dest_dir])
+            cat_item.setForeground(0, QColor("#4158D0" if category != "Other" else "#888"))
+            cat_item.setFlags(cat_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+
+            combo = self._make_dest_combo(category)
+            # "Other" category defaults to Desktop grouping (no library)
+            if category == "Other" and not cfg["lib"]:
+                combo.setCurrentIndex(0)  # first option is desktop grouping for Other
+            self._cat_combos[category] = combo
+            self._cat_items[category]  = cat_item
+            self.tree.setItemWidget(cat_item, 1, combo)
+
+            for src in files:
+                fname = os.path.basename(src)
+                child = QTreeWidgetItem(cat_item)
+                child.setText(0, f"      {fname}")
+                child.setFlags(child.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                child.setCheckState(0, Qt.CheckState.Checked)
                 child.setToolTip(0, src)
-                self._pending.setdefault(dest_folder, []).append(src)
+                child.setForeground(0, QColor("#c4c4c4"))
+                self._file_srcs[(category, fname)] = src
                 total += 1
+
             cat_item.setExpanded(True)
 
-        self.status_lbl.setText(f"{total} file(s) will be moved.")
+        self.tree.blockSignals(False)
+
+        if total == 0:
+            self.status_lbl.setText("Desktop is already tidy — no loose files found.")
+            return
+
+        self.status_lbl.setText(
+            f"{total} file(s) across {len(groups)} categor{'ies' if len(groups) != 1 else 'y'} found. "
+            f"Choose a destination for each category, then click Tidy Now."
+        )
         self.tidy_btn.setEnabled(True)
 
     def _apply(self):
-        if not self._pending:
+        from PyQt6.QtWidgets import QComboBox
+        user_home = os.path.expanduser("~")
+        desktop   = os.path.join(user_home, "Desktop")
+
+        # Build a summary of what will happen for a confirmation prompt
+        summary_lines = []
+        plan = []  # [(src, dest_dir)]
+
+        for category, cat_item in self._cat_items.items():
+            combo = self._cat_combos.get(category)
+            if combo is None:
+                continue
+            dest_type = combo.currentData()
+            if dest_type == self._DEST_SKIP:
+                continue
+
+            cfg = self._CAT_CFG.get(category, {"lib": None, "desk": category})
+
+            # Determine the actual destination directory
+            if dest_type == self._DEST_LIBRARY and cfg["lib"]:
+                dest_dir = os.path.join(user_home, cfg["lib"])
+                dest_label = f"~/{cfg['lib']}/"
+            else:
+                dest_dir = os.path.join(desktop, cfg["desk"])
+                dest_label = f"Desktop/{cfg['desk']}/"
+
+            # Collect checked files for this category
+            checked = []
+            for i in range(cat_item.childCount()):
+                child = cat_item.child(i)
+                if child.checkState(0) == Qt.CheckState.Checked:
+                    src = child.toolTip(0)
+                    if src and os.path.exists(src):
+                        checked.append(src)
+                        plan.append((src, dest_dir))
+
+            if checked:
+                summary_lines.append(
+                    f"• {category} ({len(checked)} file{'s' if len(checked) != 1 else ''}) → {dest_label}"
+                )
+
+        if not plan:
+            QMessageBox.information(self, "Tidy Desktop", "Nothing selected to move.")
             return
 
-        user_home = os.path.expanduser("~")
-        moved, errors = 0, []
+        # Confirmation prompt
+        confirm = QMessageBox.question(
+            self, "Confirm Tidy Desktop",
+            "The following will be organised:\n\n"
+            + "\n".join(summary_lines)
+            + "\n\nProceed?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
 
-        for dest_folder, src_list in self._pending.items():
-            dest_dir = os.path.join(user_home, dest_folder)
+        moved, errors = 0, []
+        for src, dest_dir in plan:
             os.makedirs(dest_dir, exist_ok=True)
-            for src in src_list:
-                try:
-                    name = os.path.basename(src)
-                    dest = os.path.join(dest_dir, name)
-                    # Avoid overwriting — append a number suffix if needed
-                    if os.path.exists(dest):
-                        base, ext = os.path.splitext(name)
-                        counter = 1
-                        while os.path.exists(dest):
-                            dest = os.path.join(dest_dir, f"{base} ({counter}){ext}")
-                            counter += 1
-                    shutil.move(src, dest)
-                    moved += 1
-                except Exception as e:
-                    errors.append(f"{os.path.basename(src)}: {e}")
+            try:
+                fname = os.path.basename(src)
+                dest  = os.path.join(dest_dir, fname)
+                if os.path.exists(dest):
+                    base, ext = os.path.splitext(fname)
+                    counter = 1
+                    while os.path.exists(dest):
+                        dest = os.path.join(dest_dir, f"{base} ({counter}){ext}")
+                        counter += 1
+                shutil.move(src, dest)
+                moved += 1
+            except Exception as e:
+                errors.append(f"{os.path.basename(src)}: {e}")
 
         if errors:
             QMessageBox.warning(
                 self, "Tidy Desktop — Partial Success",
-                f"Moved {moved} file(s).\n\nErrors:\n" + "\n".join(errors)
+                f"Moved {moved} file(s).\n\nErrors:\n" + "\n".join(errors[:10])
             )
         else:
             QMessageBox.information(
                 self, "Tidy Desktop",
-                f"Done! {moved} file(s) moved to their library folders."
+                f"Done!  {moved} file(s) organised successfully."
             )
         self.accept()
 
