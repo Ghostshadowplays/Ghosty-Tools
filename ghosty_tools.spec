@@ -29,6 +29,14 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
+
+# Remove vcruntime140.dll from the bundle so Windows loads it from System32.
+# Bundling it next to the exe triggers DLL sideloading detections (e.g. Sigma rule
+# for APT29/WinELOADER techniques). The system-installed redistributable is always
+# present on Windows 10/11 and is the correct source for this DLL.
+_vcruntime_dlls = {'vcruntime140.dll', 'vcruntime140_1.dll'}
+a.binaries = [b for b in a.binaries if b[0].lower() not in _vcruntime_dlls]
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 if is_windows:
@@ -72,7 +80,7 @@ else:
         console=False,
         disable_windowed_traceback=False,
         argv_emulation=False,
-        target_arch=os.environ.get('TARGET_ARCH'), # Allow override from environment
+        target_arch=os.environ.get('TARGET_ARCH'),
         codesign_identity=None,
         entitlements_file=None,
     )
