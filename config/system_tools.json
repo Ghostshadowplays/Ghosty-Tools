@@ -2097,11 +2097,11 @@
       "name": "GhostTune Converter",
       "description": "Professional music conversion utility.",
       "category": "Ghosty Tools",
-      "check_command": "Test-Path \"$env:USERPROFILE\\Downloads\\GhostTuneConverter.exe\"",
+      "check_command": "winget list --id Ghostshadowplays.GhostTuneConverter -e",
       "install_commands": [
-        "Invoke-WebRequest -Uri 'https://github.com/Ghostshadowplays/GhostTune-Converter/releases/download/v1.0.1/GhostTuneConverter.exe' -OutFile \"$env:USERPROFILE\\Downloads\\GhostTuneConverter.exe\""
+        "winget install --id Ghostshadowplays.GhostTuneConverter -e --source winget --silent --accept-package-agreements --accept-source-agreements"
       ],
-      "post_install_message": "GhostTune Converter has been downloaded to your Downloads folder!"
+      "post_install_message": "GhostTune Converter has been installed via winget!"
     }
   ]
 }

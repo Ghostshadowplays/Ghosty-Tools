@@ -2,7 +2,7 @@
 
 Ghosty Tools is fully cross-platform with native support for Linux desktop environments.
 
-## Status: Stable — v7.3.5
+## Status: Stable — v7.3.6
 
 Core features have **platform-specific Linux implementations**. Windows-only features (Debloat, Registry Tweaks, Tidy Desktop, Game Analyzer, Event Viewer) are automatically hidden or replaced with a platform notice when running on Linux.
 
@@ -129,4 +129,4 @@ The easiest way to install on Debian-based systems is via the official `.deb` pa
 
 ---
 
-*Ghosty Tools v7.3.5 — We are continuously expanding Linux support. Ideas and contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).*
+*Ghosty Tools v7.3.6 — We are continuously expanding Linux support. Ideas and contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).*
