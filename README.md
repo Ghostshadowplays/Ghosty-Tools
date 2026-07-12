@@ -15,7 +15,7 @@ Ghosty Tools is a high-performance, modular utility designed to secure and optim
 
 ## 🆕 What's New in v7.3.6
 
-- 📦 **Winget package published:** Ghosty Tools is now available via `winget install Ghostshadowplays.GhostyTools` — no manual download required.
+- 📦 **Winget package published:** Ghosty Tools is now available via `winget install ghostytools` — no manual download required.
 - 🎵 **GhostTune Converter via winget:** GhostTune Converter in the App Essentials installer now installs via `winget install Ghostshadowplays.GhostTuneConverter` instead of a direct download link — faster, cleaner, and auto-detects if already installed.
 
 ## 🆕 What's New in v7.3.5
@@ -146,7 +146,7 @@ See [LINUX_SUPPORT.md](LINUX_SUPPORT.md) for Linux build instructions.
 You can install Ghosty Tools directly from the Windows Package Manager:
 
 ```powershell
-winget install Ghostshadowplays.GhostyTools
+winget install ghostytools
 ```
 
 ## 🚀 Quick Start
