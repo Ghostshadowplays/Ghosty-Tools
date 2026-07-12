@@ -188,6 +188,13 @@ class GhostyTool(QMainWindow):
         self.diagnostics = Diagnostics(self.update_manager.current_version)
         self._latest_update_info = None
 
+        # Session-activity tracking (reset each app launch)
+        self._session_maintenance_done = False
+        self._session_dns_flushed = False
+        self._session_deep_clean_done = False
+        self._session_last_security_results = []   # list of (msg, severity, action_key)
+        self._session_security_actions = []         # list of {"label": str, "time": str, "success": bool}
+
         # Theme Manager — store theme.json in the user config dir, not next to the exe
         _theme_config_path = os.path.join(get_config_dir(), "theme.json")
         self.theme_manager = ThemeManager(_theme_config_path)
@@ -1227,22 +1234,32 @@ class GhostyTool(QMainWindow):
         layout = QVBoxLayout(page)
         layout.setContentsMargins(30, 20, 30, 20)
         layout.setSpacing(20)
-        
+
         header = PageHeader("Security Scan", "Analyze your system for security risks and vulnerabilities.")
         layout.addWidget(header)
-        
+
         scan_card = DashboardCard("SCAN RESULTS")
         self.security_list = QListWidget()
-        self.security_list.setStyleSheet("QListWidget { background-color: transparent; color: #d4d4d4; border: none; } QListWidget::item { padding: 8px; border-bottom: 1px solid #25252b; }")
+        self.security_list.setStyleSheet(
+            "QListWidget { background-color: transparent; color: #d4d4d4; border: none; } "
+            "QListWidget::item { padding: 8px; border-bottom: 1px solid #25252b; } "
+            "QListWidget::item:hover { background-color: #1e1e28; } "
+            "QListWidget::item:selected { background-color: #2a2a38; }"
+        )
+        self.security_list.itemDoubleClicked.connect(self._on_security_item_action)
         scan_card.layout.addWidget(self.security_list)
+
+        hint_label = QLabel("Double-click an item to take action on it.")
+        hint_label.setStyleSheet("color: #5a5a6a; font-size: 11px; padding: 2px 0;")
+        scan_card.layout.addWidget(hint_label)
         layout.addWidget(scan_card)
-        
+
         scan_btn = QPushButton("Run Security Scan")
         scan_btn.setFixedHeight(45)
         scan_btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border-radius: 8px; } QPushButton:hover { background-color: #4b6de3; }")
         scan_btn.clicked.connect(self.run_security_scan)
         layout.addWidget(scan_btn)
-        
+
         layout.addStretch()
         self.content_stack.addWidget(page)
 
@@ -1258,21 +1275,136 @@ class GhostyTool(QMainWindow):
         if not issues:
             self.log_signal.emit("Security scan failed or returned no results.", "error")
             return
-        
-        for issue, severity in issues:
-            item = QListWidgetItem(f"[{severity}] {issue}")
-            if severity == "Critical" or severity == "High":
+
+        for entry in issues:
+            # Support both old 2-tuple and new 3-tuple format
+            if len(entry) == 3:
+                issue, severity, action_key = entry
+            else:
+                issue, severity = entry
+                action_key = None
+
+            prefix = "[>] " if action_key else "[ ] "
+            item = QListWidgetItem(f"{prefix}[{severity}] {issue}")
+            item.setData(Qt.ItemDataRole.UserRole, action_key)
+
+            if action_key:
+                item.setToolTip("Double-click to take action on this item.")
+            else:
+                item.setToolTip("No quick action available for this item.")
+
+            if severity in ("Critical", "High"):
                 item.setForeground(Qt.GlobalColor.red)
             elif severity == "Medium":
                 item.setForeground(QColor("orange"))
             else:
                 item.setForeground(Qt.GlobalColor.green)
+
             self.security_list.addItem(item)
-        highs = sum(1 for _, s in issues if s in ("Critical", "High"))
-        self.log_signal.emit("Security scan completed.", "success")
+
+        self._session_last_security_results = list(issues)
+        highs = sum(1 for e in issues if (e[1] if len(e) >= 2 else "") in ("Critical", "High"))
+        self.log_signal.emit("Security scan completed. Double-click an item to act on it.", "success")
         self.notify_tray("Security Scan Complete",
-                         f"{len(issues)} issues found ({highs} high/critical)." if issues else "No issues found.")
+                         f"{len(issues)} items checked ({highs} high/critical).")
         self.log_activity(f"Security scan: {len(issues)} issues found")
+
+    def _on_security_item_action(self, item):
+        action_key = item.data(Qt.ItemDataRole.UserRole)
+        if not action_key:
+            QMessageBox.information(self, "No Action", "No quick action is available for this item.")
+            return
+
+        if action_key == "tamper_protected":
+            QMessageBox.information(
+                self, "Tamper Protection is On",
+                "Windows Defender Tamper Protection is enabled on this system.\n\n"
+                "This prevents PowerShell from modifying Defender settings — "
+                "which is actually a good security feature.\n\n"
+                "To change real-time protection:\n"
+                "  1. Open Windows Security\n"
+                "  2. Go to Virus & threat protection settings\n"
+                "  3. Toggle Real-time protection manually."
+            )
+            return
+
+        action_labels = {
+            "enable_defender_rt": ("Enable Windows Defender Real-time Protection",
+                                   'Set-MpPreference -DisableRealtimeMonitoring $false'),
+            "enable_firewall":    ("Enable Windows Firewall on all profiles",
+                                   'netsh advfirewall set allprofiles state on'),
+            "enable_uac":         ("Enable User Account Control (UAC) — requires restart",
+                                   r'Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name EnableLUA -Value 1'),
+            "disable_smbv1":      ("Disable SMBv1 Protocol (recommended, no restart needed)",
+                                   'Disable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol -NoRestart'),
+            "enable_rdp":         ("Enable Remote Desktop (RDP)",
+                                   r'Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -Name fDenyTSConnections -Value 0; '
+                                   r'Enable-NetFirewallRule -DisplayGroup "Remote Desktop"'),
+            "disable_rdp":        ("Disable Remote Desktop (RDP)",
+                                   r'Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -Name fDenyTSConnections -Value 1; '
+                                   r'Disable-NetFirewallRule -DisplayGroup "Remote Desktop"'),
+            "enable_windows_update": ("Re-enable Automatic Windows Updates",
+                                      r'Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name NoAutoUpdate -ErrorAction SilentlyContinue'),
+            "disable_guest":      ("Disable Guest Account",
+                                   'net user Guest /active:no'),
+            "enable_ufw":         ("Enable UFW Firewall",
+                                   'ufw enable'),
+        }
+
+        if action_key not in action_labels:
+            QMessageBox.information(self, "Unknown Action", f"No handler found for action: {action_key}")
+            return
+
+        label, cmd = action_labels[action_key]
+
+        if not is_admin():
+            QMessageBox.warning(self, "Admin Required",
+                                "This action requires administrator privileges.\n"
+                                "Please restart GhostyTools as Administrator.")
+            return
+
+        reply = QMessageBox.question(self, "Confirm Action",
+                                     f"Do you want to:\n\n{label}?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        self._execute_security_action(action_key, cmd, label)
+
+    def _execute_security_action(self, action_key, cmd, label):
+        try:
+            if sys.platform == 'win32' and action_key != "enable_ufw":
+                result = subprocess.run(
+                    ["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd],
+                    capture_output=True, text=True, timeout=30,
+                    creationflags=CREATE_NO_WINDOW
+                )
+                success = result.returncode == 0
+            else:
+                result = subprocess.run(cmd.split(), capture_output=True, text=True, timeout=30)
+                success = result.returncode == 0
+
+            if success:
+                self._session_security_actions.append({
+                    "label": label,
+                    "time": datetime.now().strftime("%H:%M:%S"),
+                    "success": True
+                })
+                self.log_signal.emit(f"Action applied: {label}", "success")
+                QMessageBox.information(self, "Done",
+                                        f"Action completed successfully:\n{label}\n\n"
+                                        "Run the security scan again to verify.")
+            else:
+                err = result.stderr.strip() or result.stdout.strip()
+                self.log_signal.emit(f"Action failed: {err}", "error")
+                QMessageBox.warning(self, "Action Failed",
+                                    f"The action could not be completed:\n{err}")
+        except subprocess.TimeoutExpired:
+            self.log_signal.emit("Action timed out.", "error")
+            QMessageBox.warning(self, "Timeout", "The action timed out. Please try manually.")
+        except Exception as e:
+            self.log_signal.emit(f"Action error: {e}", "error")
+            QMessageBox.warning(self, "Error", f"An error occurred:\n{e}")
 
     def setup_network_page(self):
         page = QWidget()
@@ -3329,75 +3461,220 @@ class GhostyTool(QMainWindow):
         layout.addStretch()
         self.content_stack.addWidget(page)
 
-    def export_system_report(self):
-        """Generate and save a full system snapshot text file to the Desktop."""
+    def _build_system_report(self):
+        """Build and return the full system report as a string."""
+        import platform as pf
+        import socket as _socket
+        W = 62
+        SEP = "=" * W
+        sub = "-" * W
+
+        def chk(done): return "[YES]" if done else "[ NO]"
+
+        lines = []
+        lines.append(SEP)
+        lines.append(f"  GhostyTools {self.update_manager.current_version} — Full System Report")
+        lines.append(f"  Generated : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append(SEP)
+
+        # ── Session Activity ────────────────────────────────────────────────
+        lines.append("")
+        lines.append("[SESSION ACTIVITY]")
+        lines.append(sub)
+        lines.append(f"  {chk(self._session_maintenance_done)} Full System Maintenance (DISM / SFC / GPUpdate)")
+        lines.append(f"  {chk(self._session_dns_flushed)}  DNS Cache Flush")
+        lines.append(f"  {chk(self._session_deep_clean_done)} Deep Disk Cleanup")
+        scan_done = bool(self._session_last_security_results)
+        lines.append(f"  {chk(scan_done)} Security Scan")
+
+        if self._session_security_actions:
+            lines.append("")
+            lines.append("  Security Actions Applied This Session:")
+            for a in self._session_security_actions:
+                ok = "OK" if a.get("success") else "FAIL"
+                lines.append(f"    [{ok}] {a['time']}  {a['label']}")
+
+        # ── Security Scan Results ───────────────────────────────────────────
+        if self._session_last_security_results:
+            lines.append("")
+            lines.append("[SECURITY SCAN RESULTS]")
+            lines.append(sub)
+            for entry in self._session_last_security_results:
+                msg, sev = entry[0], entry[1]
+                lines.append(f"  [{sev:<8}] {msg}")
+            highs = sum(1 for e in self._session_last_security_results if e[1] in ("Critical", "High"))
+            lines.append("")
+            lines.append(f"  Total items: {len(self._session_last_security_results)}  |  High/Critical: {highs}")
+        else:
+            lines.append("")
+            lines.append("[SECURITY SCAN RESULTS]")
+            lines.append(sub)
+            lines.append("  No security scan was performed this session.")
+
+        # ── OS Info ─────────────────────────────────────────────────────────
+        lines.append("")
+        lines.append("[OS INFO]")
+        lines.append(sub)
+        lines.append(f"  Platform : {pf.system()} {pf.release()}")
+        lines.append(f"  Version  : {pf.version()}")
+        lines.append(f"  Machine  : {pf.machine()}")
+        lines.append(f"  Node     : {pf.node()}")
+
+        # ── CPU / Memory ────────────────────────────────────────────────────
+        lines.append("")
+        lines.append("[CPU / MEMORY]")
+        lines.append(sub)
         try:
-            import platform as pf
-            lines = []
-            lines.append("=" * 60)
-            lines.append(f"  GhostyTools {self.update_manager.current_version} — System Report")
-            lines.append(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            lines.append("=" * 60)
-
-            # OS
-            lines.append("\n[OS INFO]")
-            lines.append(f"  Platform : {pf.system()} {pf.release()}")
-            lines.append(f"  Version  : {pf.version()}")
-            lines.append(f"  Machine  : {pf.machine()}")
-            lines.append(f"  Node     : {pf.node()}")
-
-            # CPU / RAM
-            lines.append("\n[CPU / MEMORY]")
-            lines.append(f"  CPU Cores    : {psutil.cpu_count(logical=False)} physical, {psutil.cpu_count()} logical")
-            lines.append(f"  CPU Usage    : {psutil.cpu_percent(interval=0.5):.1f}%")
+            lines.append(f"  CPU Cores : {psutil.cpu_count(logical=False)} physical, {psutil.cpu_count()} logical")
+            lines.append(f"  CPU Usage : {psutil.cpu_percent(interval=0.5):.1f}%")
             mem = psutil.virtual_memory()
-            lines.append(f"  RAM Total    : {mem.total // (1024**3)} GB")
-            lines.append(f"  RAM Used     : {mem.used // (1024**3)} GB ({mem.percent:.1f}%)")
+            lines.append(f"  RAM Total : {mem.total // (1024**3)} GB")
+            lines.append(f"  RAM Used  : {mem.used // (1024**3)} GB ({mem.percent:.1f}%)")
+        except Exception as e:
+            lines.append(f"  (Error reading CPU/RAM: {e})")
 
-            # Disk
-            lines.append("\n[DISK USAGE]")
-            for part in psutil.disk_partitions():
-                try:
-                    usage = psutil.disk_usage(part.mountpoint)
-                    lines.append(f"  {part.mountpoint:20s}  {usage.used // (1024**3)} / {usage.total // (1024**3)} GB  ({usage.percent:.1f}%)")
-                except Exception:
-                    pass
-
-            # Network
-            lines.append("\n[NETWORK]")
+        # ── Disk Usage ──────────────────────────────────────────────────────
+        lines.append("")
+        lines.append("[DISK USAGE]")
+        lines.append(sub)
+        for part in psutil.disk_partitions():
             try:
-                import socket
-                lines.append(f"  Hostname : {socket.gethostname()}")
-                lines.append(f"  Local IP : {socket.gethostbyname(socket.gethostname())}")
+                usage = psutil.disk_usage(part.mountpoint)
+                lines.append(f"  {part.mountpoint:<20}  {usage.used // (1024**3)} / {usage.total // (1024**3)} GB  ({usage.percent:.1f}%)")
             except Exception:
                 pass
 
-            # Speed test history
-            if self._speedtest_history:
-                lines.append("\n[SPEED TEST HISTORY (last 3)]")
-                for e in self._speedtest_history[:3]:
-                    lines.append(f"  {e['time']}  {e['result'].replace(chr(10), '  ')}")
+        # ── Network ─────────────────────────────────────────────────────────
+        lines.append("")
+        lines.append("[NETWORK]")
+        lines.append(sub)
+        try:
+            lines.append(f"  Hostname : {_socket.gethostname()}")
+            lines.append(f"  Local IP : {_socket.gethostbyname(_socket.gethostname())}")
+        except Exception:
+            pass
 
-            # Recent activity
-            if self._activity_log:
-                lines.append("\n[RECENT ACTIVITY]")
-                for e in self._activity_log[:10]:
-                    lines.append(f"  {e['time']}  {e['text']}")
+        # ── Speed Test History ───────────────────────────────────────────────
+        if getattr(self, '_speedtest_history', None):
+            lines.append("")
+            lines.append("[SPEED TEST HISTORY (last 3)]")
+            lines.append(sub)
+            for e in self._speedtest_history[:3]:
+                lines.append(f"  {e['time']}  {e['result'].replace(chr(10), '  ')}")
 
-            lines.append("\n" + "=" * 60)
+        # ── Self-Diagnostics ─────────────────────────────────────────────────
+        lines.append("")
+        lines.append("[SELF-DIAGNOSTICS]")
+        lines.append(sub)
+        try:
+            diag_results = self.diagnostics.run_all()
+            for r in diag_results:
+                lines.append(f"  [{r['status']:<7}] {r['name']}: {r['message']}")
+        except Exception as e:
+            lines.append(f"  (Could not run diagnostics: {e})")
 
+        # ── Recent Activity Log ──────────────────────────────────────────────
+        if getattr(self, '_activity_log', None):
+            lines.append("")
+            lines.append("[RECENT ACTIVITY LOG]")
+            lines.append(sub)
+            for e in self._activity_log[:15]:
+                lines.append(f"  {e['time']}  {e['text']}")
+
+        # ── Footer ───────────────────────────────────────────────────────────
+        lines.append("")
+        lines.append(SEP)
+        lines.append("  Need help? Submit this report to GhostyWare Support:")
+        lines.append("  https://ghostyware.com/intake/intake_form")
+        lines.append(SEP)
+
+        return "\n".join(lines)
+
+    def export_system_report(self):
+        """Generate, preview, and save a full system report."""
+        try:
+            report = self._build_system_report()
+
+            # Save to Desktop
             desktop = os.path.join(os.path.expanduser("~"), "Desktop")
             filename = f"GhostyTools_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
             out_path = os.path.join(desktop, filename)
             with open(out_path, 'w', encoding='utf-8') as f:
-                f.write("\n".join(lines))
+                f.write(report)
 
             self.log_signal.emit(f"System report saved: {out_path}", "success")
             self.log_activity("Exported system report")
             self.notify_tray("Report Exported", f"Saved to Desktop: {filename}")
-            QMessageBox.information(self, "Report Exported", f"System report saved to:\n{out_path}")
+
+            # Show preview dialog
+            self._show_report_dialog(report, out_path)
+
         except Exception as e:
             self.log_signal.emit(f"Failed to export report: {e}", "error")
+
+    def _show_report_dialog(self, report_text, saved_path):
+        """Show the system report in a preview dialog with copy / submit options."""
+        dlg = QDialog(self)
+        dlg.setWindowTitle("GhostyTools — Full System Report")
+        dlg.setMinimumSize(700, 540)
+        dlg.setStyleSheet("background-color: #16161a; color: #d4d4d4;")
+        vbox = QVBoxLayout(dlg)
+        vbox.setSpacing(10)
+
+        title = QLabel("Full System Report")
+        title.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        title.setStyleSheet("color: #4158D0;")
+        vbox.addWidget(title)
+
+        saved_lbl = QLabel(f"Saved to: {saved_path}")
+        saved_lbl.setStyleSheet("color: #6a9955; font-size: 11px;")
+        vbox.addWidget(saved_lbl)
+
+        text_box = QTextEdit()
+        text_box.setReadOnly(True)
+        text_box.setPlainText(report_text)
+        text_box.setStyleSheet(
+            "QTextEdit { background-color: #0d0d0f; color: #c8c8c8; border: 1px solid #2a2a30; "
+            "border-radius: 6px; font-family: Consolas, monospace; font-size: 11px; padding: 6px; }"
+        )
+        vbox.addWidget(text_box)
+
+        btn_row = QHBoxLayout()
+
+        copy_btn = QPushButton("Copy to Clipboard")
+        copy_btn.setFixedHeight(34)
+        copy_btn.setStyleSheet(
+            "QPushButton { background-color: #1e1e28; border: 1px solid #333; border-radius: 6px; "
+            "color: #d4d4d4; padding: 0 14px; } QPushButton:hover { background-color: #28283a; }"
+        )
+        copy_btn.clicked.connect(lambda: (
+            QApplication.clipboard().setText(report_text),
+            copy_btn.setText("Copied!")
+        ))
+
+        submit_btn = QPushButton("Submit to GhostyWare Support")
+        submit_btn.setFixedHeight(34)
+        submit_btn.setStyleSheet(
+            "QPushButton { background-color: #4158D0; border: none; border-radius: 6px; "
+            "color: white; font-weight: bold; padding: 0 14px; } QPushButton:hover { background-color: #4b6de3; }"
+        )
+        submit_btn.clicked.connect(lambda: webbrowser.open("https://ghostyware.com/intake/intake_form"))
+
+        close_btn = QPushButton("Close")
+        close_btn.setFixedHeight(34)
+        close_btn.setStyleSheet(
+            "QPushButton { background-color: #1e1e28; border: 1px solid #333; border-radius: 6px; "
+            "color: #d4d4d4; padding: 0 14px; } QPushButton:hover { background-color: #28283a; }"
+        )
+        close_btn.clicked.connect(dlg.accept)
+
+        btn_row.addWidget(copy_btn)
+        btn_row.addWidget(submit_btn)
+        btn_row.addStretch()
+        btn_row.addWidget(close_btn)
+        vbox.addLayout(btn_row)
+
+        dlg.exec()
 
     def show_log_viewer(self):
         """Open an in-app log viewer with file selector, line count, and refresh."""
@@ -4987,6 +5264,7 @@ rm -- "$0"
         from src.core.dns_manager import DNSManager
         success, msg = DNSManager.flush_dns()
         if success:
+            self._session_dns_flushed = True
             self.log_signal.emit(msg, "success")
             QMessageBox.information(self, "DNS Flush", msg)
         else:
@@ -5057,6 +5335,7 @@ rm -- "$0"
         self.maint_thread.start()
 
     def _on_maintenance_finished(self, res):
+        self._session_maintenance_done = True
         self.log_signal.emit(res, "success")
         QTimer.singleShot(2000, self.progress_bar.hide)
         self.notify_tray("Maintenance Complete", res[:120])
@@ -5083,6 +5362,7 @@ rm -- "$0"
             engine.clean_cbs_logs()
             self.log_signal.emit("Cleaning shader caches...", "info")
             engine.clean_shader_cache()
+            self._session_deep_clean_done = True
             self.log_signal.emit("Cleanup completed.", "success")
             self.notify_tray("Cleanup Complete", "Temporary files and caches cleared successfully.")
             self.log_activity("Deep cleanup completed")
