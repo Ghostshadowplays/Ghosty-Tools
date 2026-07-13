@@ -613,7 +613,7 @@ class UpdateDialog(QDialog):
         name_label.setStyleSheet("font-size: 22px; font-weight: bold; color: white; background: transparent;")
         title_row.addWidget(name_label)
         
-        version_badge = QLabel(self.update_info.get("latest_version", "v7.3.2"))
+        version_badge = QLabel(self.update_info.get("latest_version", "v8.0.0"))
         version_badge.setStyleSheet("""
             background-color: #4158D0;
             color: white;

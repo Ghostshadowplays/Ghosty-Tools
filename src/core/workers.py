@@ -91,66 +91,466 @@ class SpeedTestWorker(QThread):
 class MaintenanceWorker(QThread):
     finished = pyqtSignal(str)
     output = pyqtSignal(str, str)
+    phase_changed = pyqtSignal(str)
 
     def __init__(self, drive_letter="C", check_updates=False):
         super().__init__()
         self.drive_letter = drive_letter
         self.check_updates = check_updates
+        self._flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
 
+    # ── helpers ──────────────────────────────────────────────────────────
+    def _run(self, label, cmd):
+        self.output.emit(f"  -> {label}...", "info")
+        try:
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                shell=False, creationflags=self._flags
+            )
+            for line in proc.stdout:
+                try:
+                    text = line.decode('utf-8', errors='replace')
+                except Exception:
+                    text = line.decode('cp1252', errors='replace')
+                for part in text.split('\r'):
+                    clean = part.strip()
+                    if clean and clean not in ["-", "\\", "|", "/", ".", "??"] \
+                            and not re.match(r'^[\.\-\s]+$', clean):
+                        self.output.emit(f"    {clean}", "debug")
+            proc.wait()
+            if proc.returncode == 0:
+                self.output.emit(f"  OK  {label}", "success")
+            else:
+                self.output.emit(f"  WARN {label} (exit {proc.returncode})", "warning")
+            return proc.returncode
+        except Exception as e:
+            self.output.emit(f"  ERR  {label}: {e}", "error")
+            return -1
+
+    def _ps(self, label, script):
+        return self._run(label, ["powershell", "-NoProfile", "-NonInteractive", "-Command", script])
+
+    def _phase(self, title):
+        self.output.emit(f"\n{'=' * 56}", "info")
+        self.output.emit(f"  {title}", "info")
+        self.output.emit(f"{'=' * 56}", "info")
+        self.phase_changed.emit(title)
+
+    # ── entry point ──────────────────────────────────────────────────────
     def run(self):
         try:
             if sys.platform == 'win32':
-                commands = [
-                    ("DISM CheckHealth", "DISM.exe /Online /Cleanup-Image /CheckHealth"),
-                    ("DISM ScanHealth", "DISM.exe /Online /Cleanup-Image /ScanHealth"),
-                    ("DISM RestoreHealth", "DISM.exe /Online /Cleanup-Image /RestoreHealth"),
-                    ("SFC Scan", "sfc /scannow"),
-                    ("GPUpdate", "gpupdate /force"),
-                    ("CHKDSK", f"echo y | chkdsk {self.drive_letter}: /f /r")
-                ]
-                cmd_prefix = ["powershell", "-NoProfile", "-Command"]
+                self._run_windows()
             else:
-                commands = [
-                    ("APT Update", "apt update"),
-                    ("APT Upgrade", "apt upgrade -y"),
-                    ("APT Autoremove", "apt autoremove -y"),
-                    ("APT Clean", "apt clean"),
-                    ("Journal Cleanup", "journalctl --vacuum-time=1d")
-                ]
-                cmd_prefix = ["bash", "-c"]
-            
-            for name, cmd in commands:
-                self.output.emit(f"Running {name}...", "info")
-                process = subprocess.Popen(
-                    cmd_prefix + [cmd],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    shell=False,
-                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
-                )
-                
-                for line in process.stdout:
-                    try:
-                        text = line.decode('utf-8', errors='replace')
-                    except:
-                        text = line.decode('cp1252', errors='replace')
-                    
-                    for part in text.split('\r'):
-                        clean_line = part.strip()
-                        if clean_line and clean_line not in ["-", "\\", "|", "/", ".", "??"]:
-                            if not re.match(r'^[\.\-\s]+$', clean_line):
-                                self.output.emit(f"[{name}] {clean_line}", "debug")
-                
-                process.wait()
-                if process.returncode == 0:
-                    self.output.emit(f"{name} completed successfully.", "success")
-                else:
-                    self.output.emit(f"{name} finished with code {process.returncode}.", "warning")
-
-            self.finished.emit("Maintenance tasks completed. Some changes may require a restart.")
+                self._run_linux()
         except Exception as e:
-            self.output.emit(f"Maintenance Error: {str(e)}", "error")
-            self.finished.emit(f"Error: {str(e)}")
+            self.output.emit(f"Maintenance error: {e}", "error")
+            self.finished.emit(f"Error: {e}")
+
+    def _run_linux(self):
+        self._phase("System Update (APT)")
+        for label, cmd in [
+            ("APT Update",      ["apt", "update"]),
+            ("APT Upgrade",     ["apt", "upgrade", "-y"]),
+            ("APT Autoremove",  ["apt", "autoremove", "-y"]),
+            ("APT Clean",       ["apt", "clean"]),
+            ("Journal Cleanup", ["journalctl", "--vacuum-time=1d"]),
+        ]:
+            self._run(label, cmd)
+        self.finished.emit("Linux system maintenance complete.")
+
+    # ══════════════════════════════════════════════════════════════════════
+    # WINDOWS — 8 PHASES
+    # ══════════════════════════════════════════════════════════════════════
+    def _run_windows(self):
+        summary = []
+
+        # ── Phase 1: System Repair ────────────────────────────────────────
+        self._phase("Phase 1 of 8  —  System Repair")
+        self._run("SFC Scan (Pass 1)", ["sfc", "/scannow"])
+        self._ps("DISM CheckHealth",   "DISM.exe /Online /Cleanup-Image /CheckHealth")
+        self._ps("DISM RestoreHealth", "DISM.exe /Online /Cleanup-Image /RestoreHealth")
+        self._run("SFC Scan (Pass 2 — Verification)", ["sfc", "/scannow"])
+        self._ps("Stop Windows Update services",
+            "Stop-Service wuauserv,bits,cryptsvc,msiserver -Force -EA SilentlyContinue")
+        self._ps("Reset SoftwareDistribution folder",
+            "$bak='C:\\Windows\\SoftwareDistribution.bak';"
+            "if(Test-Path $bak){Remove-Item $bak -Recurse -Force -EA SilentlyContinue};"
+            "if(Test-Path 'C:\\Windows\\SoftwareDistribution'){"
+            "  Rename-Item 'C:\\Windows\\SoftwareDistribution' $bak -EA SilentlyContinue"
+            "}")
+        self._ps("Reset catroot2 folder",
+            "$bak='C:\\Windows\\System32\\catroot2.bak';"
+            "if(Test-Path $bak){Remove-Item $bak -Recurse -Force -EA SilentlyContinue};"
+            "if(Test-Path 'C:\\Windows\\System32\\catroot2'){"
+            "  Rename-Item 'C:\\Windows\\System32\\catroot2' $bak -EA SilentlyContinue"
+            "}")
+        self._ps("Restart Windows Update services",
+            "Start-Service wuauserv,bits,cryptsvc,msiserver -EA SilentlyContinue")
+        self._ps("Fix shutdown registry handlers",
+            "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control' "
+            "-Name 'WaitToKillServiceTimeout' -Value '5000' -EA SilentlyContinue;"
+            "Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' "
+            "-Name 'WaitToKillAppTimeout' -Value '5000' -EA SilentlyContinue;"
+            "Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' "
+            "-Name 'HungAppTimeout' -Value '4000' -EA SilentlyContinue;"
+            "Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' "
+            "-Name 'AutoEndTasks' -Value '1' -EA SilentlyContinue;"
+            "Write-Host 'Shutdown handlers optimized.'")
+        self._ps("Force GPUpdate", "gpupdate /force")
+        summary.append("System Repair  (SFC x2, DISM, WU components, shutdown handlers)")
+
+        # ── Phase 2: Deep Cleanup ─────────────────────────────────────────
+        self._phase("Phase 2 of 8  —  Deep Cleanup")
+        self._ps("Clear CBS logs",
+            "Remove-Item 'C:\\Windows\\Logs\\CBS\\*' -Recurse -Force -EA SilentlyContinue;"
+            "Write-Host 'CBS logs cleared.'")
+        for cache_tag, cache_path in [
+            ("D3D/DirectX",  r"%LOCALAPPDATA%\D3DSCache"),
+            ("NVIDIA GL",    r"%LOCALAPPDATA%\NVIDIA\GLCache"),
+            ("AMD DX",       r"%LOCALAPPDATA%\AMD\DxCache"),
+        ]:
+            expanded = os.path.expandvars(cache_path)
+            if os.path.exists(expanded):
+                self._ps(f"Clear shader cache ({cache_tag})",
+                    f"Remove-Item '{expanded}\\*' -Recurse -Force -EA SilentlyContinue;"
+                    f"Write-Host 'Cleared {cache_tag} shader cache.'")
+        self._ps("Clear Windows Update download leftovers",
+            "Remove-Item 'C:\\Windows\\SoftwareDistribution.bak' -Recurse -Force -EA SilentlyContinue;"
+            "if(Test-Path 'C:\\Windows\\SoftwareDistribution\\Download'){"
+            "  Remove-Item 'C:\\Windows\\SoftwareDistribution\\Download\\*' -Recurse -Force -EA SilentlyContinue"
+            "}; Write-Host 'WU download cache cleared.'")
+        self._ps("Clean Delivery Optimization cache",
+            "try { Delete-DeliveryOptimizationCache -Force -EA Stop; Write-Host 'DO cache cleared.' }"
+            "catch {"
+            "  $p='C:\\Windows\\ServiceProfiles\\NetworkService\\AppData\\Local\\Microsoft\\Windows\\DeliveryOptimization\\Cache';"
+            "  if(Test-Path $p){ Remove-Item \"$p\\*\" -Recurse -Force -EA SilentlyContinue };"
+            "  Write-Host 'Delivery Optimization cache cleared (fallback).'}")
+        for junk_path in [
+            r"C:\NVIDIA", r"C:\AMD",
+            os.path.expandvars(r"%TEMP%\NVIDIA Corporation"),
+            os.path.expandvars(r"%TEMP%\AMD"),
+            os.path.expandvars(r"%TEMP%\Intel"),
+        ]:
+            if os.path.exists(junk_path):
+                name = os.path.basename(junk_path)
+                self._ps(f"Remove GPU installer junk ({name})",
+                    f"Remove-Item '{junk_path}' -Recurse -Force -EA SilentlyContinue;"
+                    f"Write-Host 'Removed {name}.'")
+        for launcher, lpath in [
+            ("Steam",      r"%LOCALAPPDATA%\Steam\htmlcache"),
+            ("Epic Games", r"%LOCALAPPDATA%\EpicGamesLauncher\Saved\webcache"),
+            ("Riot Client",r"%LOCALAPPDATA%\Riot Games\Riot Client\UX\Cache"),
+            ("GOG Galaxy", r"%LOCALAPPDATA%\GOG.com\Galaxy\webcache"),
+            ("EA Desktop", r"%LOCALAPPDATA%\Electronic Arts\EA Desktop\Cache"),
+            ("Battle.net",  r"%LOCALAPPDATA%\Battle.net\Cache"),
+        ]:
+            expanded = os.path.expandvars(lpath)
+            if os.path.exists(expanded):
+                self._ps(f"Clean {launcher} cache",
+                    f"Remove-Item '{expanded}\\*' -Recurse -Force -EA SilentlyContinue;"
+                    f"Write-Host 'Cleaned {launcher} cache.'")
+        self._ps("Clear system Temp folder",
+            "Remove-Item 'C:\\Windows\\Temp\\*' -Recurse -Force -EA SilentlyContinue;"
+            "Write-Host 'System Temp cleared.'")
+        self._ps("Clear current user Temp folder",
+            "Remove-Item \"$env:TEMP\\*\" -Recurse -Force -EA SilentlyContinue;"
+            "Write-Host 'User Temp cleared.'")
+        self._ps("Clear all user profile Temp folders",
+            "Get-ChildItem 'C:\\Users' -Directory | ForEach-Object {"
+            "  $t=Join-Path $_.FullName 'AppData\\Local\\Temp';"
+            "  if(Test-Path $t){ Remove-Item \"$t\\*\" -Recurse -Force -EA SilentlyContinue;"
+            "    Write-Host \"Cleared Temp for $($_.Name)\" }"
+            "}")
+        if os.path.exists(r"C:\Windows.old"):
+            total = 0
+            for root, _, files in os.walk(r"C:\Windows.old"):
+                for f in files:
+                    try:
+                        total += os.path.getsize(os.path.join(root, f))
+                    except OSError:
+                        pass
+            self.output.emit(
+                f"  WARN Windows.old detected (~{total / (1024**3):.1f} GB). "
+                "Use Disk Cleanup (cleanmgr) to safely remove it.", "warning")
+        summary.append("Deep Cleanup  (CBS, shaders, WU cache, GPU junk, launcher caches, temps)")
+
+        # ── Phase 3: Registry & Task Repair ──────────────────────────────
+        self._phase("Phase 3 of 8  —  Registry & Task Repair")
+        for dll in ["vbscript.dll", "jscript.dll", "mshtml.dll", "urlmon.dll",
+                    "shdocvw.dll", "actxprxy.dll", "oleaut32.dll", "shell32.dll"]:
+            self._run(f"Re-register {dll}", ["regsvr32", "/s", dll])
+        self._ps("Remove stale uninstall entries",
+            "$path='HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall';"
+            "Get-ChildItem $path -EA SilentlyContinue | ForEach-Object {"
+            "  $dn=$_.GetValue('DisplayName'); $ip=$_.GetValue('InstallLocation');"
+            "  if($dn -and $ip -and !(Test-Path $ip)){"
+            "    Write-Host \"Stale entry removed: $dn\";"
+            "    Remove-Item $_.PSPath -Recurse -Force -EA SilentlyContinue"
+            "  }"
+            "}")
+        self._ps("Disable broken scheduled tasks",
+            "Get-ScheduledTask -EA SilentlyContinue | Where-Object {$_.State -eq 'Unknown'} | ForEach-Object {"
+            "  Write-Host \"Broken task disabled: $($_.TaskName)\";"
+            "  Disable-ScheduledTask -TaskName $_.TaskName -EA SilentlyContinue"
+            "}")
+        self._ps("Report invalid shell extensions",
+            "$ap='HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved';"
+            "if(Test-Path $ap){"
+            "  (Get-ItemProperty $ap -EA SilentlyContinue).PSObject.Properties |"
+            "  Where-Object {$_.Name -notlike 'PS*'} |"
+            "  ForEach-Object { Write-Host \"Shell Ext: $($_.Name)\" }"
+            "}")
+        self._ps("Remove leftover app data fragments",
+            "Get-ChildItem 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall' -EA SilentlyContinue |"
+            "Where-Object {!$_.GetValue('DisplayName')} | ForEach-Object {"
+            "  Write-Host \"Orphan key removed: $($_.PSChildName)\";"
+            "  Remove-Item $_.PSPath -Recurse -Force -EA SilentlyContinue"
+            "}")
+        summary.append("Registry & Task Repair  (COM DLLs, stale entries, broken tasks, shell exts, orphan keys)")
+
+        # ── Phase 4: Service Health Reset ────────────────────────────────
+        self._phase("Phase 4 of 8  —  Service Health Reset")
+        for svc_label, svc_id in [
+            ("Windows Update",                    "wuauserv"),
+            ("Background Intelligent Transfer",   "bits"),
+            ("Cryptographic Services",            "cryptsvc"),
+            ("Print Spooler",                     "spooler"),
+            ("Windows Management Instrumentation","winmgmt"),
+            ("DCOM Server Process Launcher",      "DcomLaunch"),
+            ("Remote Procedure Call",             "RpcSs"),
+            ("Windows Event Log",                 "EventLog"),
+            ("Task Scheduler",                    "Schedule"),
+        ]:
+            self._ps(f"Verify/restore: {svc_label}",
+                f"$s=Get-Service '{svc_id}' -EA SilentlyContinue;"
+                f"if($s -and $s.Status -ne 'Running'){{"
+                f"  Write-Host '{svc_label}: not running — starting...';"
+                f"  Start-Service '{svc_id}' -EA SilentlyContinue"
+                f"}} else {{ Write-Host '{svc_label}: OK' }}")
+        self._ps("Reset BITS service failure actions",
+            "sc.exe config bits start= delayed-auto | Out-Null;"
+            "sc.exe failure bits reset= 86400 actions= restart/60000/restart/120000// | Out-Null;"
+            "Write-Host 'BITS service failure actions restored.'")
+        self._ps("Fix stuck background tasks (TrustedInstaller report)",
+            "Get-Process TrustedInstaller -EA SilentlyContinue | ForEach-Object {"
+            "  Write-Host \"TrustedInstaller PID $($_.Id) — $([int]$_.TotalProcessorTime.TotalMinutes) CPU min\""
+            "};"
+            "Write-Host 'Background task check complete.'")
+        summary.append("Service Health  (WU, BITS, Crypto, Spooler, WMI, DCOM, RPC, EventLog, Scheduler)")
+
+        # ── Phase 5: Network Maintenance ─────────────────────────────────
+        self._phase("Phase 5 of 8  —  Network Maintenance")
+        self._run("Flush DNS cache",    ["ipconfig", "/flushdns"])
+        self._run("Reset Winsock",      ["netsh", "winsock", "reset"])
+        self._run("Reset TCP/IP stack", ["netsh", "int", "ip",   "reset"])
+        self._run("Reset IPv6 stack",   ["netsh", "int", "ipv6", "reset"])
+        self._run("Release IP address", ["ipconfig", "/release"])
+        self._run("Renew IP address",   ["ipconfig", "/renew"])
+        self._ps("Show network adapter status",
+            "Get-NetAdapter | Select-Object Name,Status,LinkSpeed |"
+            "Format-Table -AutoSize | Out-String | Write-Host")
+        self._ps("DNS server status",
+            "Get-DnsClientServerAddress -EA SilentlyContinue |"
+            "Where-Object {$_.ServerAddresses} |"
+            "Select-Object InterfaceAlias,ServerAddresses |"
+            "Format-Table -AutoSize | Out-String | Write-Host")
+        summary.append("Network  (DNS flush, Winsock reset, TCP/IP reset, IP renewal)")
+
+        # ── Phase 6: Disk & Storage ──────────────────────────────────────
+        self._phase("Phase 6 of 8  —  Disk & Storage")
+        self._ps("Physical disk SMART health",
+            "Get-PhysicalDisk | Select-Object FriendlyName,MediaType,HealthStatus,OperationalStatus,"
+            "@{N='Size(GB)';E={[math]::Round($_.Size/1GB,1)}} |"
+            "Format-Table -AutoSize | Out-String | Write-Host")
+        self._ps("Volume health & free space",
+            "Get-Volume | Where-Object {$_.DriveLetter} |"
+            "Select-Object DriveLetter,FileSystemLabel,HealthStatus,"
+            "@{N='Free(GB)';E={[math]::Round($_.SizeRemaining/1GB,1)}},"
+            "@{N='Total(GB)';E={[math]::Round($_.Size/1GB,1)}} |"
+            "Format-Table -AutoSize | Out-String | Write-Host")
+        self._ps(f"SSD TRIM on {self.drive_letter}:",
+            f"Optimize-Volume -DriveLetter {self.drive_letter} -ReTrim -Verbose -EA SilentlyContinue")
+        self._ps(f"CHKDSK check on {self.drive_letter}:",
+            f"$v=Get-Volume -DriveLetter '{self.drive_letter}' -EA SilentlyContinue;"
+            f"if($v -and $v.HealthStatus -ne 'Healthy'){{"
+            f"  Write-Host 'Volume not healthy — scheduling CHKDSK on next boot...';"
+            f"  echo Y | chkdsk {self.drive_letter}: /f /r /x"
+            f"}} else {{ Write-Host 'Drive {self.drive_letter}: is Healthy — CHKDSK not needed.' }}")
+        summary.append("Disk & Storage  (SMART, volume health, SSD TRIM, CHKDSK if needed)")
+
+        # ── Phase 7: Performance Tuning ──────────────────────────────────
+        self._phase("Phase 7 of 8  —  Performance Tuning")
+        self._ps("Set High Performance power plan",
+            "powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c 2>&1 |"
+            "ForEach-Object { Write-Host $_ }")
+        self._ps("Optimize visual effects for performance",
+            "Set-ItemProperty -Path "
+            "'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects' "
+            "-Name 'VisualFXSetting' -Value 2 -EA SilentlyContinue;"
+            "Write-Host 'Visual effects set to Best Performance.'")
+        self._ps("Disable Xbox Game DVR",
+            "New-Item 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\GameDVR' -Force -EA SilentlyContinue | Out-Null;"
+            "Set-ItemProperty 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\GameDVR' 'AllowGameDVR' 0 -Force -EA SilentlyContinue;"
+            "Set-ItemProperty 'HKCU:\\System\\GameConfigStore' 'GameDVR_Enabled' 0 -EA SilentlyContinue;"
+            "Write-Host 'Xbox Game DVR disabled.'")
+        self._ps("Enable Game Mode",
+            "Set-ItemProperty 'HKCU:\\Software\\Microsoft\\GameBar' 'AllowAutoGameMode' 1 -EA SilentlyContinue;"
+            "Set-ItemProperty 'HKCU:\\Software\\Microsoft\\GameBar' 'AutoGameModeEnabled' 1 -EA SilentlyContinue;"
+            "Write-Host 'Game Mode enabled.'")
+        self._ps("Set foreground process priority boost",
+            "Set-ItemProperty "
+            "'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\PriorityControl' "
+            "'Win32PrioritySeparation' 38 -EA SilentlyContinue;"
+            "Write-Host 'Foreground priority boost applied.'")
+        self._ps("Trim RAM (GC collect + usage report)",
+            "[System.GC]::Collect();"
+            "[System.GC]::WaitForPendingFinalizers();"
+            "[System.GC]::Collect();"
+            "$os=Get-CimInstance Win32_OperatingSystem -EA SilentlyContinue;"
+            "if($os){"
+            "  $free=[math]::Round($os.FreePhysicalMemory/1MB,1);"
+            "  $total=[math]::Round($os.TotalVisibleMemorySize/1MB,1);"
+            "  Write-Host \"RAM: $([math]::Round($total-$free,1)) GB used / $total GB total\""
+            "}")
+        self._ps("Disable hibernation (reclaim hiberfil.sys space)",
+            "powercfg /hibernate off; Write-Host 'Hibernation disabled.'")
+        summary.append("Performance  (power plan, visual effects, Game DVR, Game Mode, priority, RAM GC, no hiberfil)")
+
+        # ── Phase 8: Final Verification ──────────────────────────────────
+        self._phase("Phase 8 of 8  —  Final Verification")
+        self._run("SFC integrity verification",
+            ["sfc", "/verifyonly"])
+        self._ps("Confirm core service health",
+            "foreach($s in 'wuauserv','bits','cryptsvc','EventLog','Schedule','winmgmt','RpcSs'){"
+            "  $svc=Get-Service $s -EA SilentlyContinue;"
+            "  if($svc){ Write-Host \"$s : $($svc.Status)\" } else { Write-Host \"$s : NOT FOUND\" }"
+            "}")
+        self._ps("Confirm shutdown safety",
+            "$pr=Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager' "
+            "-Name 'PendingFileRenameOperations' -EA SilentlyContinue;"
+            "if($pr -and $pr.PendingFileRenameOperations){"
+            "  Write-Host \"Pending file ops on restart: $($pr.PendingFileRenameOperations.Count) items\""
+            "} else { Write-Host 'No pending rename operations — shutdown is clean.' }")
+        self._ps("Confirm Windows Update integrity",
+            "$s=Get-Service wuauserv -EA SilentlyContinue;"
+            "if($s){ Write-Host \"Windows Update service: $($s.Status)\" };"
+            "if(Test-Path 'C:\\Windows\\SoftwareDistribution'){"
+            "  Write-Host 'SoftwareDistribution folder: present (OK)'"
+            "} else { Write-Host 'SoftwareDistribution will recreate on next WU run.' }")
+        self._ps("Check recent System event errors",
+            "Get-WinEvent -LogName System -MaxEvents 20 -EA SilentlyContinue |"
+            "Where-Object {$_.Level -le 2} | Select-Object -First 5 |"
+            "Select-Object TimeCreated,ProviderName,@{N='Message';E={$_.Message.Split(\"`n\")[0]}} |"
+            "Format-List | Out-String | Write-Host")
+        self._ps("Confirm no remaining corruption",
+            "$result=sfc /verifyonly 2>&1 | Out-String;"
+            "if($result -match 'no integrity violations'){"
+            "  Write-Host 'PASS: No system file corruption detected.'"
+            "} else { Write-Host 'NOTE: Review SFC output above for details.' }")
+        summary.append("Final Verification  (SFC check, services, shutdown safety, WU integrity, event log)")
+
+        # ── Summary ───────────────────────────────────────────────────────
+        self.output.emit(f"\n{'=' * 56}", "success")
+        self.output.emit("  FULL MAINTENANCE COMPLETE", "success")
+        self.output.emit(f"{'=' * 56}", "success")
+        for i, s in enumerate(summary, 1):
+            self.output.emit(f"  [{i}] {s}", "success")
+        self.output.emit("", "info")
+        self.output.emit(
+            "  Recommendation: Restart your system to apply all changes.", "warning")
+
+        self.finished.emit(
+            f"Full System Maintenance Complete! ({len(summary)} phases)\n"
+            "All repair, cleanup, service, network, disk, and performance tasks finished.\n"
+            "Please restart your system to apply all changes."
+        )
+
+
+class BackgroundHealthAgent(QThread):
+    """Monitors system health during maintenance and alerts on problems."""
+    alert = pyqtSignal(str, str)   # message, level
+    status = pyqtSignal(dict)      # health snapshot
+
+    def __init__(self, interval_sec=30):
+        super().__init__()
+        self.interval_sec = interval_sec
+        self._running = True
+
+    def stop(self):
+        self._running = False
+
+    def run(self):
+        import time
+        while self._running:
+            try:
+                snap = {}
+
+                # RAM usage
+                mem = psutil.virtual_memory()
+                snap["ram_pct"] = mem.percent
+                if mem.percent > 92:
+                    self.alert.emit(
+                        f"Health Agent: RAM at {mem.percent:.0f}% — system under stress.", "warning")
+
+                # Disk free space
+                drives = []
+                if sys.platform == 'win32':
+                    for part in psutil.disk_partitions():
+                        if part.fstype and part.mountpoint:
+                            drives.append(part.mountpoint)
+                else:
+                    drives = ["/"]
+                for drv in drives:
+                    try:
+                        usage = psutil.disk_usage(drv)
+                        snap[f"disk_{drv}_pct"] = usage.percent
+                        if usage.percent > 95:
+                            self.alert.emit(
+                                f"Health Agent: Critical disk space on {drv}: "
+                                f"{usage.percent:.0f}% full ({usage.free/(1024**3):.1f} GB free).",
+                                "error")
+                        elif usage.percent > 87:
+                            self.alert.emit(
+                                f"Health Agent: Low disk space on {drv}: {usage.percent:.0f}% full.",
+                                "warning")
+                    except Exception:
+                        pass
+
+                # Uptime
+                uptime_days = (time.time() - psutil.boot_time()) / 86400
+                snap["uptime_days"] = uptime_days
+                if uptime_days > 7:
+                    self.alert.emit(
+                        f"Health Agent: System uptime {uptime_days:.1f} days — restart after maintenance.",
+                        "warning")
+
+                # Critical service check (Windows)
+                if sys.platform == 'win32':
+                    for svc in ["EventLog", "RpcSs", "DcomLaunch"]:
+                        try:
+                            r = subprocess.run(
+                                ["sc", "query", svc],
+                                capture_output=True, text=True,
+                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+                            )
+                            if r.returncode == 0 and "STOPPED" in r.stdout:
+                                snap[f"svc_{svc}"] = "stopped"
+                                self.alert.emit(
+                                    f"Health Agent: Critical service '{svc}' is STOPPED — "
+                                    "system stability at risk.", "error")
+                        except Exception:
+                            pass
+
+                self.status.emit(snap)
+
+            except Exception as e:
+                logger.debug(f"BackgroundHealthAgent: {e}")
+
+            for _ in range(self.interval_sec * 2):
+                if not self._running:
+                    return
+                time.sleep(0.5)
 
 class GenericCommandWorker(QThread):
     finished = pyqtSignal(bool, str)

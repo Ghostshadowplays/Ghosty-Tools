@@ -37,6 +37,7 @@ from PIL import Image
 from src.core.workers import (
     SpeedTestWorker,
     MaintenanceWorker,
+    BackgroundHealthAgent,
     GenericCommandWorker,
     SecurityScanWorker,
     BloatScanWorker,
@@ -4752,7 +4753,7 @@ class GhostyTool(QMainWindow):
         self.refresh_system_alerts()
         if update_info.get("available"):
             # Update available: show Banner
-            latest_v = update_info.get('latest_version', 'v7.3.2')
+            latest_v = update_info.get('latest_version', 'v8.0.0')
             date_str = datetime.now().strftime("%d %b %Y")
             msg = f"Update available · {latest_v} · {date_str}"
             self.update_banner.msg_label.setText(msg)
@@ -5328,14 +5329,25 @@ rm -- "$0"
             self.maint_worker.start()
 
     def run_system_maintenance(self):
-        self.log_signal.emit("Starting full system maintenance...", "info")
+        self.log_signal.emit("Starting Full System Maintenance (8 phases)...", "info")
         self.maint_thread = MaintenanceWorker(self.system_drive, False)
         self.maint_thread.output.connect(self.log_to_terminal)
         self.maint_thread.finished.connect(self._on_maintenance_finished)
+        self.maint_thread.phase_changed.connect(
+            lambda title: self.log_signal.emit(f"[Maintenance] {title}", "info"))
         self.maint_thread.start()
+
+        # Start background health monitor alongside maintenance
+        self._health_agent = BackgroundHealthAgent(interval_sec=30)
+        self._health_agent.alert.connect(self.log_to_terminal)
+        self._health_agent.start()
 
     def _on_maintenance_finished(self, res):
         self._session_maintenance_done = True
+        # Stop health monitor
+        if hasattr(self, '_health_agent') and self._health_agent is not None:
+            self._health_agent.stop()
+            self._health_agent = None
         self.log_signal.emit(res, "success")
         QTimer.singleShot(2000, self.progress_bar.hide)
         self.notify_tray("Maintenance Complete", res[:120])

@@ -56,9 +56,12 @@ class CleanupEngine:
 
     def clean_launcher_caches(self):
         paths = {
-            "Steam": os.path.expandvars(r"%LOCALAPPDATA%\Steam\htmlcache") if self.is_windows else None,
-            "Epic": os.path.expandvars(r"%LOCALAPPDATA%\EpicGamesLauncher\Saved\webcache") if self.is_windows else None,
-            # Add more for Riot, GOG, EA...
+            "Steam":       os.path.expandvars(r"%LOCALAPPDATA%\Steam\htmlcache") if self.is_windows else None,
+            "Epic Games":  os.path.expandvars(r"%LOCALAPPDATA%\EpicGamesLauncher\Saved\webcache") if self.is_windows else None,
+            "Riot Client": os.path.expandvars(r"%LOCALAPPDATA%\Riot Games\Riot Client\UX\Cache") if self.is_windows else None,
+            "GOG Galaxy":  os.path.expandvars(r"%LOCALAPPDATA%\GOG.com\Galaxy\webcache") if self.is_windows else None,
+            "EA Desktop":  os.path.expandvars(r"%LOCALAPPDATA%\Electronic Arts\EA Desktop\Cache") if self.is_windows else None,
+            "Battle.net":  os.path.expandvars(r"%LOCALAPPDATA%\Battle.net\Cache") if self.is_windows else None,
         }
         results = []
         for name, path in paths.items():
@@ -68,7 +71,7 @@ class CleanupEngine:
                     results.append(f"Cleaned {name} cache.")
                 except Exception as e:
                     results.append(f"Failed to clean {name} cache: {e}")
-        return True, "\n".join(results)
+        return True, "\n".join(results) if results else "No launcher caches found."
 
     def detect_windows_old(self):
         if not self.is_windows: return None
