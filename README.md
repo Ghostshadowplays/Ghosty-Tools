@@ -13,62 +13,12 @@ Official Website: [ghostyware.com](https://ghostyware.com)
 
 Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows, Linux, and macOS environments. Built with a focus on **Security First**, it combines system maintenance, security auditing, and professional-grade password management into a single, sleek interface.
 
-## 🆕 What's New in v7.3.6
+## 🆕 What's New in v8.0.1
 
-- 📦 **Winget package published:** Ghosty Tools is now available via `winget install ghostytools` — no manual download required.
-- 🎵 **GhostTune Converter via winget:** GhostTune Converter in the App Essentials installer now installs via `winget install Ghostshadowplays.GhostTuneConverter` instead of a direct download link — faster, cleaner, and auto-detects if already installed.
-
-## 🆕 What's New in v7.3.5
-
-- 🎮 **Gaming Mode fixed:** `@staticmethod` decorator added to `toggle_gaming_mode` — previously the `enable` parameter defaulted to `True` when called as a class method, meaning "Revert to Defaults" was silently enabling instead of reverting. Both Enable and Revert now work correctly.
-- 🧵 **Gaming Mode no longer hangs:** `QTimer.singleShot` callbacks from background threads now use the 3-argument form (`singleShot(0, context, callback)`) to ensure they run on the main thread — eliminating the UI freeze.
-- 🗂️ **Log Viewer upgraded:** File selector dropdown to switch between all available log files, Refresh button, line count indicator, and a cleaner styled layout.
-- 🧹 **Tidy Desktop enhanced:** Un-recognised files now appear in an "Other / Unrecognised" section (collapsed, unchecked by default). Every category has a tick-box — un-tick to skip the whole category or individual files. Parent-to-child check propagation for one-click category control.
-- 🎮 **Steam game detection:** Dropping a game `.exe` now first looks up the Steam `appmanifest_*.acf` file to get the official game title — works for any installed Steam game, not just those in the built-in database.
-- 🎨 **Appearance slider fixed:** Background intensity slider no longer chops/stutters on drag — `valueChanged` now only updates the internal value while dragging; the theme rebuild and save happen only once on `sliderReleased`.
-- 🔧 **DLL error on update fixed:** Batch updater now cleans **all** `_MEI*` folders in `%TEMP%` (not just one specific path) before relaunching — eliminates "Failed to load Python DLL" errors after self-updates. Wait time before relaunch increased from 3 s to 5 s.
-
-## 🆕 What's New in v7.3.4 (Hotfix)
-
-- 🐧 **Linux sudo fix:** `is_admin()` now uses `os.geteuid()` instead of `os.getuid()` — sudo correctly grants admin mode on Linux (real UID vs effective UID).
-- 🎮 **Dedicated Gaming page:** Gaming Mode and Game Compatibility Analyzer moved to their own **Gaming** sidebar page — enable/disable/revert controls and the full inline analyzer all in one place.
-- 🖱️ **Drag & drop fixed:** Game `.exe` files now drop correctly onto the Game Analyzer — `QLineEdit` and `QTextEdit` no longer silently intercept drag events; a proper `_DropZoneFrame` with visual hover feedback is used instead.
-- 🌐 **All games supported:** When a game is not in the built-in database (50+ titles), a manual requirements form appears — enter RAM, CPU cores, VRAM, and storage yourself, then compare against your detected hardware.
-- ↩️ **Revert Gaming Mode:** New "Revert to Defaults" button restores Balanced power plan, re-enables SysMain, Windows Update, and other gaming tweaks back to their original state.
-
-## 🆕 What's New in v7.3.3
-
-- 🗂️ **Tidy Desktop:** New one-click desktop organiser — scans for loose files (images, videos, music, documents, archives, installers) and moves them to the correct library folder. Shortcuts and folders are never touched.
-- 🎮 **Game Compatibility Analyzer:** Type a game name or drag & drop its `.exe` to get an instant compatibility score (0–100) against your hardware. Checks RAM, CPU cores, GPU VRAM, and free disk space. Built-in database of 30+ popular titles. Suggests Gaming Mode if your system is below recommended specs.
-- 🚀 **Expanded Game Mode:** Gaming Mode now applies 9 comprehensive tweaks — Ultimate Performance power plan, Xbox Game DVR off, Nagle's algorithm disable per interface, GPU high-performance preference, fullscreen optimisations off, SysMain/Superfetch disable, MMCSS priority boost, and Windows Update pause — with a full restore path.
-- 🛡️ **Expanded Security Scanner:** Windows checks expanded from 5 to 11 (adds RDP exposure, Windows Update status, autorun entries, BitLocker, Guest account, and open ports). Linux checks expanded from 3 to 5 (adds sudoers NOPASSWD and world-writable files).
-- 🔗 **Auto-Update Shortcut:** The updater now automatically recreates the desktop shortcut pointing to the new exe after a successful update, so your shortcut is never left pointing at the old path.
-- 🖥️ **Compact Page Startup:** Cleanup, Hardware, Services, and Automation pages now start minimal — data containers are hidden until a scan/refresh is triggered, making the UI feel faster and less cluttered.
-- 📺 **Taller Terminal Feed:** Live terminal feed height increased from 150 to 220 px for more visible output.
-- 🐧 **Tweaks Page Platform Guard:** System Tweaks page now correctly shows a "not available" notice on Linux and macOS instead of rendering Windows-only registry controls.
-
-## 🆕 What's New in v7.3.2
-
-- 🔧 **Settings Page:** New dedicated Settings page with minimize-to-tray toggle, alert refresh interval, startup page selector, and full Windows/Linux startup manager.
-- 🖥️ **Startup Manager:** Register or remove Ghosty Tools from Windows startup (registry) or Linux autostart (`.desktop` file) — one click, no manual steps.
-- 📊 **Live Sensor Data:** Hardware tab now integrates with LibreHardwareMonitor — one-click install via `winget`, automatic web server configuration, and minimized background launch.
-- 🔔 **Live System Alerts:** Dashboard alerts are now fully dynamic — real-time checks for high memory, low disk space, pending reboots, and available updates.
-- 🏆 **Real Health Score:** Multi-factor scoring accounts for CPU, RAM, disk usage, pending reboots, and update availability with colour-coded feedback.
-- 📈 **Speed Test History:** Last 3 speed test results are now persisted and shown in the Network page.
-- 📋 **Recent Activity Log:** App actions are saved across sessions and shown in the Dashboard activity card.
-- 📄 **Export System Report:** Generate a full system snapshot (OS, CPU, RAM, disk, network, speed history, activity) saved to your Desktop.
-- 📝 **Built-in Log Viewer:** View today's log file in-app without leaving the window.
-- ↔️ **Resizable Sidebar:** Drag the divider between the sidebar and content area to any width you prefer.
-- 🎨 **Appearance & Theme Buttons:** Clearly labelled sidebar buttons — `🎨 Appearance` and `🌙 Toggle Theme` — no more mystery icons.
-- 🔢 **Version Badge:** Current version shown at the bottom of the sidebar.
-- 🃏 **Card Hover Effects:** Dashboard cards highlight their border on hover using the active theme colour.
-- 🐧 **Linux Transparency Fix:** Background no longer bleeds through on Linux desktop environments.
-- ⚡ **Speed Test Fix:** Speed test now works correctly in the Windows `.exe` (noconsole) build.
-- 🖼️ **Sidebar Icons Fix:** Nav icons now render correctly on all Windows systems (font loaded via inline stylesheet).
-- 💾 **Config File Locations:** All config files (`theme.json`, activity log, speed history, backup) now stored safely in `%APPDATA%\GhostyTools\` — nothing lands next to the exe.
-- 🔄 **Update Reliability:** Batch updater now cleans up the old PyInstaller temp folder before launching the new exe, preventing DLL load errors on restart.
-- 🍎 **macOS Branding Fixed:** macOS now shows the correct 🍎 icon instead of the Linux 🐧.
-- 🖼️ **PNG Icon on Linux:** App icon uses `.png` on Linux for better desktop environment integration.
+- 🐛 **Driver list fixed:** System report driver list no longer shows garbled/corrupted characters — switched from `driverquery` (OEM encoding) to `Get-CimInstance Win32_PnPSignedDriver` via PowerShell for clean Unicode output.
+- 🔧 **Full System Maintenance expanded:** Phase 1 now includes `DISM /ScanHealth` (corruption detection) and `DISM /StartComponentCleanup /ResetBase` (WinSxS component store cleanup) alongside the existing CheckHealth and RestoreHealth passes.
+- 📋 **Export Report auto-fill:** Clicking "Submit to GhostyWare Support" now automatically copies the full report to your clipboard before opening the intake form — paste it directly into the "Reported Issues" field.
+- 🎮 **Gaming Mode fully stops Windows Update:** Previously only changed the service startup type (effective on next boot). Now immediately stops `wuauserv`, `UsoSvc`, and `WaaSMedicSvc`, and sets the `NoAutoUpdate` registry policy — updates and restarts are properly suppressed while Gaming Mode is active. Revert restores all three services and clears the policy.
 
 ## ✨ Features
 
@@ -132,7 +82,7 @@ Ghosty Tools is a high-performance, modular utility designed to secure and optim
 - **Minimize Behaviour:** By default, minimising keeps the window in the taskbar and Task View. Tray-on-minimize is optional in Settings.
 
 ## 🌍 Cross-Platform Support
-Ghosty Tools v7.3.6 is fully optimised for **Windows**, **Linux**, and **macOS**.
+Ghosty Tools v8.0.1 is fully optimised for **Windows**, **Linux**, and **macOS**.
 - **Windows:** Deep system tweaks, Winget integration, registry startup manager, and PowerShell-based maintenance.
 - **Linux:** UFW firewall management, package manager detection (apt/dnf/pacman/zypper), autostart `.desktop` management, and native log viewing.
 - **macOS:** Homebrew integration, app residue cleaning, and native maintenance scripts.

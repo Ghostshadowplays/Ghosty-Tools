@@ -168,8 +168,10 @@ class MaintenanceWorker(QThread):
         # ── Phase 1: System Repair ────────────────────────────────────────
         self._phase("Phase 1 of 8  —  System Repair")
         self._run("SFC Scan (Pass 1)", ["sfc", "/scannow"])
-        self._ps("DISM CheckHealth",   "DISM.exe /Online /Cleanup-Image /CheckHealth")
-        self._ps("DISM RestoreHealth", "DISM.exe /Online /Cleanup-Image /RestoreHealth")
+        self._ps("DISM CheckHealth",          "DISM.exe /Online /Cleanup-Image /CheckHealth")
+        self._ps("DISM ScanHealth",           "DISM.exe /Online /Cleanup-Image /ScanHealth")
+        self._ps("DISM RestoreHealth",        "DISM.exe /Online /Cleanup-Image /RestoreHealth")
+        self._ps("DISM StartComponentCleanup","DISM.exe /Online /Cleanup-Image /StartComponentCleanup /ResetBase")
         self._run("SFC Scan (Pass 2 — Verification)", ["sfc", "/scannow"])
         self._ps("Stop Windows Update services",
             "Stop-Service wuauserv,bits,cryptsvc,msiserver -Force -EA SilentlyContinue")
@@ -198,7 +200,7 @@ class MaintenanceWorker(QThread):
             "-Name 'AutoEndTasks' -Value '1' -EA SilentlyContinue;"
             "Write-Host 'Shutdown handlers optimized.'")
         self._ps("Force GPUpdate", "gpupdate /force")
-        summary.append("System Repair  (SFC x2, DISM, WU components, shutdown handlers)")
+        summary.append("System Repair  (SFC x2, DISM CheckHealth/ScanHealth/RestoreHealth/ComponentCleanup, WU components, shutdown handlers)")
 
         # ── Phase 2: Deep Cleanup ─────────────────────────────────────────
         self._phase("Phase 2 of 8  —  Deep Cleanup")

@@ -3659,7 +3659,12 @@ class GhostyTool(QMainWindow):
             "QPushButton { background-color: #4158D0; border: none; border-radius: 6px; "
             "color: white; font-weight: bold; padding: 0 14px; } QPushButton:hover { background-color: #4b6de3; }"
         )
-        submit_btn.clicked.connect(lambda: webbrowser.open("https://ghostyware.com/intake/intake_form"))
+        def _submit_to_support():
+            QApplication.clipboard().setText(report_text)
+            submit_btn.setText("Opened! Paste report in 'Reported Issues'")
+            QTimer.singleShot(4000, lambda: submit_btn.setText("Submit to GhostyWare Support"))
+            webbrowser.open("https://ghostyware.com/intake/intake_form")
+        submit_btn.clicked.connect(_submit_to_support)
 
         close_btn = QPushButton("Close")
         close_btn.setFixedHeight(34)

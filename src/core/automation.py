@@ -52,8 +52,16 @@ class Automation:
         # Drivers (Windows only)
         if sys.platform == "win32":
             report.append("\nDriver List (Top 10):")
-            proc = run_command(["driverquery"])
-            report.append("\n".join(proc.stdout.splitlines()[:10]))
+            proc = run_command([
+                "powershell", "-NoProfile", "-NonInteractive", "-Command",
+                "Get-CimInstance Win32_PnPSignedDriver | "
+                "Where-Object { $_.DeviceName } | "
+                "Sort-Object DeviceName | "
+                "Select-Object -First 10 DeviceName,DriverVersion,Manufacturer | "
+                "Format-Table -AutoSize | Out-String | Write-Host"
+            ])
+            driver_lines = [l for l in proc.stdout.splitlines() if l.strip()]
+            report.append("\n".join(driver_lines) if driver_lines else "  (No driver data available)")
             
         return "\n".join(report)
 

@@ -54,9 +54,11 @@ class WindowsTools(BasePlatformTools):
             except Exception:
                 pass  # Key may not exist — that's fine
 
-        def svc(name, startup):
-            r = run_command(["powershell", "-NoProfile", "-Command",
-                             f"Set-Service -Name '{name}' -StartupType {startup} -ErrorAction SilentlyContinue"])
+        def svc(name, startup, stop=False):
+            action = f"Set-Service -Name '{name}' -StartupType {startup} -ErrorAction SilentlyContinue"
+            if stop:
+                action += f"; Stop-Service -Name '{name}' -Force -ErrorAction SilentlyContinue"
+            r = run_command(["powershell", "-NoProfile", "-Command", action])
             return r.returncode == 0
 
         HKLM = winreg.HKEY_LOCAL_MACHINE if winreg else None
@@ -123,12 +125,19 @@ class WindowsTools(BasePlatformTools):
             results.append("Fullscreen optimizations disabled.")
 
             # 7. Disable SysMain (Superfetch) — reduces background I/O during gaming
-            if svc("SysMain", "Disabled"):
+            if svc("SysMain", "Disabled", stop=True):
                 results.append("SysMain (Superfetch) disabled.")
 
-            # 8. Pause Windows Update service
-            if svc("wuauserv", "Disabled"):
-                results.append("Windows Update service paused.")
+            # 8. Pause Windows Update (service + orchestrator + registry policy)
+            svc("wuauserv", "Disabled", stop=True)
+            svc("UsoSvc",   "Disabled", stop=True)
+            svc("WaaSMedicSvc", "Disabled", stop=True)
+            # Pause via registry so any auto-restart of the service still stays off
+            if HKLM and DWORD:
+                reg_set(HKLM,
+                        r"SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU",
+                        "NoAutoUpdate", DWORD, 1)
+            results.append("Windows Update services stopped and policy disabled.")
 
             # 9. Set MMCSS (Multimedia Class Scheduler) for games
             if HKLM and DWORD:
@@ -152,8 +161,15 @@ class WindowsTools(BasePlatformTools):
 
             if svc("SysMain", "Automatic"):
                 results.append("SysMain (Superfetch) re-enabled.")
-            if svc("wuauserv", "Automatic"):
-                results.append("Windows Update service restored.")
+            svc("wuauserv",    "Automatic")
+            svc("UsoSvc",      "Automatic")
+            svc("WaaSMedicSvc","Manual")
+            # Clear the no-auto-update policy
+            reg_delete(HKLM, r"SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU", "NoAutoUpdate")
+            # Restart wuauserv so updates can run immediately
+            run_command(["powershell", "-NoProfile", "-Command",
+                         "Start-Service wuauserv,UsoSvc -ErrorAction SilentlyContinue"])
+            results.append("Windows Update services restored.")
 
         summary = "\n".join(results)
         if errors:
