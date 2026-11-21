@@ -34,6 +34,44 @@ jobs:
           pyinstaller ghosty_tools.spec --clean --noconfirm
           mv dist/GhostyTools.exe dist/GhostyTools-Windows-x64.exe
 
+      - name: Recreate PFX
+        shell: powershell
+        run: |
+          [System.IO.File]::WriteAllBytes(
+            "$env:RUNNER_TEMP\ghostshadow.pfx",
+            [System.Convert]::FromBase64String("${{ secrets.CERT_PFX }}")
+            )
+
+      - name: Locate SignTool
+        shell: powershell
+        run: |
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits" -Recurse -Filter signtool.exe |
+            Select-Object -First 1 -ExpandProperty FullName
+      
+          if (-not $signtool) {
+            throw "signtool.exe not found"
+          }
+      
+          Write-Host "Found SignTool: $signtool"
+          echo "SIGNTOOL_PATH=$signtool" >> $env:GITHUB_ENV
+
+      - name: Sign EXE
+        shell: powershell
+        run: |
+          & "$env:SIGNTOOL_PATH" sign `
+            /f "$env:RUNNER_TEMP\ghostshadow.pfx" `
+            /p "${{ secrets.CERT_PASSWORD }}" `
+            /fd SHA256 `
+            /tr http://timestamp.digicert.com `
+            /td SHA256 `
+            dist\GhostyTools-Windows-x64.exe
+
+      - name: Verify Signature
+        shell: powershell
+        run: |
+          Get-AuthenticodeSignature `
+            dist\GhostyTools-Windows-x64.exe | Format-List
+            
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release'
