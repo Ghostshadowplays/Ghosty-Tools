@@ -13,7 +13,7 @@ Official Website: [ghostyware.com](https://ghostyware.com)
 
 Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows, Linux, and macOS environments. Built with a focus on **Security First**, it combines system maintenance, security auditing, and professional-grade password management into a single, sleek interface.
 
-## 🆕 What's New in v8.0.3
+## 🆕 What's New in v8.0.4
 
 - 🐛 **Driver list fixed:** System report driver list no longer shows garbled/corrupted characters — switched from `driverquery` (OEM encoding) to `Get-CimInstance Win32_PnPSignedDriver` via PowerShell for clean Unicode output.
 - 🔧 **Full System Maintenance expanded:** Phase 1 now includes `DISM /ScanHealth` (corruption detection) and `DISM /StartComponentCleanup /ResetBase` (WinSxS component store cleanup) alongside the existing CheckHealth and RestoreHealth passes.
@@ -82,7 +82,7 @@ Ghosty Tools is a high-performance, modular utility designed to secure and optim
 - **Minimize Behaviour:** By default, minimising keeps the window in the taskbar and Task View. Tray-on-minimize is optional in Settings.
 
 ## 🌍 Cross-Platform Support
-Ghosty Tools v8.0.3 is fully optimised for **Windows**, **Linux**, and **macOS**.
+Ghosty Tools v8.0.4 is fully optimised for **Windows**, **Linux**, and **macOS**.
 - **Windows:** Deep system tweaks, Winget integration, registry startup manager, and PowerShell-based maintenance.
 - **Linux:** UFW firewall management, package manager detection (apt/dnf/pacman/zypper), autostart `.desktop` management, and native log viewing.
 - **macOS:** Homebrew integration, app residue cleaning, and native maintenance scripts.
