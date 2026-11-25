@@ -73,7 +73,7 @@ jobs:
             dist\GhostyTools-Windows-x64.exe | Format-List
             
       - name: Upload Release Assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: github.event_name == 'release'
         with:
           files: |
@@ -116,7 +116,7 @@ jobs:
           TARGET_ARCH: ${{ matrix.arch }}
 
       - name: Upload Release Assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: github.event_name == 'release'
         with:
           files: dist/GhostyTools-macOS-${{ matrix.arch }}
@@ -174,7 +174,7 @@ jobs:
           mv ghostytools_amd64.deb GhostyTools-Linux-x64.deb
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: github.event_name == 'release'
         with:
           files: GhostyTools-Linux-x64.deb
