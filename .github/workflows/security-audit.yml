@@ -72,7 +72,7 @@ jobs:
           fi
 
       - name: Upload Bandit report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bandit-report-py${{ matrix.python-version }}
           path: bandit-report.txt
