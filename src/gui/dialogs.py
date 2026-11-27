@@ -239,6 +239,7 @@ class AppearanceDialog(QFrame):
         super().__init__(parent)
         self.tm = theme_manager
         self.preset_buttons = {}
+        self._color_previews = {}
         self.setFixedSize(420, 610)
         self.setObjectName("AppearanceOverlay")
         self.hide()
@@ -254,32 +255,12 @@ class AppearanceDialog(QFrame):
 
     def update_style(self):
         colors = self.tm.get_theme_colors()
-        self.setStyleSheet(f"""
-            QFrame#AppearanceOverlay {{
-                background-color: {colors['background']};
-                border: 1px solid #333;
-                border-radius: 15px;
-            }}
-            QLabel {{ color: {colors['text']}; background: transparent; }}
-        """)
-        if hasattr(self, 'bg_slider'):
-            self.bg_slider.setStyleSheet(f"""
-                QSlider::groove:horizontal {{
-                    border: 1px solid #333;
-                    height: 4px;
-                    background: #222;
-                    margin: 2px 0;
-                    border-radius: 2px;
-                }}
-                QSlider::handle:horizontal {{
-                    background: {colors['primary']};
-                    border: 1px solid {colors['primary']};
-                    width: 16px;
-                    height: 16px;
-                    margin: -6px 0;
-                    border-radius: 8px;
-                }}
-            """)
+        self.setStyleSheet(self.tm.get_stylesheet())
+        for key, preview in self._color_previews.items():
+            preview.setStyleSheet(
+                f"background: {colors[key]}; border-radius: 6px; border: 1px solid {colors['text']};"
+            )
+            preview.setToolTip(colors[key])
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -289,33 +270,33 @@ class AppearanceDialog(QFrame):
         # Header with Close Button
         header_layout = QHBoxLayout()
         header = QLabel("Appearance")
-        header.setStyleSheet("font-size: 20px; font-weight: bold; color: white;")
+        header.setStyleSheet("font-size: 20px; font-weight: bold;")
         header_layout.addWidget(header)
         
         header_layout.addStretch()
         
-        self.close_btn = QPushButton("✕")
+        self.close_btn = QPushButton("×")
         self.close_btn.setFixedSize(28, 28)
+        self.close_btn.setStyleSheet("padding: 0; min-height: 0;")
         self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.close_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #888;
-                font-size: 16px;
-                border: none;
-            }
-            QPushButton:hover {
-                color: white;
-                background-color: #333;
-                border-radius: 14px;
-            }
-        """)
+        self.close_btn.setAccessibleName("Close appearance settings")
         self.close_btn.clicked.connect(self.hide)
         header_layout.addWidget(self.close_btn)
         layout.addLayout(header_layout)
 
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setAccessibleName("Appearance options")
+        layout.addWidget(self.scroll_area)
+        content = QWidget()
+        self.scroll_area.setWidget(content)
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(0, 0, 8, 0)
+        layout.setSpacing(10)
+
         sub_header = QLabel("Personalize your workspace")
-        sub_header.setStyleSheet("color: #666; font-size: 11px; margin-top: -5px;")
+        sub_header.setObjectName("MutedText")
         layout.addWidget(sub_header)
 
         # Theme Type (Dark, Light, Custom)
@@ -328,29 +309,12 @@ class AppearanceDialog(QFrame):
         self.light_btn = QPushButton("Light")
         self.custom_btn = QPushButton("Custom")
         
-        _mode_style = """
-            QPushButton {
-                background-color: #1a1a1f;
-                border: 1px solid #333;
-                border-radius: 8px;
-                color: white;
-                font-weight: bold;
-            }
-            QPushButton:checked {
-                background-color: #252535;
-                border: 2px solid #4158D0;
-                color: #7b9ef4;
-            }
-            QPushButton:hover {
-                border-color: #555;
-            }
-        """
         for i, btn in enumerate([self.dark_btn, self.light_btn, self.custom_btn]):
+            btn.setObjectName("AppearanceMode")
             btn.setCheckable(True)
             btn.setFixedHeight(45)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             self.mode_group.addButton(btn, i)
-            btn.setStyleSheet(_mode_style)
             type_layout.addWidget(btn)
 
         # Wire up mode buttons
@@ -364,7 +328,7 @@ class AppearanceDialog(QFrame):
 
         # Presets Section
         presets_label = QLabel("PRESETS")
-        presets_label.setStyleSheet("color: #888; font-weight: bold; margin-top: 15px; font-size: 11px;")
+        presets_label.setObjectName("SectionTitle")
         layout.addWidget(presets_label)
 
         presets_grid = QGridLayout()
@@ -379,8 +343,8 @@ class AppearanceDialog(QFrame):
         layout.addLayout(presets_grid)
 
         # Background Slider
-        bg_label = QLabel("BACKGROUND")
-        bg_label.setStyleSheet("color: #888; font-weight: bold; margin-top: 15px; font-size: 11px;")
+        bg_label = QLabel("BACKGROUND BRIGHTNESS")
+        bg_label.setObjectName("SectionTitle")
         layout.addWidget(bg_label)
 
         self.bg_slider = QSlider(Qt.Orientation.Horizontal)
@@ -393,35 +357,36 @@ class AppearanceDialog(QFrame):
         self.bg_slider.sliderReleased.connect(self.on_bg_adjustment)
         layout.addWidget(self.bg_slider)
 
-        # Custom accent color row — hidden unless Custom mode is active
+        # Custom workspace colours are independent of the accent.
         self._custom_section = QWidget()
         cs_layout = QVBoxLayout(self._custom_section)
         cs_layout.setContentsMargins(0, 0, 0, 0)
         cs_layout.setSpacing(6)
 
-        cs_label = QLabel("CUSTOM ACCENT COLOUR")
-        cs_label.setStyleSheet("color: #888; font-weight: bold; margin-top: 15px; font-size: 11px;")
+        cs_label = QLabel("CUSTOM COLOURS")
+        cs_label.setObjectName("SectionTitle")
         cs_layout.addWidget(cs_label)
 
-        cs_row = QHBoxLayout()
-        self._custom_preview = QFrame()
-        self._custom_preview.setFixedSize(36, 36)
-        self._custom_preview.setStyleSheet(
-            f"background-color: {self.tm.custom_colors.get('primary', '#4158D0')}; "
-            "border-radius: 6px; border: 1px solid #444;"
-        )
-        cs_row.addWidget(self._custom_preview)
-
-        self._pick_color_btn = QPushButton("Pick Accent Colour…")
-        self._pick_color_btn.setFixedHeight(36)
-        self._pick_color_btn.setStyleSheet(
-            "QPushButton { background-color: #1e1e24; border: 1px solid #444; border-radius: 6px; color: #ccc; padding: 0 12px; }"
-            "QPushButton:hover { background-color: #28282e; }"
-        )
-        self._pick_color_btn.clicked.connect(self._pick_custom_accent)
-        cs_row.addWidget(self._pick_color_btn)
-        cs_row.addStretch()
-        cs_layout.addLayout(cs_row)
+        help_label = QLabel("Choose the workspace background, card backgrounds and text separately.")
+        help_label.setObjectName("MutedText")
+        help_label.setWordWrap(True)
+        cs_layout.addWidget(help_label)
+        for key, label in (
+            ("primary", "Accent colour"),
+            ("background", "Workspace background"),
+            ("surface", "Card background"),
+            ("text", "Text colour"),
+        ):
+            row = QHBoxLayout()
+            preview = QFrame()
+            preview.setFixedSize(28, 28)
+            self._color_previews[key] = preview
+            row.addWidget(preview)
+            button = QPushButton(f"{label}…")
+            button.setAccessibleName(label)
+            button.clicked.connect(lambda _, k=key, title=label: self._pick_custom_color(k, title))
+            row.addWidget(button, 1)
+            cs_layout.addLayout(row)
 
         layout.addWidget(self._custom_section)
         self._custom_section.setVisible(self.tm.current_theme == "Custom")
@@ -460,41 +425,33 @@ class AppearanceDialog(QFrame):
         self.update_preset_buttons()
 
     def _apply_custom_mode(self):
-        """Switch to Custom mode — show accent colour picker."""
+        """Keep the chosen palette as the starting point for custom colours."""
         # Seed custom_colors from the current theme if not already set
         if not self.tm.custom_colors:
-            base = ThemeManager.DEFAULT_THEMES.get(self.tm.current_theme,
-                    ThemeManager.DEFAULT_THEMES["Midnight Ind"])
-            self.tm.custom_colors = dict(base)
+            self.tm.custom_colors = self.tm.get_theme_colors()
         self.tm.set_theme("Custom")
         self._custom_section.setVisible(True)
-        accent = self.tm.custom_colors.get("primary", "#4158D0")
-        self._custom_preview.setStyleSheet(
-            f"background-color: {accent}; border-radius: 6px; border: 1px solid #444;"
-        )
         self.theme_changed.emit()
         self.update_style()
         self.update_preset_buttons()
+        self.scroll_area.widget().layout().activate()
+        self.scroll_area.ensureWidgetVisible(self._custom_section)
 
-    def _pick_custom_accent(self):
-        """Open a colour dialog and apply the chosen accent colour to the custom theme."""
+    def _pick_custom_color(self, key, title):
+        """Apply one colour without replacing the rest of the custom palette."""
         from PyQt6.QtWidgets import QColorDialog
-        from PyQt6.QtGui import QColor
-        current = self.tm.custom_colors.get("primary", "#4158D0")
-        color = QColorDialog.getColor(QColor(current), self, "Choose Accent Colour")
+        current = self.tm.get_theme_colors()
+        color = QColorDialog.getColor(QColor(current[key]), self, f"Choose {title}")
         if not color.isValid():
             return
         hex_color = color.name()
-        if not self.tm.custom_colors:
-            base = ThemeManager.DEFAULT_THEMES.get("Midnight Ind")
-            self.tm.custom_colors = dict(base)
-        self.tm.custom_colors["primary"] = hex_color
-        self.tm.custom_colors["accent"]  = hex_color
+        if self.tm.current_theme != "Custom":
+            self.tm.custom_colors = current
+        self.tm.custom_colors[key] = hex_color
+        if key == "primary":
+            self.tm.custom_colors["accent"] = hex_color
         self.tm.current_theme = "Custom"
         self.tm.save_settings()
-        self._custom_preview.setStyleSheet(
-            f"background-color: {hex_color}; border-radius: 6px; border: 1px solid #444;"
-        )
         self.theme_changed.emit()
         self.update_style()
         self.update_preset_buttons()
@@ -541,7 +498,7 @@ class AppearanceDialog(QFrame):
         h_layout.addWidget(sq_container)
         
         name_label = QLabel(name)
-        name_label.setStyleSheet("color: white; font-weight: bold; background: transparent;")
+        name_label.setStyleSheet(f"color: {colors['text']}; font-weight: bold; background: transparent;")
         h_layout.addWidget(name_label)
         h_layout.addStretch()
         

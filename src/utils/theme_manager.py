@@ -8,9 +8,9 @@ class ThemeManager:
         "Ghost Mint": {
             "primary": "#78e6c4",
             "secondary": "#93b8f5",
-            "background": "#0d1513",
-            "surface": "#141f1b",
-            "text": "#e9f2ed",
+            "background": "#12151b",
+            "surface": "#1b2028",
+            "text": "#e9edf4",
             "accent": "#9befd3"
         },
         "Midnight Ind": {
@@ -127,14 +127,18 @@ class ThemeManager:
         def adjust(value):
             return QColor(value).lighter(max(1, round(factor * 100))).name()
 
+        def blend(first, second, weight):
+            first, second = QColor(first), QColor(second)
+            return QColor(*(round(a * (1 - weight) + b * weight)
+                            for a, b in zip(first.getRgb()[:3], second.getRgb()[:3]))).name()
+
         background = adjust(colors["background"])
         surface = adjust(colors["surface"])
-        light = QColor(background).lightness() > 127
-        muted = "#60736a" if light else "#91a49b"
-        border = "#d5dfd9" if light else "#2a3a33"
-        hover = "#e5eee8" if light else "#20332a"
-        sidebar = "#f2f6f3" if light else "#101a15"
-        primary_ink = "#0b2016" if QColor(colors["primary"]).lightness() > 140 else "#ffffff"
+        muted = blend(colors["text"], background, 0.38)
+        border = blend(surface, colors["text"], 0.15)
+        hover = blend(surface, colors["text"], 0.08)
+        sidebar = blend(background, surface, 0.25)
+        primary_ink = "#11151b" if QColor(colors["primary"]).lightness() > 140 else "#ffffff"
         accent = colors["primary"]
         text = colors["text"]
 
@@ -147,6 +151,9 @@ class ThemeManager:
                 font-family: 'Segoe UI'; font-size: 12px;
             }}
             QWidget#RightPanel {{ background: {background}; }}
+            QFrame#AppearanceOverlay {{
+                background: {surface}; border: 1px solid {border}; border-radius: 12px;
+            }}
             QFrame#Sidebar {{
                 background: {sidebar}; border: none; border-right: 1px solid {border};
             }}
@@ -184,6 +191,9 @@ class ThemeManager:
                 background: {accent}; color: {primary_ink}; border-color: {accent}; font-weight: 600;
             }}
             QPushButton#PrimaryBtn:hover {{ background: {colors['accent']}; }}
+            QPushButton#AppearanceMode:checked {{
+                background: {hover}; border: 2px solid {accent}; color: {text};
+            }}
             QPushButton#NavButton {{
                 background: transparent; border: 1px solid transparent;
                 border-radius: 7px; padding: 0; min-height: 37px; max-height: 37px;
@@ -241,6 +251,12 @@ class ThemeManager:
             QTabBar::tab:selected {{ color: {text}; border-bottom: 2px solid {accent}; }}
             QProgressBar {{ background: {hover}; border: none; border-radius: 3px; text-align: center; }}
             QProgressBar::chunk {{ background: {accent}; border-radius: 3px; }}
+            QSlider::groove:horizontal {{
+                background: {border}; height: 4px; border-radius: 2px;
+            }}
+            QSlider::handle:horizontal {{
+                background: {accent}; width: 16px; margin: -6px 0; border-radius: 8px;
+            }}
             QScrollBar:vertical {{ background: transparent; width: 7px; margin: 0; }}
             QScrollBar:horizontal {{ background: transparent; height: 7px; margin: 0; }}
             QScrollBar::handle:vertical {{ background: {border}; min-height: 24px; border-radius: 3px; }}
