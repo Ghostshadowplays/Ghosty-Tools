@@ -56,6 +56,12 @@ They need no release secrets. New commits cancel older runs for the same PR or
 branch. The monthly workflow also requires both checks to pass on its source
 commit before opening a release PR.
 
+The monthly release waits up to 40 minutes for all five required push workflows
+on its checked-out main commit. It polls every 30 seconds, including while a
+workflow is queued, running or not yet listed by GitHub. Completed failures,
+cancellations, skipped runs and results for a different commit stop the
+release. A timeout lists the workflows that have not finished successfully.
+
 ## Manual builds and recovery
 
 - To test the current code, run **Build and Release EXE** on `main` with

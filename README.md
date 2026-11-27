@@ -13,6 +13,15 @@ Official Website: [ghostyware.com](https://ghostyware.com)
 
 Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows, Linux, and macOS environments. Built with a focus on **Security First**, it combines system maintenance, security auditing, and professional-grade password management into a single, sleek interface.
 
+## 🆕 What's New in v8.0.5
+
+- 📅 **Monthly release preparation:** Scheduled version-bump pull requests with SSH-signed commits and checks for CI, security audits, and CodeQL.
+- 🚀 **Release publishing:** Added workflows to create release tags and publish GitHub Releases after a release pull request is merged.
+- 📦 **Package verification:** Added SHA256 checksum generation for Windows EXE and Linux DEB packages, plus a software bill of materials (SBOM), to the release pipeline.
+- 🔄 **Maintenance updates:** Daily dependency checks, GitHub Actions dependency updates, and expanded security audit workflows.
+
+[Full v8.0.5 changelog](https://github.com/Ghostshadowplays/Ghosty-Tools/compare/v8.0.4...v8.0.5)
+
 ## 🆕 What's New in v8.0.4
 
 - 🐛 **Driver list fixed:** System report driver list no longer shows garbled/corrupted characters — switched from `driverquery` (OEM encoding) to `Get-CimInstance Win32_PnPSignedDriver` via PowerShell for clean Unicode output.
@@ -82,7 +91,7 @@ Ghosty Tools is a high-performance, modular utility designed to secure and optim
 - **Minimize Behaviour:** By default, minimising keeps the window in the taskbar and Task View. Tray-on-minimize is optional in Settings.
 
 ## 🌍 Cross-Platform Support
-Ghosty Tools v8.0.4 is fully optimised for **Windows**, **Linux**, and **macOS**.
+Ghosty Tools supports **Windows**, **Linux**, and **macOS**.
 - **Windows:** Deep system tweaks, Winget integration, registry startup manager, and PowerShell-based maintenance.
 - **Linux:** UFW firewall management, package manager detection (apt/dnf/pacman/zypper), autostart `.desktop` management, and native log viewing.
 - **macOS:** Homebrew integration, app residue cleaning, and native maintenance scripts.

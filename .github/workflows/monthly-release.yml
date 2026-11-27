@@ -67,51 +67,14 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Verify required workflows passed
+      - name: Wait for required workflows to pass
         if: steps.changes.outputs.changed == 'true'
+        timeout-minutes: 45
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         shell: bash
         run: |
-          main_sha=$(git rev-parse origin/main)
-
-          check_workflow() {
-            local workflow="$1"
-            local result
-
-            result=$(gh run list \
-              --workflow="$workflow" \
-              --branch main \
-              --commit "$main_sha" \
-              --event push \
-              --limit 1 \
-              --json conclusion,status,headSha \
-              --jq '.[0] // empty')
-
-            if [ -z "$result" ]; then
-              echo "::error::No run found for $workflow."
-              exit 1
-            fi
-
-            conclusion=$(echo "$result" | jq -r '.conclusion // "missing"')
-            status=$(echo "$result" | jq -r '.status // "missing"')
-            head_sha=$(echo "$result" | jq -r '.headSha // "missing"')
-
-            echo "$workflow: $status / $conclusion / $head_sha"
-
-            if [ "$status" != "completed" ] ||
-               [ "$conclusion" != "success" ] ||
-               [ "$head_sha" != "$main_sha" ]; then
-              echo "::error::$workflow has not successfully passed on the current main commit."
-              exit 1
-            fi
-          }
-
-          check_workflow "security-audit.yml"
-          check_workflow "python-app.yml"
-          check_workflow "codeql.yml"
-          check_workflow "workflow-validation.yml"
-          check_workflow "pr-build.yml"
+          bash .github/scripts/wait-for-release-checks.sh
 
       - name: Calculate version bump
         if: steps.changes.outputs.changed == 'true'
