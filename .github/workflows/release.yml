@@ -12,7 +12,7 @@ jobs:
   build-windows:
     name: Build Windows EXE
     runs-on: windows-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -20,7 +20,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
@@ -30,7 +30,6 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          # Build main app
           pyinstaller ghosty_tools.spec --clean --noconfirm
           mv dist/GhostyTools.exe dist/GhostyTools-Windows-x64.exe
 
@@ -40,18 +39,18 @@ jobs:
           [System.IO.File]::WriteAllBytes(
             "$env:RUNNER_TEMP\ghostshadow.pfx",
             [System.Convert]::FromBase64String("${{ secrets.CERT_PFX }}")
-            )
+          )
 
       - name: Locate SignTool
         shell: powershell
         run: |
           $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits" -Recurse -Filter signtool.exe |
             Select-Object -First 1 -ExpandProperty FullName
-      
+
           if (-not $signtool) {
             throw "signtool.exe not found"
           }
-      
+
           Write-Host "Found SignTool: $signtool"
           echo "SIGNTOOL_PATH=$signtool" >> $env:GITHUB_ENV
 
@@ -69,29 +68,46 @@ jobs:
       - name: Verify Signature
         shell: powershell
         run: |
-          Get-AuthenticodeSignature `
-            dist\GhostyTools-Windows-x64.exe | Format-List
-            
+          $sig = Get-AuthenticodeSignature dist\GhostyTools-Windows-x64.exe
+
+          $sig | Format-List
+
+          if ($sig.Status -ne "Valid") {
+            throw "Code signing validation failed"
+          }
+
+          Write-Host "Signature valid"
+
+      - name: Generate SHA256
+        shell: powershell
+        run: |
+          $hash = Get-FileHash dist\GhostyTools-Windows-x64.exe -Algorithm SHA256
+          "$($hash.Hash)  GhostyTools-Windows-x64.exe" |
+            Out-File dist\GhostyTools-Windows-x64.exe.sha256 -Encoding ascii
+
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v3
         if: github.event_name == 'release'
         with:
           files: |
             dist/GhostyTools-Windows-x64.exe
+            dist/GhostyTools-Windows-x64.exe.sha256
           tag_name: ${{ github.event.release.tag_name }}
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-macos:
     name: Build macOS (${{ matrix.arch }})
     runs-on: macos-latest
+
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: arm64
             python-arch: arm64
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -99,7 +115,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: "3.12"
           architecture: ${{ matrix.python-arch }}
 
       - name: Install dependencies
@@ -112,8 +128,6 @@ jobs:
         run: |
           pyinstaller ghosty_tools.spec --clean --noconfirm
           mv dist/GhostyTools dist/GhostyTools-macOS-${{ matrix.arch }}
-        env:
-          TARGET_ARCH: ${{ matrix.arch }}
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v3
@@ -121,13 +135,17 @@ jobs:
         with:
           files: dist/GhostyTools-macOS-${{ matrix.arch }}
           tag_name: ${{ github.event.release.tag_name }}
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-linux:
     name: Build Linux DEB Package
     runs-on: ubuntu-latest
-    
+
+    env:
+      VERSION: ${{ github.event.release.tag_name }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -135,7 +153,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
@@ -154,16 +172,19 @@ jobs:
         run: |
           mkdir -p ghostytools_amd64/DEBIAN
           mkdir -p ghostytools_amd64/usr/bin
+
           cp dist/GhostyTools-Linux-x64 ghostytools_amd64/usr/bin/ghostytools
           chmod +x ghostytools_amd64/usr/bin/ghostytools
 
+          VERSION_NUMBER=$(echo "$VERSION" | sed 's/^v//')
+
           cat <<EOF > ghostytools_amd64/DEBIAN/control
           Package: ghostytools
-          Version: 7.3.1
+          Version: ${VERSION_NUMBER}
           Section: utils
           Priority: optional
           Architecture: amd64
-          Maintainer: Ghostshadow <ghosty@Ghostyware.com>
+          Maintainer: Ghostshadow <ghosty@ghostyware.com>
           Description: Professional All-in-One Cross-Platform Optimization & Security Suite
            Ghosty Tools is a high-performance, modular utility designed to secure and optimize Linux environments.
           EOF
@@ -173,11 +194,59 @@ jobs:
           dpkg-deb --build ghostytools_amd64
           mv ghostytools_amd64.deb GhostyTools-Linux-x64.deb
 
-      - name: Upload Release Asset
+      - name: Generate Linux SHA256
+        run: |
+          sha256sum GhostyTools-Linux-x64.deb > GhostyTools-Linux-x64.deb.sha256
+
+      - name: Upload Release Assets
         uses: softprops/action-gh-release@v3
         if: github.event_name == 'release'
         with:
-          files: GhostyTools-Linux-x64.deb
+          files: |
+            GhostyTools-Linux-x64.deb
+            GhostyTools-Linux-x64.deb.sha256
           tag_name: ${{ github.event.release.tag_name }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: ghostytools-sbom.spdx.json
+
+      - name: Generate SBOM SHA256
+        run: |
+          sha256sum ghostytools-sbom.spdx.json > ghostytools-sbom.spdx.json.sha256
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v3
+        if: github.event_name == 'release'
+        with:
+          files: |
+            ghostytools-sbom.spdx.json
+            ghostytools-sbom.spdx.json.sha256
+          tag_name: ${{ github.event.release.tag_name }}
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
