@@ -1,0 +1,66 @@
+
+name: Publish Release
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/')
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Get release version
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' config/version.json)
+
+          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid version: $VERSION"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check existing tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git fetch --tags
+
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "::error::Release tag $VERSION already exists."
+            exit 1
+          fi
+
+      - name: Create release tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git tag "$VERSION"
+          git push origin "$VERSION"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
