@@ -10,15 +10,17 @@ on:
     branches: ["**"]
   workflow_dispatch:
   schedule:
-    - cron: "0 3 * * 1"  # Weekly, Mondays 03:00 UTC
+    - cron: "0 3 * * 1" # Weekly, Mondays 03:00 UTC
 
 permissions:
   contents: read
+  security-events: write
 
 jobs:
   audit:
-    name: Audit (Bandit + pip-audit) • py${{ matrix.python-version }} • ubuntu
+    name: Audit (Bandit + Trivy + Gitleaks + pip-audit) • py${{ matrix.python-version }} • ubuntu
     runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       matrix:
@@ -41,30 +43,34 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install bandit
+          pip install bandit pip-audit
 
       - name: Quick compile check (syntax only)
         run: |
           python - <<'PY'
           import pathlib, py_compile
+
           for p in pathlib.Path('.').rglob('*.py'):
               if '.venv' in p.parts or p.parts[0] == '.github':
                   continue
               py_compile.compile(str(p), doraise=True)
+
           print('py_compile OK')
           PY
 
-
-
-
-      - name: Bandit (fail on High severity, high confidence)
+      - name: Bandit (fail on High severity)
         run: |
           set -e
-          bandit -q -r src main.py "Ghosty Tools.py" -lll -o bandit-report.txt --format txt || true
+          bandit -q -r . \
+            -x .venv,.github \
+            -lll \
+            -o bandit-report.txt \
+            --format txt || true
+
           if grep -E "Severity:\s*HIGH" bandit-report.txt >/dev/null 2>&1; then
             echo "High severity Bandit findings detected" >&2
             cat bandit-report.txt
@@ -77,10 +83,20 @@ jobs:
           name: bandit-report-py${{ matrix.python-version }}
           path: bandit-report.txt
 
-      - name: Install pip-audit
-        run: |
-          python -m pip install --upgrade pip
-          pip install pip-audit
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: 1
+          ignore-unfixed: true
 
       - name: Dependency audit (pip-audit)
         run: |
@@ -89,6 +105,7 @@ jobs:
   windows-smoke:
     name: Windows smoke (install + compile) • py3.14
     runs-on: windows-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -106,7 +123,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install deps (no GUI needed)
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -116,8 +133,10 @@ jobs:
         run: |
           python - <<'PY'
           import importlib
+
           for mod in ("PyQt6", "psutil", "cryptography", "speedtest"):
               importlib.import_module(mod)
+
           print("Imports OK")
           PY
 
@@ -126,9 +145,11 @@ jobs:
         run: |
           python - <<'PY'
           import pathlib, py_compile
+
           for p in pathlib.Path('.').rglob('*.py'):
               if '.venv' in p.parts or p.parts[0] == '.github':
                   continue
               py_compile.compile(str(p), doraise=True)
+
           print('py_compile OK (Windows)')
           PY
