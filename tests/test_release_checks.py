@@ -20,6 +20,11 @@ else:
 GH_FIXTURE = r"""#!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >> "$FIXTURE_CALLS"
+if [ "$1" = api ]; then
+  if [ "$MODE" = api_error ]; then exit 3; fi
+  printf '%s\t%s\n' "$AUTO_MERGE" "$SQUASH_MERGE"
+  exit 0
+fi
 workflow=$(printf '%s' "$3" | cut -d= -f2-)
 state="$FIXTURE_STATE/$workflow"
 count=0
@@ -59,11 +64,12 @@ class GateResult:
     stderr: str
     calls: list[str]
     sleeps: list[str]
+    summary: str
 
 
 @unittest.skipUnless(BASH, "Bash is required to exercise the GitHub release gate")
 class ReleaseGateTests(unittest.TestCase):
-    def run_gate(self, mode="success", **overrides) -> GateResult:
+    def run_gate(self, mode="success", script_name="wait-for-release-checks.sh", **overrides) -> GateResult:
         shell = BASH
         if shell is None:
             raise unittest.SkipTest("Bash is required")
@@ -75,8 +81,10 @@ class ReleaseGateTests(unittest.TestCase):
             state.mkdir()
             calls = folder / "gh-calls"
             sleeps = folder / "sleeps"
+            summary = folder / "summary"
             calls.touch()
             sleeps.touch()
+            summary.touch()
             scripts = {
                 "gh": GH_FIXTURE,
                 "git": "#!/usr/bin/env bash\nprintf 'fixture-sha\\n'\n",
@@ -95,6 +103,11 @@ class ReleaseGateTests(unittest.TestCase):
                 "MODE": mode,
                 "FIRST_STATUS": "in_progress",
                 "RESULT_CONCLUSION": "failure",
+                "AUTO_MERGE": "true",
+                "SQUASH_MERGE": "true",
+                "GITHUB_REPOSITORY": "Ghostshadowplays/Ghosty-Tools",
+                "GITHUB_SERVER_URL": "https://github.com",
+                "GITHUB_STEP_SUMMARY": summary.as_posix(),
                 "FIXTURE_STATE": state.as_posix(),
                 "FIXTURE_CALLS": calls.as_posix(),
                 "FIXTURE_SLEEPS": sleeps.as_posix(),
@@ -104,13 +117,14 @@ class ReleaseGateTests(unittest.TestCase):
             result = subprocess.run(
                 [shell, "--noprofile", "--norc", "-c",
                  'export PATH="$1:$PATH"; exec bash "$2"', "release-gate-test",
-                 command_path, (ROOT / ".github/scripts/wait-for-release-checks.sh").as_posix()],
+                 command_path, (ROOT / ".github/scripts" / script_name).as_posix()],
                 cwd=ROOT, env=environment, capture_output=True, text=True, timeout=20,
             )
             return GateResult(
                 result.returncode, result.stdout, result.stderr,
                 calls.read_text(encoding="utf-8").splitlines(),
                 sleeps.read_text(encoding="utf-8").splitlines(),
+                summary.read_text(encoding="utf-8"),
             )
 
     def assert_passed(self, result: GateResult):
@@ -193,3 +207,37 @@ class ReleaseGateTests(unittest.TestCase):
         self.assert_passed(result)
         self.assertIn("Waiting up to 40 seconds", result.stdout)
         self.assertEqual(result.sleeps, ["8"])
+
+    def test_release_settings_allow_enabled_auto_and_squash_merge(self):
+        result = self.run_gate(script_name="check-release-settings.sh")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(len(result.calls), 1)
+        self.assertTrue(result.calls[0].startswith("api repos/Ghostshadowplays/Ghosty-Tools "))
+        self.assertEqual(result.sleeps, [])
+
+    def test_disabled_auto_merge_gives_settings_link_and_recovery_steps(self):
+        result = self.run_gate(script_name="check-release-settings.sh", AUTO_MERGE="false")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Enable 'Allow auto-merge'", result.stdout)
+        self.assertIn("https://github.com/Ghostshadowplays/Ghosty-Tools/settings", result.summary)
+        self.assertIn("existing open release PR will be reused", result.summary)
+        self.assertEqual(len(result.calls), 1)
+
+    def test_disabled_squash_merge_is_reported(self):
+        result = self.run_gate(script_name="check-release-settings.sh", SQUASH_MERGE="false")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Enable 'Allow squash merging'", result.stdout)
+
+    def test_both_disabled_merge_settings_are_reported(self):
+        result = self.run_gate(
+            script_name="check-release-settings.sh", AUTO_MERGE="false", SQUASH_MERGE="false",
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Enable 'Allow auto-merge'", result.stdout)
+        self.assertIn("Enable 'Allow squash merging'", result.stdout)
+
+    def test_settings_api_failure_is_actionable(self):
+        result = self.run_gate("api_error", script_name="check-release-settings.sh")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Could not read release settings", result.stdout)
+        self.assertIn("GH_PAT repository access", result.stdout)
