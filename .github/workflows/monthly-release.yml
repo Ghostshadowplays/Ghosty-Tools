@@ -72,6 +72,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         shell: bash
         run: |
+          main_sha=$(git rev-parse origin/main)
+
           check_workflow() {
             local workflow="$1"
             local result
@@ -80,13 +82,24 @@ jobs:
               --workflow="$workflow" \
               --branch main \
               --limit 1 \
-              --json conclusion \
-              --jq '.[0].conclusion // "missing"')
+              --json conclusion,status,headSha \
+              --jq '.[0] // empty')
 
-            echo "$workflow: $result"
+            if [ -z "$result" ]; then
+              echo "::error::No run found for $workflow."
+              exit 1
+            fi
 
-            if [ "$result" != "success" ]; then
-              echo "::error::$workflow has not passed."
+            conclusion=$(echo "$result" | jq -r '.conclusion // "missing"')
+            status=$(echo "$result" | jq -r '.status // "missing"')
+            head_sha=$(echo "$result" | jq -r '.headSha // "missing"')
+
+            echo "$workflow: $status / $conclusion / $head_sha"
+
+            if [ "$status" != "completed" ] ||
+               [ "$conclusion" != "success" ] ||
+               [ "$head_sha" != "$main_sha" ]; then
+              echo "::error::$workflow has not successfully passed on the current main commit."
               exit 1
             fi
           }
@@ -118,7 +131,6 @@ jobs:
           new_version="v${major}.${minor}.${patch}"
 
           echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
-
           echo "Next version: $new_version"
 
       - name: Check for existing release PR
@@ -155,32 +167,49 @@ jobs:
 
           sed -i "s/VERSION = \"v[^\"]*\"/VERSION = \"$VERSION\"/" main.py
 
-      - name: Configure GPG signing
+      - name: Configure SSH commit signing
         if: steps.changes.outputs.changed == 'true' && steps.existing.outputs.exists == 'false'
         env:
-          GPG_PRIVATE_KEY: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
-          GPG_KEY_ID: ${{ secrets.RELEASE_GPG_KEY_ID }}
+          SSH_PRIVATE_KEY: ${{ secrets.RELEASE_SSH_PRIVATE_KEY }}
           GIT_EMAIL: ${{ secrets.RELEASE_GIT_EMAIL }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        shell: bash
         run: |
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          set -euo pipefail
 
-          git config user.name "${{ github.repository_owner }}"
+          mkdir -p "$HOME/.ssh"
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/ghostyware_signing"
+          chmod 600 "$HOME/.ssh/ghostyware_signing"
+
+          # Derive the public key from the private key.
+          ssh-keygen -y -f "$HOME/.ssh/ghostyware_signing" > "$HOME/.ssh/ghostyware_signing.pub"
+
+          # Configure Git to sign commits using SSH.
+          git config user.name "$REPOSITORY_OWNER"
           git config user.email "$GIT_EMAIL"
-          git config user.signingkey "$GPG_KEY_ID"
+          git config gpg.format ssh
+          git config user.signingkey "$HOME/.ssh/ghostyware_signing"
           git config commit.gpgsign true
-          git config gpg.program gpg
+          git config gpg.ssh.allowedSignersFile "$HOME/.ssh/allowed_signers"
+
+          # Configure local verification of the SSH signature.
+          printf '%s %s\n' "$GIT_EMAIL" "$(cat "$HOME/.ssh/ghostyware_signing.pub")" > "$HOME/.ssh/allowed_signers"
 
       - name: Create signed release commit
         if: steps.changes.outputs.changed == 'true' && steps.existing.outputs.exists == 'false'
         env:
           VERSION: ${{ steps.version.outputs.new_version }}
+        shell: bash
         run: |
+          set -euo pipefail
+
           git add config/version.json
           git add src/core/update_manager.py
           git add main.py
 
           if git diff --cached --quiet; then
-            echo "No version changes detected."
+            echo "::error::No version changes detected."
             exit 1
           fi
 
@@ -215,8 +244,8 @@ jobs:
           - Updates application version constant
 
           ### Security
-          - Commit is GPG signed.
+          - Commit is SSH signed.
           - Security, CI and CodeQL were checked before PR creation.
-          - All required PR checks must pass before merging.
+          - Required PR checks must pass before merging.
 
           Please review and merge when ready."
