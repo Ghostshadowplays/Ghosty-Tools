@@ -13,21 +13,13 @@ Official Website: [ghostyware.com](https://ghostyware.com)
 
 Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows, Linux, and macOS environments. Built with a focus on **Security First**, it combines system maintenance, security auditing, and professional-grade password management into a single, sleek interface.
 
-## 🆕 What's New in v8.0.7
+<!-- whats-new:start -->
+## 🆕 What's New in v8.0.9
 
-- 📅 **Monthly release preparation:** Scheduled version-bump pull requests with SSH-signed commits and checks for CI, security audits, and CodeQL.
-- 🚀 **Release publishing:** Added workflows to create release tags and publish GitHub Releases after a release pull request is merged.
-- 📦 **Package verification:** Added SHA256 checksum generation for Windows EXE and Linux DEB packages, plus a software bill of materials (SBOM), to the release pipeline.
-- 🔄 **Maintenance updates:** Daily dependency checks, GitHub Actions dependency updates, and expanded security audit workflows.
+**Full Changelog**: https://github.com/Ghostshadowplays/Ghosty-Tools/compare/v8.0.8...v8.0.9
 
-[Full v8.0.5 changelog](https://github.com/Ghostshadowplays/Ghosty-Tools/compare/v8.0.4...v8.0.5)
-
-## 🆕 What's New in v8.0.4
-
-- 🐛 **Driver list fixed:** System report driver list no longer shows garbled/corrupted characters — switched from `driverquery` (OEM encoding) to `Get-CimInstance Win32_PnPSignedDriver` via PowerShell for clean Unicode output.
-- 🔧 **Full System Maintenance expanded:** Phase 1 now includes `DISM /ScanHealth` (corruption detection) and `DISM /StartComponentCleanup /ResetBase` (WinSxS component store cleanup) alongside the existing CheckHealth and RestoreHealth passes.
-- 📋 **Export Report auto-fill:** Clicking "Submit to GhostyWare Support" now automatically copies the full report to your clipboard before opening the intake form — paste it directly into the "Reported Issues" field.
-- 🎮 **Gaming Mode fully stops Windows Update:** Previously only changed the service startup type (effective on next boot). Now immediately stops `wuauserv`, `UsoSvc`, and `WaaSMedicSvc`, and sets the `NoAutoUpdate` registry policy — updates and restarts are properly suppressed while Gaming Mode is active. Revert restores all three services and clears the policy.
+[Release details](https://github.com/Ghostshadowplays/Ghosty-Tools/releases/tag/v8.0.9) · [Release history](CHANGELOG.md)
+<!-- whats-new:end -->
 
 ## ✨ Features
 
