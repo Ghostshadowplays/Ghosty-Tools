@@ -194,7 +194,10 @@ jobs:
           git config gpg.ssh.allowedSignersFile "$HOME/.ssh/allowed_signers"
 
           # Configure local verification of the SSH signature.
-          printf '%s %s\n' "$GIT_EMAIL" "$(cat "$HOME/.ssh/ghostyware_signing.pub")" > "$HOME/.ssh/allowed_signers"
+          printf '%s namespaces="git" %s\n' \
+            "$GIT_EMAIL" \
+            "$(cat "$HOME/.ssh/ghostyware_signing.pub")" \
+            > "$HOME/.ssh/allowed_signers"
 
       - name: Create signed release commit
         if: steps.changes.outputs.changed == 'true' && steps.existing.outputs.exists == 'false'
