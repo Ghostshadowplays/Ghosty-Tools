@@ -3,11 +3,12 @@ import logging
 import os
 import sys
 import json
-import subprocess
 import shutil
 from datetime import datetime
+from urllib.parse import quote
 from PyQt6.QtCore import QThread, pyqtSignal
 from src.utils.helpers import get_config_dir, get_resource_path, get_logs_dir
+from src.core.release_notes import notes_revision
 
 logger = logging.getLogger(__name__)
 
@@ -120,16 +121,27 @@ class UpdateManager:
         """Saves the current version as acknowledged."""
         try:
             with open(self.version_file, "w") as f:
-                json.dump({"last_version": self.current_version}, f)
+                json.dump({
+                    "last_version": self.current_version,
+                    "notes_revision": notes_revision(self.current_version),
+                }, f)
         except Exception as e:
             logger.error(f"Failed to save version file: {e}")
 
-    def get_release_info(self, version=None):
-        """Fetches info for a specific version or latest."""
+    def get_last_seen_notes_revision(self):
         try:
-            # For simplicity, we usually want the latest info if it matches current_version
+            with open(self.version_file, "r", encoding="utf-8") as stream:
+                return json.load(stream).get("notes_revision", "")
+        except (OSError, ValueError):
+            return ""
+
+    def get_release_info(self, version=None):
+        """Fetch release notes for the requested or installed version."""
+        try:
             headers = {'User-Agent': 'GhostyTools/1.0'}
-            response = requests.get(REPO_URL, timeout=10, headers=headers)
+            requested = version or self.current_version
+            url = REPO_URL.rsplit("/latest", 1)[0] + "/tags/" + quote(requested, safe="")
+            response = requests.get(url, timeout=10, headers=headers)
             response.raise_for_status()
             data = response.json()
             return data

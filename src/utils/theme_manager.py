@@ -3,7 +3,16 @@ import os
 from PyQt6.QtGui import QColor
 
 class ThemeManager:
+    DEFAULT_THEME = "Ghost Mint"
     DEFAULT_THEMES = {
+        "Ghost Mint": {
+            "primary": "#78e6c4",
+            "secondary": "#93b8f5",
+            "background": "#0d1513",
+            "surface": "#141f1b",
+            "text": "#e9f2ed",
+            "accent": "#9befd3"
+        },
         "Midnight Ind": {
             "primary": "#4158D0",
             "secondary": "#C850C0",
@@ -75,7 +84,7 @@ class ThemeManager:
 
     def __init__(self, config_path="config/theme.json"):
         self.config_path = config_path
-        self.current_theme = "Midnight Ind"
+        self.current_theme = self.DEFAULT_THEME
         self.bg_intensity = 50
         self.custom_colors = {}
         self.load_settings()
@@ -85,7 +94,7 @@ class ThemeManager:
             try:
                 with open(self.config_path, "r") as f:
                     data = json.load(f)
-                    self.current_theme = data.get("current_theme", "Midnight Ind")
+                    self.current_theme = data.get("current_theme", self.DEFAULT_THEME)
                     self.bg_intensity = data.get("bg_intensity", 50)
                     self.custom_colors = data.get("custom_colors", {})
             except:
@@ -101,9 +110,10 @@ class ThemeManager:
             }, f)
 
     def get_theme_colors(self):
+        colors = self.DEFAULT_THEMES.get(self.current_theme, self.DEFAULT_THEMES[self.DEFAULT_THEME]).copy()
         if self.current_theme == "Custom":
-            return self.custom_colors
-        return self.DEFAULT_THEMES.get(self.current_theme, self.DEFAULT_THEMES["Midnight Ind"])
+            colors.update(self.custom_colors)
+        return colors
 
     def set_theme(self, theme_name):
         if theme_name in self.DEFAULT_THEMES or theme_name == "Custom":
@@ -111,169 +121,132 @@ class ThemeManager:
             self.save_settings()
 
     def get_stylesheet(self):
-        colors = self.get_theme_colors().copy()
-        
-        # Adjust background and surface based on intensity
-        # Map 0-100 to a reasonable brightness range for dark themes
-        # 0 = very dark, 100 = lighter (but still dark)
-        bg = QColor(colors['background'])
-        surf = QColor(colors['surface'])
-        
-        # Simple brightness adjustment
-        factor = self.bg_intensity / 50.0
-        
-        def adjust(color, f):
-            c = QColor(color)
-            h, s, v, a = c.getHsv()
-            new_v = max(0, min(255, int(v * f)))
-            c.setHsv(h, s, new_v, a)
-            return c.name()
+        colors = self.get_theme_colors()
+        factor = max(0.15, self.bg_intensity / 50.0)
 
-        colors['background'] = adjust(colors['background'], factor)
-        colors['surface'] = adjust(colors['surface'], factor)
+        def adjust(value):
+            return QColor(value).lighter(max(1, round(factor * 100))).name()
+
+        background = adjust(colors["background"])
+        surface = adjust(colors["surface"])
+        light = QColor(background).lightness() > 127
+        muted = "#60736a" if light else "#91a49b"
+        border = "#d5dfd9" if light else "#2a3a33"
+        hover = "#e5eee8" if light else "#20332a"
+        sidebar = "#f2f6f3" if light else "#101a15"
+        primary_ink = "#0b2016" if QColor(colors["primary"]).lightness() > 140 else "#ffffff"
+        accent = colors["primary"]
+        text = colors["text"]
 
         return f"""
             QMainWindow, QDialog {{
-                background-color: {colors['background']};
-                color: {colors['text']};
+                background: {background}; color: {text};
             }}
             QWidget {{
-                background-color: transparent;
-                color: {colors['text']};
-                font-family: 'Segoe UI';
+                background: transparent; color: {text};
+                font-family: 'Segoe UI'; font-size: 12px;
             }}
-            QWidget#RightPanel {{
-                background-color: {colors['background']};
-            }}
+            QWidget#RightPanel {{ background: {background}; }}
             QFrame#Sidebar {{
-                background-color: {colors['background']};
-                border-right: 1px solid #222;
+                background: {sidebar}; border: none; border-right: 1px solid {border};
             }}
             QFrame#HeaderFrame {{
-                background-color: {colors['surface']};
-                border-bottom: 1px solid #333;
+                background: {background}; border: none; border-bottom: 1px solid {border};
+            }}
+            QLabel#BrandName {{ font-size: 21px; font-weight: 700; letter-spacing: 1px; }}
+            QLabel#BrandTagline, QLabel#SectionTitle, QLabel#NavSection {{
+                color: {muted}; font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
+            }}
+            QLabel#NavSection {{ padding: 18px 12px 5px 12px; }}
+            QLabel#MutedText {{ color: {muted}; font-size: 11px; }}
+            QLabel#PageTitle {{ font-size: 26px; font-weight: 600; }}
+            QLabel#Breadcrumb {{ color: {muted}; font-size: 11px; letter-spacing: 1px; }}
+            QLabel#WorkspaceTitle {{ font-size: 14px; font-weight: 600; }}
+            QLabel#HeroEyebrow {{ color: {accent}; font-size: 10px; font-weight: 600; letter-spacing: 2px; }}
+            QLabel#HeroTitle {{ font-size: 32px; font-weight: 600; }}
+            QLabel#MetricValue {{ font-size: 32px; font-weight: 600; }}
+            QFrame#DashboardHero {{
+                background: {surface}; border: 1px solid {border};
+                border-top: 2px solid {accent}; border-radius: 12px;
+            }}
+            QFrame#DashboardCard, QFrame#MonitorCard {{
+                background: {surface}; border: 1px solid {border}; border-radius: 10px;
             }}
             QPushButton {{
-                background-color: {colors['surface']};
-                border: 1px solid #333;
-                border-radius: 5px;
-                padding: 5px 15px;
-                color: {colors['text']};
+                background: {surface}; border: 1px solid {border}; border-radius: 7px;
+                padding: 8px 14px; color: {text}; min-height: 16px;
             }}
-            QPushButton:hover {{
-                background-color: #333;
-                border-color: {colors['primary']};
-            }}
+            QPushButton:hover {{ background: {hover}; border-color: {accent}; }}
+            QPushButton:pressed {{ background: {border}; }}
+            QPushButton:disabled {{ color: {muted}; }}
+            QPushButton:focus {{ border: 1px solid {accent}; }}
             QPushButton#PrimaryBtn {{
-                background-color: {colors['primary']};
-                border: none;
-                font-weight: bold;
-                color: white;
+                background: {accent}; color: {primary_ink}; border-color: {accent}; font-weight: 600;
             }}
-            QPushButton#PrimaryBtn:hover {{
-                background-color: {colors['accent']};
+            QPushButton#PrimaryBtn:hover {{ background: {colors['accent']}; }}
+            QPushButton#NavButton {{
+                background: transparent; border: 1px solid transparent;
+                border-radius: 7px; padding: 0; min-height: 37px; max-height: 37px;
             }}
-            QLabel {{
-                color: {colors['text']};
+            QPushButton#NavButton:hover {{ background: {hover}; }}
+            QPushButton#NavButton:checked {{ background: {hover}; border-left: 3px solid {accent}; }}
+            QPushButton#NavButton:focus {{ border: 1px solid {accent}; }}
+            QLabel#NavTitle {{ color: {muted}; font-size: 12px; }}
+            QLabel#NavChevron {{ color: {muted}; font-size: 16px; }}
+            QPushButton#NavButton:checked QLabel#NavTitle {{ color: {text}; font-weight: 600; }}
+            QPushButton#NavButton:checked QLabel#NavChevron {{ color: {accent}; }}
+            QLineEdit#ToolSearch {{
+                background: {surface}; border: 1px solid {border}; border-radius: 7px;
+                padding: 9px 10px; font-size: 11px;
             }}
+            QLineEdit#ToolSearch:focus {{ border-color: {accent}; }}
             QGroupBox {{
-                border: 1px solid #333;
-                border-radius: 8px;
-                margin-top: 15px;
-                background-color: {colors['surface']};
+                background: {surface}; border: 1px solid {border}; border-radius: 9px;
+                margin-top: 18px; padding: 12px;
             }}
             QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 3px 0 3px;
-                color: {colors['primary']};
-                font-weight: bold;
+                subcontrol-origin: margin; left: 14px; padding: 0 5px;
+                color: {muted}; font-size: 10px; font-weight: 600;
             }}
-            QScrollArea {{
-                border: none;
-                background-color: transparent;
+            QGroupBox#ActivityPane {{ margin: 0; border-radius: 0; border-width: 1px 0 0 0; }}
+            QGroupBox#ActivityPane::title {{ color: transparent; }}
+            QFrame#WorkspaceFooter {{ background: {surface}; border-top: 1px solid {border}; }}
+            QTextEdit#ActivityOutput {{
+                background: transparent; border: none; color: {text};
+                font-family: 'Consolas', 'Menlo', monospace; font-size: 11px;
             }}
-            QScrollArea > QWidget > QWidget {{
-                background-color: transparent;
+            QPushButton#LogToggle {{ background: transparent; border: none; text-align: left; padding: 4px 8px; }}
+            QPushButton#QuickAction {{ text-align: left; background: transparent; border-color: {border}; }}
+            QSplitter::handle {{ background: {border}; }}
+            QSplitter::handle:hover {{ background: {accent}; }}
+            QScrollArea, QScrollArea > QWidget > QWidget {{ border: none; background: transparent; }}
+            QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QSpinBox {{
+                background: {background}; border: 1px solid {border}; border-radius: 6px;
+                padding: 7px; color: {text}; selection-background-color: {accent};
             }}
-            QLineEdit, QTextEdit, QPlainTextEdit, QComboBox {{
-                background-color: #111;
-                border: 1px solid #333;
-                border-radius: 4px;
-                padding: 5px;
-                color: {colors['text']};
-                selection-background-color: {colors['primary']};
-            }}
+            QComboBox QAbstractItemView {{ background: {surface}; color: {text}; selection-background-color: {hover}; }}
             QTreeWidget, QListWidget {{
-                background-color: {colors['surface']};
-                border: 1px solid #333;
-                border-radius: 8px;
-                color: {colors['text']};
+                background: {surface}; border: 1px solid {border}; border-radius: 8px; color: {text};
             }}
-            QTreeWidget::item, QListWidget::item {{
-                padding: 8px;
-                border-bottom: 1px solid #222;
-            }}
+            QTreeWidget::item, QListWidget::item {{ padding: 8px; border-bottom: 1px solid {border}; }}
             QTreeWidget::item:selected, QListWidget::item:selected {{
-                background-color: {colors['primary']};
-                color: white;
+                background: {hover}; color: {text};
             }}
             QHeaderView::section {{
-                background-color: #1a1a1f;
-                color: #888;
-                padding: 5px;
-                border: none;
-                font-weight: bold;
+                background: {surface}; color: {muted}; padding: 8px;
+                border: none; border-bottom: 1px solid {border}; font-weight: 600;
             }}
-            QTabWidget::pane {{
-                border: 1px solid #333;
-                border-radius: 10px;
-                background-color: {colors['surface']};
-                top: -1px;
-            }}
-            QTabBar::tab {{
-                background: {colors['background']};
-                color: #888;
-                padding: 10px 20px;
-                border-top-left-radius: 8px;
-                border-top-right-radius: 8px;
-                margin-right: 5px;
-            }}
-            QTabBar::tab:selected {{
-                background: {colors['surface']};
-                color: white;
-                border-bottom: 2px solid {colors['primary']};
-            }}
-            QProgressBar {{
-                background-color: #2a2a2a;
-                border: none;
-                border-radius: 2px;
-                text-align: center;
-            }}
-            QProgressBar::chunk {{
-                background-color: {colors['primary']};
-                border-radius: 2px;
-            }}
-            QScrollBar:vertical {{
-                border: none;
-                background: {colors['background']};
-                width: 10px;
-                margin: 0px 0px 0px 0px;
-            }}
-            QScrollBar::handle:vertical {{
-                background: #333;
-                min-height: 20px;
-                border-radius: 5px;
-            }}
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
-                height: 0px;
-            }}
-            QFrame#DashboardCard {{
-                background-color: {colors['surface']};
-                border: 1px solid #333;
-                border-radius: 10px;
-            }}
-            QFrame#DashboardCard:hover {{
-                border-color: {colors['primary']};
-            }}
+            QTabWidget::pane {{ background: {surface}; border: 1px solid {border}; border-radius: 8px; }}
+            QTabBar::tab {{ background: transparent; color: {muted}; padding: 11px 16px; border-bottom: 2px solid transparent; }}
+            QTabBar::tab:selected {{ color: {text}; border-bottom: 2px solid {accent}; }}
+            QProgressBar {{ background: {hover}; border: none; border-radius: 3px; text-align: center; }}
+            QProgressBar::chunk {{ background: {accent}; border-radius: 3px; }}
+            QScrollBar:vertical {{ background: transparent; width: 7px; margin: 0; }}
+            QScrollBar:horizontal {{ background: transparent; height: 7px; margin: 0; }}
+            QScrollBar::handle:vertical {{ background: {border}; min-height: 24px; border-radius: 3px; }}
+            QScrollBar::handle:horizontal {{ background: {border}; min-width: 24px; border-radius: 3px; }}
+            QScrollBar::add-line, QScrollBar::sub-line {{ width: 0; height: 0; }}
+            QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
+            QFrame#NotificationBanner {{ background: {hover}; border-bottom: 1px solid {border}; }}
+            QToolTip {{ background: {surface}; color: {text}; border: 1px solid {border}; padding: 6px; }}
         """

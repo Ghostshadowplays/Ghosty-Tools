@@ -39,3 +39,7 @@ jobs:
         Get-ChildItem -Recurse -Filter *.py |
           Where-Object { $_.FullName -notmatch '\\.venv\\' -and $_.FullName -notmatch '\\.github\\' } |
           ForEach-Object { python -m py_compile $_.FullName }
+    - name: Check GUI and updater regressions
+      env:
+        QT_QPA_PLATFORM: offscreen
+      run: python -m unittest discover -s tests -p "test_*.py" -v

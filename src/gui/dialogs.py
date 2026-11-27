@@ -239,7 +239,7 @@ class AppearanceDialog(QFrame):
         super().__init__(parent)
         self.tm = theme_manager
         self.preset_buttons = {}
-        self.setFixedSize(400, 520) # Slightly smaller
+        self.setFixedSize(420, 610)
         self.setObjectName("AppearanceOverlay")
         self.hide()
         
@@ -260,7 +260,7 @@ class AppearanceDialog(QFrame):
                 border: 1px solid #333;
                 border-radius: 15px;
             }}
-            QLabel {{ color: white; background: transparent; }}
+            QLabel {{ color: {colors['text']}; background: transparent; }}
         """)
         if hasattr(self, 'bg_slider'):
             self.bg_slider.setStyleSheet(f"""

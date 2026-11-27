@@ -1,6 +1,5 @@
 import subprocess
 import logging
-import json
 import os
 import sys
 import re
@@ -711,82 +710,16 @@ class SpecsWorker(QThread):
                 specs = self._gather_macos_specs(run_command)
             else:
                 specs = self._gather_linux_specs(run_command)
+            from src.core.system_info import common_system_details
+            specs += common_system_details()
             self.finished.emit(specs)
         except Exception as e:
             logger.error(f"SpecsWorker error: {e}")
             self.finished.emit(f"Error gathering specs: {e}")
 
     def _gather_windows_specs(self, run_command):
-        # CPU
-        cpu_res = run_command(["wmic", "cpu", "get", "name"])
-        cpu_lines = [line.strip() for line in cpu_res.stdout.split('\n') if line.strip()]
-        cpu_info = cpu_lines[1] if len(cpu_lines) > 1 else "Unknown CPU"
-
-        # GPU
-        gpu_res = run_command(["wmic", "path", "win32_VideoController", "get", "Name,PNPDeviceID,AdapterRAM,DriverVersion", "/format:csv"])
-        lines = [l.strip() for l in gpu_res.stdout.split("\n") if l.strip()]
-        if len(lines) < 2:
-            gpu_info = "Unknown GPU"
-        else:
-            header = lines[0].split(",")
-            gpus = []
-            for line in lines[1:]:
-                parts = line.split(",")
-                row = dict(zip(header, parts))
-                name = row.get("Name", "").strip()
-                pnp = row.get("PNPDeviceID", "").strip()
-                vram = row.get("AdapterRAM", "").strip()
-                driver = row.get("DriverVersion", "").strip()
-                try:
-                    vram_gb = f"{int(vram) / (1024**3):.1f} GB"
-                except Exception:
-                    vram_gb = "Unknown VRAM"
-                gpu_type = "PCIe GPU" if "PCI\\" in pnp.upper() else "Integrated GPU"
-                gpus.append(f"{gpu_type}: {name} ({vram_gb}, Driver {driver})")
-            gpu_info = "<br>".join(gpus) if gpus else "Unknown GPU"
-
-        # Motherboard
-        mobo_res = run_command(["wmic", "baseboard", "get", "product,manufacturer"])
-        mobo_lines = [line.strip() for line in mobo_res.stdout.split('\n') if line.strip()]
-        mobo_info = mobo_lines[1] if len(mobo_lines) > 1 else "Unknown Motherboard"
-
-        # OS Info
-        try:
-            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion")
-            build_number = int(winreg.QueryValueEx(key, "CurrentBuild")[0])
-            product_name = winreg.QueryValueEx(key, "ProductName")[0]
-            try:
-                display_version = winreg.QueryValueEx(key, "DisplayVersion")[0]
-            except FileNotFoundError:
-                try:
-                    display_version = winreg.QueryValueEx(key, "ReleaseId")[0]
-                except FileNotFoundError:
-                    display_version = "Unknown"
-            os_name = "Windows 11" if build_number >= 22000 else "Windows 10"
-            winreg.CloseKey(key)
-        except Exception:
-            os_name = platform.system()
-            product_name = "Unknown Edition"
-            display_version = "Unknown"
-            build_number = 0
-
-        # Install Date
-        install_date = ""
-        try:
-            ps_cmd = ["powershell", "-NoProfile", "-Command", "(Get-CimInstance Win32_OperatingSystem).InstallDate.ToString('yyyy-MM-dd HH:mm')"]
-            ins = run_command(ps_cmd)
-            install_date = ins.stdout.strip()
-        except Exception:
-            install_date = ""
-
-        specs = f"<b>OS:</b> {os_name} (Build {build_number})<br>"
-        specs += f"<b>Edition:</b> {product_name} (Version {display_version})<br>"
-        if install_date:
-            specs += f"<b>Install Date:</b> {install_date}<br>"
-        specs += f"<b>CPU:</b> {cpu_info}<br>"
-        specs += f"<b>GPU:</b><br>{gpu_info}<br>"
-        specs += f"<b>Motherboard:</b> {mobo_info}<br>"
-        return specs
+        from src.core.system_info import windows_system_details
+        return windows_system_details(run_command)
 
     def _gather_linux_specs(self, run_command):
         # CPU

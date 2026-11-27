@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGr
                              QTreeWidgetItemIterator, QComboBox, QTextEdit, QLineEdit, QDialog, QFormLayout,
                              QApplication)
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot, QTimer, QSize
-from PyQt6.QtGui import QIcon, QFont, QColor, QTextCursor, QTextCharFormat
+from PyQt6.QtGui import QIcon, QFont, QColor, QTextCursor, QTextCharFormat, QKeySequence
 import psutil
 try:
     import winreg
@@ -59,7 +59,10 @@ from src.core.security_scanner import SecurityScanner
 from src.core.update_manager import UpdateManager, UpdateWorker
 from src.core.diagnostics import Diagnostics
 from src.gui.dialogs import MasterPasswordDialog, HostsEditorDialog, AppearanceDialog, UpdateDialog, TidyDesktopDialog, GameCompatibilityDialog
-from src.gui.dashboard import DashboardPage, DashboardCard, PageHeader, NavButton, NotificationBanner
+from src.gui.dashboard import DashboardPage, DashboardCard, PageHeader, NavButton, NotificationBanner, WorkspaceStack
+from src.gui.icons import tool_icon
+from src.core.release_notes import bundled_release_notes, notes_revision
+from src.core.update_handoff import launch_windows_update
 from src.utils.theme_manager import ThemeManager
 from src.utils.helpers import is_admin, elevate_privileges, get_config_dir, ensure_private_file, get_resource_path, get_logs_dir, get_os_info
 from PyQt6.QtWidgets import QSystemTrayIcon, QMenu
@@ -125,8 +128,14 @@ class GhostyTool(QMainWindow):
         super().__init__()
         self.project_root = get_resource_path("")
         from src.core.update_manager import CURRENT_VERSION
-        self.setWindowTitle(f"Ghosty Tool {CURRENT_VERSION} - Professional System Utility")
-        self.setGeometry(100, 100, 960, 600)
+        self.setWindowTitle(f"Ghosty Tools {CURRENT_VERSION} · Your system workspace")
+        self.setMinimumSize(960, 640)
+        screen = QApplication.primaryScreen()
+        available = screen.availableGeometry() if screen else None
+        self.resize(
+            min(1240, available.width() - 60) if available else 1240,
+            min(840, available.height() - 70) if available else 840,
+        )
 
         # Use PNG icon on Linux (better DE integration), ICO on Windows/macOS
         if sys.platform != 'win32':
@@ -135,6 +144,9 @@ class GhostyTool(QMainWindow):
             icon_path = png_path if os.path.exists(png_path) else ico_path
         else:
             icon_path = os.path.join(self.project_root, "images", "ghosty icon.ico")
+        logo_path = os.path.join(self.project_root, "images", "logo.png")
+        if os.path.isfile(logo_path):
+            icon_path = logo_path
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 
@@ -208,6 +220,7 @@ class GhostyTool(QMainWindow):
 
         QTimer.singleShot(1000, self.check_for_updates)
         QTimer.singleShot(2000, self.check_for_whats_new)
+        QTimer.singleShot(350, self.update_specs)
 
         # First-launch: prompt to create a desktop shortcut (Windows only)
         if sys.platform == 'win32' and not self._app_settings.get("shortcut_prompted", False):
@@ -278,6 +291,15 @@ class GhostyTool(QMainWindow):
 
     def apply_current_theme(self):
         self.setStyleSheet(self.theme_manager.get_stylesheet())
+        accent = self.theme_manager.get_theme_colors()["primary"]
+        for button in getattr(self, "nav_buttons", []):
+            button.set_accent(accent)
+        if hasattr(self, "brand_mark"):
+            logo_path = os.path.join(self.project_root, "images", "logo.png")
+            brand_icon = QIcon(logo_path) if os.path.isfile(logo_path) else tool_icon("ghost", accent, 48)
+            self.brand_mark.setPixmap(brand_icon.pixmap(48, 48))
+            self.appearance_btn.setIcon(tool_icon("Customization", accent, 18))
+            self.log_toggle.setIcon(tool_icon("Events", accent, 16))
         if hasattr(self, 'appearance_dialog'):
             self.appearance_dialog.update_style()
             self.appearance_dialog.update_preset_buttons()
@@ -313,242 +335,200 @@ class GhostyTool(QMainWindow):
         outer_layout = QHBoxLayout(central_widget)
         outer_layout.setContentsMargins(0, 0, 0, 0)
         outer_layout.setSpacing(0)
-
-        # Splitter lets the user drag the sidebar wider/narrower
-        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.main_splitter.setHandleWidth(4)
-        self.main_splitter.setStyleSheet(
-            "QSplitter::handle { background-color: #222; }"
-            "QSplitter::handle:hover { background-color: #4158D0; }"
-        )
-        outer_layout.addWidget(self.main_splitter)
-        # Keep a reference so existing code using self.main_layout still works
         self.main_layout = outer_layout
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.main_splitter.setHandleWidth(1)
+        self.main_splitter.setChildrenCollapsible(False)
+        outer_layout.addWidget(self.main_splitter)
 
-        # Sidebar
         self.sidebar = QFrame()
         self.sidebar.setObjectName("Sidebar")
-        self.sidebar.setMinimumWidth(180)
-        self.sidebar.setMaximumWidth(380)
+        self.sidebar.setMinimumWidth(210)
+        self.sidebar.setMaximumWidth(320)
         self.sidebar_outer_layout = QVBoxLayout(self.sidebar)
-        self.sidebar_outer_layout.setContentsMargins(0, 20, 0, 10)
-        self.sidebar_outer_layout.setSpacing(0)
+        self.sidebar_outer_layout.setContentsMargins(12, 24, 12, 14)
+        self.sidebar_outer_layout.setSpacing(10)
 
-        # Sidebar Header
-        header_container = QWidget()
-        header_layout = QVBoxLayout(header_container)
-        header_layout.setContentsMargins(20, 0, 20, 20)
-        
-        title_label = QLabel("Ghosty Tool")
-        title_label.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
-        title_label.setStyleSheet("color: white; background: transparent;")
-        header_layout.addWidget(title_label)
-        
-        subtitle_label = QLabel("System toolkit")
-        subtitle_label.setStyleSheet("color: #666; font-size: 12px; background: transparent;")
-        header_layout.addWidget(subtitle_label)
-        self.sidebar_outer_layout.addWidget(header_container)
+        brand = QHBoxLayout()
+        brand.setContentsMargins(10, 0, 0, 12)
+        brand.setSpacing(12)
+        self.brand_mark = QLabel()
+        self.brand_mark.setFixedSize(48, 48)
+        brand.addWidget(self.brand_mark)
+        wordmark = QVBoxLayout()
+        wordmark.setSpacing(2)
+        title_label = QLabel("GHOSTY")
+        title_label.setObjectName("BrandName")
+        wordmark.addWidget(title_label)
+        tagline = QLabel("YOUR SYSTEM TOOLS")
+        tagline.setObjectName("BrandTagline")
+        wordmark.addWidget(tagline)
+        brand.addLayout(wordmark)
+        brand.addStretch()
+        self.sidebar_outer_layout.addLayout(brand)
 
-        # Sidebar Scroll Area
+        self.tool_search = QLineEdit()
+        self.tool_search.setObjectName("ToolSearch")
+        self.tool_search.setPlaceholderText("Find a tool…    Ctrl+K")
+        self.tool_search.setClearButtonEnabled(True)
+        self.tool_search.setAccessibleName("Find a tool")
+        self.sidebar_outer_layout.addWidget(self.tool_search)
+        search_action = QAction(self)
+        search_action.setShortcut(QKeySequence("Ctrl+K"))
+        search_action.triggered.connect(self.tool_search.setFocus)
+        self.addAction(search_action)
+
         self.nav_scroll = QScrollArea()
         self.nav_scroll.setWidgetResizable(True)
+        self.nav_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.nav_scroll_content = QWidget()
         self.nav_scroll_layout = QVBoxLayout(self.nav_scroll_content)
-        self.nav_scroll_layout.setContentsMargins(10, 0, 10, 0)
-        self.nav_scroll_layout.setSpacing(5)
+        self.nav_scroll_layout.setContentsMargins(0, 0, 3, 10)
+        self.nav_scroll_layout.setSpacing(3)
         self.nav_scroll_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.nav_scroll.setWidget(self.nav_scroll_content)
-        self.sidebar_outer_layout.addWidget(self.nav_scroll)
-
+        self.sidebar_outer_layout.addWidget(self.nav_scroll, 1)
         self.nav_buttons = []
-        is_win = sys.platform == "win32"
-        
-        self.add_nav_button("Dashboard", 0, icon_text="\uE80F" if is_win else "🏠")
-        self.add_nav_button("System", 1, "Health · Windows · Repairs", icon_text="\uE770" if is_win else "⚙", count=9)
-        self.add_nav_button("Security", 2, "Security Assessment · Scan", icon_text="\uEADC" if is_win else "🛡", count=3)
-        self.add_nav_button("Network", 3, "Ping · Speed Test · DNS", icon_text="\uE774" if is_win else "🌐", count=5)
-        self.add_nav_button("Monitor", 4, "Process Manager · Resources", icon_text="\uE9D2" if is_win else "📊", count=6)
-        self.add_nav_button("Privacy", 5, "Privacy Audit · Browser", icon_text="\uE1F6" if is_win else "🔒", count=9)
-        self.add_nav_button("Debloat", 6, "Windows Apps · Telemetry", icon_text="\uE74D" if is_win else "🗑", count=4)
-        self.add_nav_button("Apps", 7, "Updates · Bulk Installer", icon_text="\uE71D" if is_win else "📦", count=3)
-        self.add_nav_button("Cleanup", 8, "Quick · Deep Cleanup", icon_text="\uEA99" if is_win else "🧹", count=4)
-        self.add_nav_button("Storage", 9, "Disk Tools · Advanced", icon_text="\uE8B7" if is_win else "💾", count=2)
-        self.add_nav_button("Hardware", 10, "Sensors · Specs · Health", icon_text="\uE950" if is_win else "💻", count=3)
-        self.add_nav_button("Events", 11, "Event Viewer · Logs", icon_text="\uE9D9" if is_win else "📋")
-        self.add_nav_button("Services", 12, "Service Manager", icon_text="\uE713" if is_win else "🛠")
-        self.add_nav_button("Automation", 13, "Custom Scripts", icon_text="\uE99A" if is_win else "🤖")
-        self.add_nav_button("Passwords", 14, "Vault · Generator", icon_text="\uE192" if is_win else "🔑", count=2)
-        self.add_nav_button("Customization", 15, "Context Menu · Dark Mode", icon_text="\uE771" if is_win else "🖌", count=4)
-        self.add_nav_button("Info", 16, "About · Updates · System", icon_text="\uE946" if is_win else "ⓘ", count=5)
-        self.add_nav_button("Settings", 17, "Preferences · Startup", icon_text="\uE713" if is_win else "⚙️")
-        self.add_nav_button("Gaming", 18, "Game Mode · Compatibility", icon_text="\uE7FC" if is_win else "🎮")
+        entries = [
+            ("Dashboard", "Overview · health · activity"),
+            ("System", "Health · Windows · repairs"),
+            ("Security", "Security assessment · scan"),
+            ("Network", "Ping · speed test · DNS"),
+            ("Monitor", "Process manager · resources"),
+            ("Privacy", "Privacy audit · browser"),
+            ("Debloat", "Windows apps · telemetry"),
+            ("Apps", "Updates · bulk installer"),
+            ("Cleanup", "Quick · deep cleanup"),
+            ("Storage", "Disk tools · advanced"),
+            ("Hardware", "Sensors · specifications · health"),
+            ("Events", "Event viewer · logs"),
+            ("Services", "Service manager"),
+            ("Automation", "Custom scripts · reports"),
+            ("Passwords", "Vault · generator"),
+            ("Customization", "Context menu · dark mode"),
+            ("Info", "About · updates · system"),
+            ("Settings", "Preferences · startup"),
+            ("Gaming", "Game mode · compatibility"),
+        ]
+        for index, (title, subtitle) in enumerate(entries):
+            self.add_nav_button(title, index, subtitle)
 
-        # Bottom section for theme toggle
-        bottom_container = QWidget()
-        bottom_layout = QVBoxLayout(bottom_container)
-        bottom_layout.setContentsMargins(10, 10, 10, 10)
-        
-        btn_style = (
-            "QPushButton { background-color: #1a1a1f; color: white; border: 1px solid #333;"
-            " border-radius: 8px; font-weight: bold; padding: 0 8px; }"
-            "QPushButton:hover { background-color: #25252b; }"
-        )
+        # Keep page indices stable while arranging tools into useful groups.
+        while self.nav_scroll_layout.count():
+            self.nav_scroll_layout.takeAt(0)
+        self._unavailable_nav = {6, 11} if sys.platform != "win32" else set()
+        self.nav_sections = []
+        groups = [
+            ("START HERE", (0,)),
+            ("YOUR MACHINE", (1, 4, 10, 9, 3)),
+            ("CARE & PROTECTION", (2, 5, 8, 6, 14)),
+            ("WORKSHOP", (7, 18, 12, 11, 13, 15)),
+            ("WORKSPACE", (16, 17)),
+        ]
+        for name, indices in groups:
+            label = QLabel(name)
+            label.setObjectName("NavSection")
+            self.nav_scroll_layout.addWidget(label)
+            self.nav_sections.append((label, indices))
+            for index in indices:
+                self.nav_scroll_layout.addWidget(self.nav_buttons[index])
+        self.no_tools_label = QLabel("No matching tools")
+        self.no_tools_label.setObjectName("MutedText")
+        self.nav_scroll_layout.addWidget(self.no_tools_label)
+        self.tool_search.textChanged.connect(self._filter_navigation)
+        self.tool_search.returnPressed.connect(self._open_first_search_result)
+        self._filter_navigation("")
 
-        self.appearance_btn = QPushButton("🎨  Appearance")
-        self.appearance_btn.setFixedHeight(38)
-        self.appearance_btn.setStyleSheet(btn_style)
+        self.appearance_btn = QPushButton("Appearance")
+        self.appearance_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.appearance_btn.clicked.connect(self.open_appearance_settings)
-
-        self.dark_mode_btn = QPushButton("🌙  Toggle Theme")
-        self.dark_mode_btn.setFixedHeight(38)
-        self.dark_mode_btn.setStyleSheet(btn_style)
+        self.sidebar_outer_layout.addWidget(self.appearance_btn)
+        self.dark_mode_btn = QPushButton("Windows light / dark")
+        self.dark_mode_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.dark_mode_btn.clicked.connect(self.toggle_windows_theme)
-
-        h_theme_layout = QHBoxLayout()
-        h_theme_layout.setSpacing(6)
-        h_theme_layout.addWidget(self.appearance_btn)
-        h_theme_layout.addWidget(self.dark_mode_btn)
-        bottom_layout.addLayout(h_theme_layout)
-
-        # Version badge
-        from src.core.update_manager import CURRENT_VERSION as _VER
-        ver_badge = QLabel(_VER)
-        ver_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ver_badge.setStyleSheet("color: #444; font-size: 10px; background: transparent; padding: 2px 0;")
-        bottom_layout.addWidget(ver_badge)
-
-        self.sidebar_outer_layout.addWidget(bottom_container)
-
-        # Platform check - Custom Linux/macOS GUI
-        if sys.platform != 'win32':
-            # Hide Windows-specific tabs
-            for i in [6, 11]:
-                if i < len(self.nav_buttons):
-                    self.nav_buttons[i].setVisible(False)
-
-            self.dark_mode_btn.setVisible(False)
-
-            # Platform-specific branding
-            if sys.platform == 'darwin':
-                title_label.setText("Ghosty Tool 🍎")
-            else:
-                title_label.setText("Ghosty Tool 🐧")
-        
+        self.dark_mode_btn.setVisible(sys.platform == "win32")
+        self.sidebar_outer_layout.addWidget(self.dark_mode_btn)
+        from src.core.update_manager import CURRENT_VERSION
+        version_label = QLabel(f"GHOSTY TOOLS  ·  {CURRENT_VERSION}")
+        version_label.setObjectName("BrandTagline")
+        version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.sidebar_outer_layout.addWidget(version_label)
         self.main_splitter.addWidget(self.sidebar)
 
-        # Content Area & Terminal
         self.right_container = QWidget()
         self.right_container.setObjectName("RightPanel")
         self.right_layout = QVBoxLayout(self.right_container)
         self.right_layout.setContentsMargins(0, 0, 0, 0)
         self.right_layout.setSpacing(0)
+        self.header_frame = QFrame()
+        self.header_frame.setObjectName("HeaderFrame")
+        self.header_frame.setFixedHeight(64)
+        self.header_layout = QHBoxLayout(self.header_frame)
+        self.header_layout.setContentsMargins(28, 0, 28, 0)
+        breadcrumb = QLabel("WORKSPACE  /")
+        breadcrumb.setObjectName("Breadcrumb")
+        self.header_layout.addWidget(breadcrumb)
+        self.page_title = QLabel("Dashboard")
+        self.page_title.setObjectName("WorkspaceTitle")
+        self.header_layout.addWidget(self.page_title)
+        self.header_layout.addStretch()
+        self.admin_label = QLabel()
+        self.update_admin_status_ui()
+        self.header_layout.addWidget(self.admin_label)
+        self.elevate_btn = QPushButton("Elevate")
+        self.elevate_btn.setToolTip("Restart with administrator privileges")
+        self.elevate_btn.clicked.connect(self.request_elevation)
+        self.elevate_btn.setVisible(not is_admin())
+        self.header_layout.addWidget(self.elevate_btn)
+        self.right_layout.addWidget(self.header_frame)
 
-        # Update Banner
         self.update_banner = NotificationBanner("Update available")
         self.update_banner.hide()
         self.update_banner.action_btn.clicked.connect(self.show_update_details)
         self.right_layout.addWidget(self.update_banner)
-
-        self.content_stack = QStackedWidget()
-        
-        # Wrap content stack in a scroll area for small screens
+        self.content_stack = WorkspaceStack()
         self.content_scroll = QScrollArea()
         self.content_scroll.setWidgetResizable(True)
         self.content_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.content_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.content_scroll.setWidget(self.content_stack)
-        
-        # Header for content area
-        self.header_frame = QFrame()
-        self.header_frame.setObjectName("HeaderFrame")
-        self.header_frame.setFixedHeight(60)
-        self.header_layout = QHBoxLayout(self.header_frame)
-        self.header_layout.setContentsMargins(20, 0, 20, 0)
-        
-        self.page_title = QLabel("Dashboard")
-        self.page_title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        self.page_title.setStyleSheet("color: white;")
-        self.header_layout.addWidget(self.page_title)
-        self.header_layout.addStretch()
+        self.right_layout.addWidget(self.content_scroll, 1)
 
-        # Admin status in header
-        self.admin_label = QLabel()
-        self.admin_label.setStyleSheet("margin-right: 10px;")
-        self.update_admin_status_ui()
-        self.header_layout.addWidget(self.admin_label)
-
-        self.elevate_btn = QPushButton("Elevate")
-        self.elevate_btn.setFixedWidth(80)
-        self.elevate_btn.setStyleSheet("background-color: #f44747; color: white; font-weight: bold; border-radius: 3px; height: 30px;")
-        self.elevate_btn.clicked.connect(self.request_elevation)
-        self.header_layout.addWidget(self.elevate_btn)
-
-        if is_admin():
-            self.elevate_btn.hide()
-        
-        self.right_layout.addWidget(self.header_frame)
-        self.right_layout.addWidget(self.content_scroll)
-
-        # Live Terminal Feed
-        self.terminal_container = QGroupBox("Live Terminal Feed")
-        self.terminal_container.setFixedHeight(220)
-        self.terminal_container.setStyleSheet("""
-            QGroupBox {
-                color: #4158D0;
-                font-weight: bold;
-                border: 1px solid #444;
-                margin-top: 10px;
-                background-color: #1e1e1e;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 3px;
-            }
-        """)
+        self.terminal_container = QGroupBox()
+        self.terminal_container.setObjectName("ActivityPane")
+        self.terminal_container.setFixedHeight(170)
         terminal_layout = QVBoxLayout(self.terminal_container)
-        
+        terminal_layout.setContentsMargins(24, 10, 24, 10)
         self.terminal_output = QTextEdit()
+        self.terminal_output.setObjectName("ActivityOutput")
         self.terminal_output.setReadOnly(True)
         self.terminal_output.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
-        self.terminal_output.setStyleSheet("""
-            QTextEdit {
-                background-color: #1e1e1e;
-                color: #d4d4d4;
-                font-family: 'Consolas', 'Courier New', monospace;
-                font-size: 11px;
-                border: none;
-            }
-""")
         terminal_layout.addWidget(self.terminal_output)
-        
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setFixedHeight(12)
-        self.progress_bar.setTextVisible(True)
-        self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.progress_bar.setStyleSheet("""
-            QProgressBar {
-                background-color: #2a2a2a;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-size: 10px;
-                font-weight: bold;
-            }
-            QProgressBar::chunk {
-                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4158D0, stop:1 #C850C0);
-                border-radius: 6px;
-            }
-        """)
-        self.progress_bar.hide()
-        terminal_layout.addWidget(self.progress_bar)
-        
+        self.terminal_container.hide()
         self.right_layout.addWidget(self.terminal_container)
-        self.main_splitter.addWidget(self.right_container)
 
-        # Default split: sidebar 240px, rest goes to content
-        self.main_splitter.setSizes([240, 720])
-        # Sidebar can be resized but content area should not collapse
+        footer = QFrame()
+        footer.setObjectName("WorkspaceFooter")
+        footer_layout = QHBoxLayout(footer)
+        footer_layout.setContentsMargins(20, 6, 24, 6)
+        self.log_toggle = QPushButton("Activity log")
+        self.log_toggle.setObjectName("LogToggle")
+        self.log_toggle.setCheckable(True)
+        self.log_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.log_toggle.toggled.connect(self.terminal_container.setVisible)
+        footer_layout.addWidget(self.log_toggle)
+        footer_layout.addStretch()
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setFixedSize(180, 12)
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.hide()
+        footer_layout.addWidget(self.progress_bar)
+        session_label = QLabel("LOCAL SESSION")
+        session_label.setObjectName("BrandTagline")
+        footer_layout.addWidget(session_label)
+        self.right_layout.addWidget(footer)
+        self.main_splitter.addWidget(self.right_container)
+        self.main_splitter.setSizes([230, 1010])
         self.main_splitter.setStretchFactor(0, 0)
         self.main_splitter.setStretchFactor(1, 1)
 
@@ -572,6 +552,20 @@ class GhostyTool(QMainWindow):
         self.setup_settings_page()
         self.setup_gaming_page()
 
+    def _filter_navigation(self, text):
+        query = text.strip().casefold()
+        for index, button in enumerate(self.nav_buttons):
+            button.setVisible(index not in self._unavailable_nav and query in button.search_text)
+        for label, indices in self.nav_sections:
+            label.setVisible(any(not self.nav_buttons[index].isHidden() for index in indices))
+        self.no_tools_label.setVisible(all(button.isHidden() for button in self.nav_buttons))
+
+    def _open_first_search_result(self):
+        for button in self.nav_buttons:
+            if not button.isHidden():
+                button.click()
+                return
+
     def add_nav_button(self, text, index, subtitle="", icon_text="", count=None):
         btn = NavButton(text, subtitle, icon_text, count)
         btn.clicked.connect(lambda _: self.switch_page(index))
@@ -581,10 +575,10 @@ class GhostyTool(QMainWindow):
 
     def update_admin_status_ui(self):
         if is_admin():
-            self.admin_label.setText("🛡️ Admin Mode")
+            self.admin_label.setText("Administrator")
             self.admin_label.setStyleSheet("color: #6a9955; font-weight: bold;")
         else:
-            self.admin_label.setText("👤 Standard Mode")
+            self.admin_label.setText("Standard access")
             self.admin_label.setStyleSheet("color: #d7ba7d; font-weight: bold;")
 
     def request_elevation(self):
@@ -713,12 +707,13 @@ class GhostyTool(QMainWindow):
         for i, btn in enumerate(self.nav_buttons):
             btn.setChecked(i == index)
         self.content_stack.setCurrentIndex(index)
+        self.content_scroll.verticalScrollBar().setValue(0)
         self.page_title.setText(self.nav_buttons[index].text())
         
         # Auto-trigger checks for certain pages
-        if index == 4: # Install page
+        if index == 7:  # Apps page
             self.check_tools_status()
-        elif index == 3: # Debloat page
+        elif index == 6:  # Debloat page
             # Auto-scan bloatware if not yet scanned
             if not getattr(self, "_bloat_ever_scanned", False):
                 self.scan_bloatware()
@@ -736,9 +731,14 @@ class GhostyTool(QMainWindow):
         # Connect buttons
         self.dashboard.scan_btn.clicked.connect(self.run_security_scan)
         self.dashboard.tune_btn.clicked.connect(self.run_system_maintenance)
+        self.dashboard.system_refresh_btn.clicked.connect(self.update_specs)
+        self.dashboard.system_copy_btn.clicked.connect(
+            lambda: QApplication.clipboard().setText(self.dashboard.system_details.toPlainText())
+        )
         
         # Populate Quick Actions
-        actions_layout = QVBoxLayout()
+        actions_layout = QGridLayout()
+        actions_layout.setSpacing(8)
         if sys.platform == 'win32':
             update_label = "Check Windows Updates"
             update_action = self.run_windows_update_check
@@ -754,12 +754,13 @@ class GhostyTool(QMainWindow):
             (update_label, update_action),
             ("Run Speed Test", self.run_speed_test)
         ]
-        for name, callback in quick_actions:
+        for action_index, (name, callback) in enumerate(quick_actions):
             btn = QPushButton(name)
             btn.setFixedHeight(35)
-            btn.setStyleSheet("text-align: left; padding-left: 10px; background-color: #25252b;")
+            btn.setObjectName("QuickAction")
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.clicked.connect(callback)
-            actions_layout.addWidget(btn)
+            actions_layout.addWidget(btn, action_index // 2, action_index % 2)
         self.dashboard.actions_card.layout.addLayout(actions_layout)
         
         # System Alerts — populated dynamically via refresh_system_alerts()
@@ -865,6 +866,10 @@ class GhostyTool(QMainWindow):
         return alerts
 
     def update_specs(self):
+        if hasattr(self, "specs_worker") and self.specs_worker.isRunning():
+            return
+        self.dashboard.system_summary.setText("Reading hardware, OS, memory, storage and network…")
+        self.dashboard.system_refresh_btn.setEnabled(False)
         if hasattr(self, "specs_label"):
             self.specs_label.setText("Gathering system specifications...")
         self.specs_worker = SpecsWorker()
@@ -872,10 +877,18 @@ class GhostyTool(QMainWindow):
         self.specs_worker.start()
 
     def _on_specs_ready(self, specs):
-        if not hasattr(self, "specs_label"):
-            return
-        self.specs_label.setText(specs)
-        self.specs_label.setTextFormat(Qt.TextFormat.RichText)
+        if hasattr(self, "specs_label"):
+            self.specs_label.setText(specs)
+            self.specs_label.setTextFormat(Qt.TextFormat.RichText)
+        self.dashboard.system_details.setHtml(specs)
+        if specs.startswith("Error gathering"):
+            self.dashboard.system_summary.setText("System details could not be collected. Refresh to try again.")
+        else:
+            self.dashboard.system_summary.setText(
+                f"Hardware, OS, memory, storage and network · refreshed {datetime.now():%H:%M}"
+            )
+        self.dashboard.system_refresh_btn.setEnabled(True)
+        self.dashboard.system_copy_btn.setEnabled(True)
 
     def update_sensor_panel(self):
         if hasattr(self, "sensor_worker") and self.sensor_worker.isRunning():
@@ -937,8 +950,7 @@ class GhostyTool(QMainWindow):
         if gpu_load_val is not None:
             try:
                 val = int(float(str(gpu_load_val).split()[0]))
-                self.dashboard.gpu_card.value_label.setText(f"{val}%")
-                self.dashboard.gpu_card.bar.setValue(val)
+                self.dashboard.gpu_card.set_reading(val, "GPU sensor load")
             except:
                 pass
 
@@ -3358,6 +3370,9 @@ class GhostyTool(QMainWindow):
         
         logo_label = QLabel()
         icon_path = os.path.join(self.project_root, "images", "ghosty icon.ico")
+        brand_logo = os.path.join(self.project_root, "images", "logo.png")
+        if os.path.isfile(brand_logo):
+            icon_path = brand_logo
         if os.path.exists(icon_path):
             logo_label.setPixmap(QIcon(icon_path).pixmap(96, 96))
             logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -3377,17 +3392,12 @@ class GhostyTool(QMainWindow):
 
         # Features Card
         features_card = DashboardCard(f"WHAT'S NEW IN {ver}")
-        features_text = QLabel(
-            f"• 🏆 <b>{ver} Release:</b> Bug fixes and platform improvements.<br>"
-            "• 🐧 <b>Linux:</b> Fixed transparent background issue on Linux desktop environments.<br>"
-            "• 🖥️ <b>Hardware:</b> System specs now fully cross-platform (Linux + macOS).<br>"
-            "• ⚡ <b>Speed Test:</b> Fixed speed test failing in the Windows .exe build.<br>"
-            "• 🔔 <b>Dashboard:</b> System alerts are now live — memory, disk, reboot state, and update status.<br>"
-            "• 🎨 <b>Sidebar:</b> Fixed nav icons not rendering on some Windows systems."
+        features_text = QTextEdit()
+        features_text.setReadOnly(True)
+        features_text.setMinimumHeight(260)
+        features_text.setMarkdown(
+            bundled_release_notes(ver).partition("\n")[2] or "See the release notes on GitHub for this version."
         )
-        features_text.setTextFormat(Qt.TextFormat.RichText)
-        features_text.setWordWrap(True)
-        features_text.setStyleSheet("color: #d4d4d4; padding: 10px; line-height: 1.4;")
         features_card.layout.addWidget(features_text)
         layout.addWidget(features_card)
 
@@ -4574,6 +4584,7 @@ class GhostyTool(QMainWindow):
     def _refresh_win_startup_status(self):
         if not hasattr(self, '_s_win_startup_status') or winreg is None:
             return
+        was_blocked = self._s_start_windows.blockSignals(True)
         try:
             key = winreg.OpenKey(
                 winreg.HKEY_CURRENT_USER,
@@ -4590,6 +4601,8 @@ class GhostyTool(QMainWindow):
             winreg.CloseKey(key)
         except Exception as e:
             self._s_win_startup_status.setText(f"Status: could not read registry ({e})")
+        finally:
+            self._s_start_windows.blockSignals(was_blocked)
 
     def _apply_windows_startup(self):
         if winreg is None:
@@ -4704,6 +4717,12 @@ class GhostyTool(QMainWindow):
 
     def check_for_whats_new(self):
         """Shows a one-time 'What's New' popup after an update."""
+        version = self.update_manager.current_version
+        local_notes = bundled_release_notes(version)
+        if local_notes:
+            if self.update_manager.get_last_seen_notes_revision() != notes_revision(version):
+                self._on_release_info_ready({"body": local_notes})
+            return
         last_version = self.update_manager.get_last_seen_version()
         
         # If we have a stored version and it's different from current, we just updated
@@ -4712,37 +4731,43 @@ class GhostyTool(QMainWindow):
             self.release_info_worker.finished.connect(self._on_release_info_ready)
             self.release_info_worker.start()
             
-        # Always acknowledge the current version so we don't show it again for this version
-        self.update_manager.acknowledge_current_version()
+        if not last_version:
+            self.update_manager.acknowledge_current_version()
 
     def _on_release_info_ready(self, release_info):
-        notes = release_info.get("body", "No release notes available.") if release_info else "Check GitHub for full release notes."
+        notes = bundled_release_notes(self.update_manager.current_version)
+        if not notes:
+            notes = release_info.get("body", "No release notes available.") if release_info else "Check GitHub for full release notes."
         
         # Custom dialog for better formatting of release notes
         dlg = QDialog(self)
         dlg.setWindowTitle(f"What's New in {self.update_manager.current_version}")
+        dlg.resize(660, 580)
         dlg.setMinimumSize(500, 400)
         vbox = QVBoxLayout(dlg)
         
-        title = QLabel(f"Ghosty Tool updated to {self.update_manager.current_version}!")
-        title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
-        title.setStyleSheet("color: #4158D0;")
+        title = QLabel(f"What's New in {self.update_manager.current_version}")
+        title.setObjectName("PageTitle")
         vbox.addWidget(title)
         
-        vbox.addWidget(QLabel("Here are the latest changes:"))
+        caption = QLabel("A new Ghosty workspace, your system in one place, and smoother updates.")
+        caption.setObjectName("MutedText")
+        caption.setWordWrap(True)
+        vbox.addWidget(caption)
         
         notes_area = QTextEdit()
         notes_area.setReadOnly(True)
-        notes_area.setPlainText(notes)
+        notes_area.setMarkdown(notes.partition("\n")[2] if notes.startswith("# ") else notes)
         vbox.addWidget(notes_area)
         
         btn = QPushButton("Got it!")
         btn.setMinimumHeight(40)
-        btn.setStyleSheet("QPushButton { background-color: #4158D0; color: white; font-weight: bold; border: 1px solid #2e46a9; border-radius: 6px; } QPushButton:hover { background-color: #4b6de3; } QPushButton:pressed { background-color: #3a55c5; } QPushButton:disabled { background-color: #2a2a2a; color: #777; border-color: #2a2a2a; }")
+        btn.setObjectName("PrimaryBtn")
         btn.clicked.connect(dlg.accept)
         vbox.addWidget(btn)
         
         dlg.exec()
+        self.update_manager.acknowledge_current_version()
 
     def check_for_updates(self, manual=False):
         self.update_check_worker = UpdateCheckWorker(self.update_manager)
@@ -4914,120 +4939,18 @@ class GhostyTool(QMainWindow):
                 QMessageBox.warning(self, "Update Error", "The downloaded update is not an executable file. Please update manually.")
                 return
 
-            # Create a dynamic batch script to handle the update
-            # This avoids needing a separate GhostyUpdater.exe
-            update_dir = os.path.dirname(new_file)
-            script_path = os.path.join(update_dir, "apply_update.bat")
-            current_pid = os.getpid()
-
-            safe_new = new_file
-            safe_current = current_file
-
-            # Pass the PyInstaller temp extraction folder so the batch can
-            # clean it up before launching the new exe — prevents the new exe
-            # from finding and trying to reuse a stale _MEI* folder which
-            # causes "Failed to load Python DLL" errors.
-            old_mei = getattr(sys, '_MEIPASS', '')
-
-            batch_content = f"""@echo off
-setlocal enabledelayedexpansion
-title Ghosty Tools Update Assistant
-
-echo.
-echo ==========================================
-echo    Ghosty Tools Update Assistant
-echo ==========================================
-echo.
-echo Waiting for Ghosty Tools (PID {current_pid}) to close...
-
-:wait_loop
-tasklist /FI "PID eq {current_pid}" 2>NUL | find /I "{current_pid}" >NUL
-if "%ERRORLEVEL%"=="0" (
-    timeout /t 1 /nobreak >nul
-    goto wait_loop
-)
-
-:: Extra pause to let the old process fully release its temp files
-timeout /t 5 /nobreak >nul
-
-:: Clean up ALL stale PyInstaller extraction folders to prevent DLL conflicts
-echo Cleaning up stale runtime files...
-for /d %%i in ("%TEMP%\_MEI*") do rd /s /q "%%i" >nul 2>&1
-if exist "{old_mei}" rd /s /q "{old_mei}" >nul 2>&1
-
-echo.
-echo Applying update...
-echo Source: "{safe_new}"
-echo Target: "{safe_current}"
-echo.
-
-:: We use a loop for deletion too, in case of lingering locks
-set /a retry=0
-:delete_loop
-del /f /q "{safe_current}" >nul 2>&1
-if exist "{safe_current}" (
-    set /a retry+=1
-    if !retry! GTR 10 (
-        echo ERROR: Could not remove old version. It might be locked.
-        echo Please close all Ghosty Tools instances and try again.
-        pause
-        exit /b 1
-    )
-    timeout /t 1 /nobreak >nul
-    goto delete_loop
-)
-
-:: Copy new file to target
-copy /y "{safe_new}" "{safe_current}" >nul
-if errorlevel 1 (
-    echo.
-    echo ERROR: Failed to apply update.
-    echo Please make sure you have permission to write to:
-    echo "{safe_current}"
-    echo.
-    echo You can find the new version at:
-    echo "{safe_new}"
-    echo.
-    pause
-    exit /b 1
-)
-
-echo.
-echo Update applied successfully!
-echo.
-echo Cleanup...
-del /f /q "{safe_new}" >nul 2>&1
-
-:: Recreate desktop shortcut pointing to the new exe location
-echo Updating desktop shortcut...
-powershell -NoProfile -Command "$desktop = [Environment]::GetFolderPath('Desktop'); $lnk = Join-Path $desktop 'Ghosty Tools.lnk'; if (Test-Path $lnk) {{ Remove-Item $lnk -Force }}; $ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut($lnk); $s.TargetPath = '{safe_current}'; $s.WorkingDirectory = [System.IO.Path]::GetDirectoryName('{safe_current}'); $s.Description = 'Ghosty Tools'; $s.Save()" >nul 2>&1
-
-:: Brief pause before launch so the new exe starts with a clean slate
-echo Restarting Ghosty Tools...
-timeout /t 2 /nobreak >nul
-start "" "{safe_current}"
-
-:: Self-destruct and exit
-(goto) 2>nul & del "%~f0"
-"""
             try:
-                # Use cp1252 (Standard Windows CMD encoding) for the batch file
-                with open(script_path, "w", encoding="cp1252") as f:
-                    f.write(batch_content)
-                
-                self.log_signal.emit(f"Launching update script: {script_path}", "info")
-                
-                # Launch the script. We don't use CREATE_NO_WINDOW here so the user can see 
-                # "Updating..." if it takes a moment, providing better feedback.
-                subprocess.Popen(["cmd.exe", "/c", script_path], 
-                                 creationflags=CREATE_NEW_CONSOLE,
-                                 close_fds=True)
-                
+                handoff = launch_windows_update(new_file, current_file)
+                self._update_process = handoff.process
+                self.log_signal.emit(f"Updater prepared. Update log: {handoff.log_path}", "info")
                 QApplication.quit()
-                os._exit(0) # Force immediate exit to release all file locks
+                os._exit(0)
             except Exception as e:
-                logger.error(f"Failed to launch update script: {e}")
-                QMessageBox.warning(self, "Update Error", f"Failed to start automatic update: {e}\n\nPlease update manually.")
+                logger.error(f"Failed to launch update helper: {e}")
+                QMessageBox.warning(
+                    self, "Update Error",
+                    f"Could not start the update: {e}\n\nThe current version is still installed.",
+                )
         
         elif is_frozen and (sys.platform == 'linux' or sys.platform == 'darwin'):
             # Basic support for Linux/macOS binary replacement
@@ -5073,14 +4996,16 @@ rm -- "$0"
             cpu = psutil.cpu_percent()
             ram = psutil.virtual_memory().percent
             
-            self.dashboard.cpu_card.value_label.setText(f"{int(cpu)}%")
-            self.dashboard.cpu_card.bar.setValue(int(cpu))
-            self.dashboard.cpu_card.details_label.setText(f"{psutil.cpu_count()} cores · {psutil.cpu_count(logical=False)} threads")
+            self.dashboard.cpu_card.set_reading(
+                cpu,
+                f"{psutil.cpu_count(logical=False) or '?'} cores · {psutil.cpu_count()} threads",
+            )
             
-            self.dashboard.mem_card.value_label.setText(f"{int(ram)}%")
-            self.dashboard.mem_card.bar.setValue(int(ram))
             mem = psutil.virtual_memory()
-            self.dashboard.mem_card.details_label.setText(f"{mem.used // (1024**3)}GB / {mem.total // (1024**3)}GB used")
+            self.dashboard.mem_card.set_reading(
+                ram,
+                f"{mem.used // (1024**3)} GB of {mem.total // (1024**3)} GB in use",
+            )
             
             # Multi-factor health score
             score = 100
@@ -5121,8 +5046,8 @@ rm -- "$0"
             score = max(0, min(100, score))
             self.dashboard.health_circle.value = score
 
-            if score >= 90: status = "Excellent"; color = "#00ff88"
-            elif score >= 75: status = "Good"; color = "#4158D0"
+            if score >= 90: status = "Excellent"; color = "#78e6c4"
+            elif score >= 75: status = "Good"; color = "#93b8f5"
             elif score >= 55: status = "Fair"; color = "#FBAB7E"
             else: status = "Poor"; color = "#f44747"
 
@@ -5130,11 +5055,11 @@ rm -- "$0"
             self.dashboard.health_circle._color = __import__('PyQt6.QtGui', fromlist=['QColor']).QColor(color)
 
             if warnings:
-                self.dashboard.health_warning.setText(f"⚠ {warnings[0]}")
+                self.dashboard.health_warning.setText(warnings[0])
                 self.dashboard.health_warning.setStyleSheet(f"color: {color}; font-size: 13px;")
             else:
-                self.dashboard.health_warning.setText("✔ Everything looks good. System is optimized.")
-                self.dashboard.health_warning.setStyleSheet("color: #00ff88; font-size: 13px;")
+                self.dashboard.health_warning.setText("CPU, memory and storage look good.")
+                self.dashboard.health_warning.setStyleSheet("color: #78e6c4; font-size: 12px;")
             
             # Update storage (every 5th call to save resources)
             if not hasattr(self, "_storage_update_count"): self._storage_update_count = 0
