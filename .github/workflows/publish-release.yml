@@ -32,6 +32,21 @@ jobs:
           token: ${{ secrets.GH_PAT }}
           persist-credentials: true
 
+      - name: Configure Git identity
+        env:
+          GIT_EMAIL: ${{ secrets.RELEASE_GIT_EMAIL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "$GIT_EMAIL" ]; then
+            echo "::error::RELEASE_GIT_EMAIL secret is missing."
+            exit 1
+          fi
+
+          git config user.name "Ghostshadowplays"
+          git config user.email "$GIT_EMAIL"
+
       - name: Get release version
         id: version
         shell: bash
