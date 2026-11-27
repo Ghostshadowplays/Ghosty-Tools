@@ -33,19 +33,23 @@ jobs:
           persist-credentials: true
 
       - name: Configure Git identity
+        shell: bash
         env:
           GIT_EMAIL: ${{ secrets.RELEASE_GIT_EMAIL }}
-        shell: bash
         run: |
           set -euo pipefail
 
-          if [ -z "$GIT_EMAIL" ]; then
-            echo "::error::RELEASE_GIT_EMAIL secret is missing."
+          if [ -z "${GIT_EMAIL:-}" ]; then
+            echo "::error::RELEASE_GIT_EMAIL secret is missing or empty."
             exit 1
           fi
 
-          git config user.name "Ghostshadowplays"
-          git config user.email "$GIT_EMAIL"
+          git config --local user.name "Ghostshadowplays"
+          git config --local user.email "$GIT_EMAIL"
+
+          echo "Git identity configured:"
+          git config --local user.name
+          git config --local user.email
 
       - name: Get release version
         id: version
