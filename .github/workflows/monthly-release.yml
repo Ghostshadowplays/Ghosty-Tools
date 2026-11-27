@@ -141,22 +141,8 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Update version files
-        if: steps.changes.outputs.changed == 'true' && steps.existing.outputs.exists == 'false'
-        env:
-          VERSION: ${{ steps.version.outputs.new_version }}
-        run: |
-          jq --arg version "$VERSION" '.version = $version' config/version.json > "$RUNNER_TEMP/version.json"
-          mv "$RUNNER_TEMP/version.json" config/version.json
-
-          sed -i "s/^CURRENT_VERSION = \"v[^\"]*\"/CURRENT_VERSION = \"$VERSION\"/" src/core/update_manager.py
-
-          sed -i "s/^VERSION = \"v[^\"]*\"/VERSION = \"$VERSION\"/" main.py
-          grep -Fxq "CURRENT_VERSION = \"$VERSION\"" src/core/update_manager.py
-          grep -Fxq "VERSION = \"$VERSION\"" main.py
-
       - name: Configure SSH commit signing
-        if: steps.changes.outputs.changed == 'true' && steps.existing.outputs.exists == 'false'
+        if: steps.changes.outputs.changed == 'true'
         env:
           SSH_PRIVATE_KEY: ${{ secrets.RELEASE_SSH_PRIVATE_KEY }}
           GIT_EMAIL: ${{ secrets.RELEASE_GIT_EMAIL }}
@@ -187,8 +173,29 @@ jobs:
             "$(cat "$HOME/.ssh/ghostyware_signing.pub")" \
             > "$HOME/.ssh/allowed_signers"
 
+      - name: Prepare or resume release branch
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.new_version }}
+        shell: bash
+        run: bash .github/scripts/prepare-release-branch.sh
+
+      - name: Update version files
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.new_version }}
+        run: |
+          jq --arg version "$VERSION" '.version = $version' config/version.json > "$RUNNER_TEMP/version.json"
+          mv "$RUNNER_TEMP/version.json" config/version.json
+
+          sed -i "s/^CURRENT_VERSION = \"v[^\"]*\"/CURRENT_VERSION = \"$VERSION\"/" src/core/update_manager.py
+
+          sed -i "s/^VERSION = \"v[^\"]*\"/VERSION = \"$VERSION\"/" main.py
+          grep -Fxq "CURRENT_VERSION = \"$VERSION\"" src/core/update_manager.py
+          grep -Fxq "VERSION = \"$VERSION\"" main.py
+
       - name: Create signed release commit
-        if: steps.changes.outputs.changed == 'true' && steps.existing.outputs.exists == 'false'
+        if: steps.changes.outputs.changed == 'true'
         env:
           VERSION: ${{ steps.version.outputs.new_version }}
         shell: bash
@@ -200,8 +207,8 @@ jobs:
           git add main.py
 
           if git diff --cached --quiet; then
-            echo "::error::No version changes detected."
-            exit 1
+            echo "Version files already match $VERSION; keeping the existing release commit."
+            exit 0
           fi
 
           git commit -S -m "chore: bump version to $VERSION"
@@ -209,11 +216,14 @@ jobs:
           git verify-commit HEAD
 
       - name: Push release branch
-        if: steps.changes.outputs.changed == 'true' && steps.existing.outputs.exists == 'false'
+        if: steps.changes.outputs.changed == 'true'
         env:
           VERSION: ${{ steps.version.outputs.new_version }}
         run: |
-          git push origin HEAD:"release/$VERSION"
+          if ! git push origin "HEAD:refs/heads/release/$VERSION"; then
+            echo "::error::Could not push release/$VERSION. If the branch changed during this run, start a new Monthly Auto Release run to fetch and preserve those commits."
+            exit 1
+          fi
 
       - name: Create pull request
         if: steps.changes.outputs.changed == 'true' && steps.existing.outputs.exists == 'false'
@@ -248,4 +258,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh pr merge "release/$VERSION" --auto --squash
+          gh pr merge "release/$VERSION" --auto --squash --match-head-commit "$(git rev-parse HEAD)"
