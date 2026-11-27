@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
+
 jobs:
   publish:
     if: >-
@@ -25,10 +29,15 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+          persist-credentials: true
 
       - name: Get release version
         id: version
+        shell: bash
         run: |
+          set -euo pipefail
+
           VERSION=$(jq -r '.version' config/version.json)
 
           if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -37,14 +46,18 @@ jobs:
           fi
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Preparing release $VERSION"
 
       - name: Check existing tag
         env:
           VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
         run: |
-          git fetch --tags
+          set -euo pipefail
 
-          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+          git fetch origin --tags
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
             echo "::error::Release tag $VERSION already exists."
             exit 1
           fi
@@ -52,15 +65,18 @@ jobs:
       - name: Create release tag
         env:
           VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
         run: |
-          git tag "$VERSION"
+          set -euo pipefail
+
+          git tag -a "$VERSION" -m "Ghosty Tools $VERSION"
           git push origin "$VERSION"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.version }}
+          target_commitish: main
           generate_release_notes: true
           fail_on_unmatched_files: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT }}
