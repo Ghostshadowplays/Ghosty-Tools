@@ -4,18 +4,73 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Existing tag to build and publish (leave blank for build artifacts only)"
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      tag_name:
+        description: "Existing release tag to build and publish"
+        required: true
+        type: string
+    secrets:
+      CERT_PFX:
+        required: true
+      CERT_PASSWORD:
+        required: true
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-build-${{ inputs.tag_name || github.event.release.tag_name || github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  metadata:
+    name: Resolve release version and commit
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
+      sha: ${{ steps.version.outputs.sha }}
+    steps:
+      - name: Checkout requested source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag_name && format('refs/tags/{0}', inputs.tag_name) || github.event.release.tag_name && format('refs/tags/{0}', github.event.release.tag_name) || github.sha }}
+
+      - name: Resolve and validate version
+        id: version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag_name || github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          version=$(jq -er '.version' config/version.json)
+          if ! [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Invalid version in config/version.json: $version"
+            exit 1
+          fi
+          if [ -n "$RELEASE_TAG" ] && [ "$RELEASE_TAG" != "$version" ]; then
+            echo "::error::Tag $RELEASE_TAG does not match config/version.json ($version)."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   build-windows:
     name: Build Windows EXE
+    needs: metadata
     runs-on: windows-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.metadata.outputs.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -25,130 +80,144 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --upgrade pyinstaller
-          pip install -r requirements.txt
+          python -m pip install --upgrade pyinstaller
+          python -m pip install -r requirements.txt
 
       - name: Build with PyInstaller
         run: |
           pyinstaller ghosty_tools.spec --clean --noconfirm
-          mv dist/GhostyTools.exe dist/GhostyTools-Windows-x64.exe
+          if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
+          Move-Item dist/GhostyTools.exe dist/GhostyTools-Windows-x64.exe
 
-      - name: Recreate PFX
-        shell: powershell
+      - name: Recreate PFX and trust self-signed signer on this runner
+        shell: pwsh
+        env:
+          CERT_PFX: ${{ secrets.CERT_PFX }}
+          CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
         run: |
-          [System.IO.File]::WriteAllBytes(
-            "$env:RUNNER_TEMP\ghostshadow.pfx",
-            [System.Convert]::FromBase64String("${{ secrets.CERT_PFX }}")
-          )
+          $pfxPath = Join-Path $env:RUNNER_TEMP "ghostshadow.pfx"
+          [System.IO.File]::WriteAllBytes($pfxPath, [System.Convert]::FromBase64String($env:CERT_PFX))
+          $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($pfxPath, $env:CERT_PASSWORD)
+          if (-not $cert.HasPrivateKey) { throw "The PFX does not contain a private key" }
+          "SIGNER_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
+
+          # Trust only the PFX's public self-signed certificate on this disposable runner.
+          if ($cert.Subject -eq $cert.Issuer) {
+            $publicPath = Join-Path $env:RUNNER_TEMP "ghostshadow.cer"
+            Export-Certificate -Cert $cert -FilePath $publicPath | Out-Null
+            Import-Certificate -FilePath $publicPath -CertStoreLocation Cert:\CurrentUser\Root | Out-Null
+          }
+          $cert.Dispose()
 
       - name: Locate SignTool
-        shell: powershell
+        shell: pwsh
         run: |
-          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits" -Recurse -Filter signtool.exe |
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName -Descending |
             Select-Object -First 1 -ExpandProperty FullName
-
-          if (-not $signtool) {
-            throw "signtool.exe not found"
-          }
-
-          Write-Host "Found SignTool: $signtool"
-          echo "SIGNTOOL_PATH=$signtool" >> $env:GITHUB_ENV
+          if (-not $signtool) { throw "signtool.exe not found" }
+          "SIGNTOOL_PATH=$signtool" >> $env:GITHUB_ENV
 
       - name: Sign EXE
-        shell: powershell
+        shell: pwsh
+        env:
+          CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
         run: |
-          & "$env:SIGNTOOL_PATH" sign `
+          & $env:SIGNTOOL_PATH sign `
             /f "$env:RUNNER_TEMP\ghostshadow.pfx" `
-            /p "${{ secrets.CERT_PASSWORD }}" `
+            /p $env:CERT_PASSWORD `
+            /sha1 $env:SIGNER_THUMBPRINT `
             /fd SHA256 `
             /tr http://timestamp.digicert.com `
             /td SHA256 `
             dist\GhostyTools-Windows-x64.exe
+          if ($LASTEXITCODE -ne 0) { throw "SignTool signing failed" }
 
-      - name: Verify Signature
-        shell: powershell
+      - name: Verify signature and timestamp
+        shell: pwsh
         run: |
           $sig = Get-AuthenticodeSignature dist\GhostyTools-Windows-x64.exe
-
           $sig | Format-List
+          if ($sig.Status -ne "Valid") { throw "Code signing validation failed: $($sig.StatusMessage)" }
+          if ($sig.SignerCertificate.Thumbprint -ne $env:SIGNER_THUMBPRINT) { throw "Unexpected signing certificate" }
+          if (-not $sig.TimeStamperCertificate) { throw "The signature is missing its timestamp" }
 
-          if ($sig.Status -ne "Valid") {
-            throw "Code signing validation failed"
+      - name: Remove signing files
+        if: always()
+        shell: pwsh
+        run: |
+          foreach ($name in @("ghostshadow.pfx", "ghostshadow.cer")) {
+            $path = Join-Path $env:RUNNER_TEMP $name
+            if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
           }
 
-          Write-Host "Signature valid"
-
       - name: Generate SHA256
-        shell: powershell
+        shell: pwsh
         run: |
           $hash = Get-FileHash dist\GhostyTools-Windows-x64.exe -Algorithm SHA256
           "$($hash.Hash)  GhostyTools-Windows-x64.exe" |
             Out-File dist\GhostyTools-Windows-x64.exe.sha256 -Encoding ascii
 
-      - name: Upload Release Assets
-        uses: softprops/action-gh-release@v3
-        if: github.event_name == 'release'
+      - name: Save Windows artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: |
+          name: ghosty-release-windows
+          path: |
             dist/GhostyTools-Windows-x64.exe
             dist/GhostyTools-Windows-x64.exe.sha256
-          tag_name: ${{ github.event.release.tag_name }}
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          if-no-files-found: error
+          overwrite: true
 
   build-macos:
-    name: Build macOS (${{ matrix.arch }})
+    name: Build macOS (arm64)
+    needs: metadata
     runs-on: macos-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: arm64
-            python-arch: arm64
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.metadata.outputs.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-          architecture: ${{ matrix.python-arch }}
+          architecture: arm64
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --upgrade pyinstaller
-          pip install -r requirements.txt
+          python -m pip install --upgrade pyinstaller
+          python -m pip install -r requirements.txt
 
       - name: Build with PyInstaller
         run: |
           pyinstaller ghosty_tools.spec --clean --noconfirm
-          mv dist/GhostyTools dist/GhostyTools-macOS-${{ matrix.arch }}
+          mv dist/GhostyTools dist/GhostyTools-macOS-arm64
+          cd dist
+          shasum -a 256 GhostyTools-macOS-arm64 > GhostyTools-macOS-arm64.sha256
 
-      - name: Upload Release Assets
-        uses: softprops/action-gh-release@v3
-        if: github.event_name == 'release'
+      - name: Save macOS artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: dist/GhostyTools-macOS-${{ matrix.arch }}
-          tag_name: ${{ github.event.release.tag_name }}
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: ghosty-release-macos
+          path: |
+            dist/GhostyTools-macOS-arm64
+            dist/GhostyTools-macOS-arm64.sha256
+          if-no-files-found: error
+          overwrite: true
 
   build-linux:
     name: Build Linux DEB Package
+    needs: metadata
     runs-on: ubuntu-latest
-
     env:
-      VERSION: ${{ github.event.release.tag_name }}
-
+      VERSION: ${{ needs.metadata.outputs.version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.metadata.outputs.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -160,8 +229,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xclip xsel dpkg-dev
           python -m pip install --upgrade pip
-          pip install --upgrade pyinstaller
-          pip install -r requirements.txt
+          python -m pip install --upgrade pyinstaller
+          python -m pip install -r requirements.txt
 
       - name: Build Linux Binary
         run: |
@@ -170,13 +239,11 @@ jobs:
 
       - name: Create DEB structure
         run: |
-          mkdir -p ghostytools_amd64/DEBIAN
-          mkdir -p ghostytools_amd64/usr/bin
-
+          mkdir -p ghostytools_amd64/DEBIAN ghostytools_amd64/usr/bin
           cp dist/GhostyTools-Linux-x64 ghostytools_amd64/usr/bin/ghostytools
           chmod +x ghostytools_amd64/usr/bin/ghostytools
-
-          VERSION_NUMBER=$(echo "$VERSION" | sed 's/^v//')
+          VERSION_NUMBER="${VERSION#v}"
+          dpkg --validate-version "$VERSION_NUMBER"
 
           cat <<EOF > ghostytools_amd64/DEBIAN/control
           Package: ghostytools
@@ -193,30 +260,27 @@ jobs:
         run: |
           dpkg-deb --build ghostytools_amd64
           mv ghostytools_amd64.deb GhostyTools-Linux-x64.deb
-
-      - name: Generate Linux SHA256
-        run: |
           sha256sum GhostyTools-Linux-x64.deb > GhostyTools-Linux-x64.deb.sha256
 
-      - name: Upload Release Assets
-        uses: softprops/action-gh-release@v3
-        if: github.event_name == 'release'
+      - name: Save Linux artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: |
+          name: ghosty-release-linux
+          path: |
             GhostyTools-Linux-x64.deb
             GhostyTools-Linux-x64.deb.sha256
-          tag_name: ${{ github.event.release.tag_name }}
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          if-no-files-found: error
+          overwrite: true
 
   sbom:
     name: Generate SBOM
+    needs: metadata
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.metadata.outputs.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -226,7 +290,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install -r requirements.txt
 
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
@@ -234,19 +298,48 @@ jobs:
           path: .
           format: spdx-json
           output-file: ghostytools-sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
 
       - name: Generate SBOM SHA256
-        run: |
-          sha256sum ghostytools-sbom.spdx.json > ghostytools-sbom.spdx.json.sha256
+        run: sha256sum ghostytools-sbom.spdx.json > ghostytools-sbom.spdx.json.sha256
 
-      - name: Upload Release Assets
-        uses: softprops/action-gh-release@v3
-        if: github.event_name == 'release'
+      - name: Save SBOM artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: |
+          name: ghosty-release-sbom
+          path: |
             ghostytools-sbom.spdx.json
             ghostytools-sbom.spdx.json.sha256
-          tag_name: ${{ github.event.release.tag_name }}
+          if-no-files-found: error
+          overwrite: true
+
+  publish:
+    name: Publish complete release
+    needs: [metadata, build-windows, build-macos, build-linux, sbom]
+    if: needs.metadata.outputs.tag_name != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ghosty-release-*
+          merge-multiple: true
+          path: release-assets
+
+      - name: Publish GitHub release with all assets
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.metadata.outputs.tag_name }}
+          target_commitish: ${{ needs.metadata.outputs.sha }}
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_unmatched_files: true
+          files: |
+            release-assets/GhostyTools-Windows-x64.exe
+            release-assets/GhostyTools-Windows-x64.exe.sha256
+            release-assets/GhostyTools-macOS-arm64
+            release-assets/GhostyTools-macOS-arm64.sha256
+            release-assets/GhostyTools-Linux-x64.deb
+            release-assets/GhostyTools-Linux-x64.deb.sha256
+            release-assets/ghostytools-sbom.spdx.json
+            release-assets/ghostytools-sbom.spdx.json.sha256

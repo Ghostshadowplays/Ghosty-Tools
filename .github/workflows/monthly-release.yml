@@ -36,7 +36,8 @@ jobs:
         id: tag
         shell: bash
         run: |
-          latest=$(git tag --sort=-v:refname | head -n1)
+          # Ignore historical non-semver tags and avoid head/SIGPIPE under pipefail.
+          latest=$(git tag --list | { grep -E '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' || true; } | sort -V | tail -n 1)
 
           if [ -z "$latest" ]; then
             latest="v0.0.0"
@@ -81,6 +82,8 @@ jobs:
             result=$(gh run list \
               --workflow="$workflow" \
               --branch main \
+              --commit "$main_sha" \
+              --event push \
               --limit 1 \
               --json conclusion,status,headSha \
               --jq '.[0] // empty')
@@ -104,9 +107,9 @@ jobs:
             fi
           }
 
-          check_workflow "Security & Quality Audit"
-          check_workflow "Ghosty Tools CI"
-          check_workflow "CodeQL"
+          check_workflow "security-audit.yml"
+          check_workflow "python-app.yml"
+          check_workflow "codeql.yml"
 
       - name: Calculate version bump
         if: steps.changes.outputs.changed == 'true'
@@ -115,7 +118,17 @@ jobs:
         env:
           LATEST: ${{ steps.tag.outputs.latest }}
         run: |
-          version="${LATEST#v}"
+          set -euo pipefail
+          configured=$(jq -er '.version' config/version.json)
+          if ! [[ "$configured" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Invalid configured version: $configured"
+            exit 1
+          fi
+
+          # A previous release may have bumped the files but failed before tagging.
+          # Always advance beyond both the configured version and the latest tag.
+          base=$(printf '%s\n' "$LATEST" "$configured" | sort -V | tail -n 1)
+          version="${base#v}"
 
           IFS='.' read -r major minor patch <<< "$version"
 
@@ -142,14 +155,14 @@ jobs:
         run: |
           branch="release/$VERSION"
 
-          count=$(gh pr list \
+          number=$(gh pr list \
             --base main \
             --head "$branch" \
             --state open \
             --json number \
-            --jq 'length')
+            --jq '.[0].number // empty')
 
-          if [ "$count" -gt 0 ]; then
+          if [ -n "$number" ]; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
             echo "An open release PR already exists."
           else
@@ -161,11 +174,14 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.new_version }}
         run: |
-          sed -i "s/\"version\": \"v[^\"]*\"/\"version\": \"$VERSION\"/" config/version.json
+          jq --arg version "$VERSION" '.version = $version' config/version.json > "$RUNNER_TEMP/version.json"
+          mv "$RUNNER_TEMP/version.json" config/version.json
 
-          sed -i "s/CURRENT_VERSION = \"v[^\"]*\"/CURRENT_VERSION = \"$VERSION\"/" src/core/update_manager.py
+          sed -i "s/^CURRENT_VERSION = \"v[^\"]*\"/CURRENT_VERSION = \"$VERSION\"/" src/core/update_manager.py
 
-          sed -i "s/VERSION = \"v[^\"]*\"/VERSION = \"$VERSION\"/" main.py
+          sed -i "s/^VERSION = \"v[^\"]*\"/VERSION = \"$VERSION\"/" main.py
+          grep -Fxq "CURRENT_VERSION = \"$VERSION\"" src/core/update_manager.py
+          grep -Fxq "VERSION = \"$VERSION\"" main.py
 
       - name: Configure SSH commit signing
         if: steps.changes.outputs.changed == 'true' && steps.existing.outputs.exists == 'false'
@@ -233,22 +249,31 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
           VERSION: ${{ steps.version.outputs.new_version }}
         run: |
+          body_file=$(mktemp)
+          cat > "$body_file" <<EOF
+          ## Ghosty Tools Monthly Release
+
+          Automated monthly version bump to $VERSION.
+
+          - Updates the bundled version and application version constants.
+          - The version commit is SSH signed.
+          - Security, CI and CodeQL passed for the source commit.
+          - Auto-merge waits for the required PR checks and branch rules.
+          - After merging, all release assets are built before publishing.
+          EOF
+
           gh pr create \
             --base main \
             --head "release/$VERSION" \
             --title "Release $VERSION" \
-            --body "## Ghosty Tools Monthly Release
+            --body-file "$body_file"
 
-          Automated monthly version bump.
-
-          ### Changes
-          - Updates application version to $VERSION
-          - Updates update manager version
-          - Updates application version constant
-
-          ### Security
-          - Commit is SSH signed.
-          - Security, CI and CodeQL were checked before PR creation.
-          - Required PR checks must pass before merging.
-
-          Please review and merge when ready."
+      - name: Enable auto-merge after required checks
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          VERSION: ${{ steps.version.outputs.new_version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh pr merge "release/$VERSION" --auto --squash
