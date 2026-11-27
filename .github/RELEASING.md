@@ -69,6 +69,29 @@ workflow is queued, running or not yet listed by GitHub. Completed failures,
 cancellations, skipped runs and results for a different commit stop the
 release. A timeout lists the workflows that have not finished successfully.
 
+## README and release history
+
+Each monthly release PR updates the marked What's New section in `README.md`
+to the new version and rebuilds `CHANGELOG.md` with the full release history.
+Previous entries are kept in `config/release_notes/<version>.md`; the first run
+also archives the original README entries. Only the latest version appears in
+the README. README content outside the marked section is retained.
+
+GitHub generates the default notes from merged PRs since the previous tag,
+using the main commit that passed the release checks. For custom highlights,
+add or edit `config/release_notes/<version>.md` in the release PR and remove
+the `<!-- generated-release-notes -->` marker if present. Hand-written notes
+are preserved on retries; generated notes refresh when the source changes.
+Run the documentation updater again after editing notes to refresh the README
+and changelog, or start a new monthly run for the same pending version.
+
+The signed release commit includes the version files, README, changelog and
+notes, so they go through the same PR checks. After merging, the app bundles
+those notes and GitHub Release publishing uses that same file. Rebuilding an
+older tag without bundled notes still uses GitHub's generated release notes.
+The README update lands when the release PR merges; if packaging fails, retry
+the Publish Release job to finish publishing that version.
+
 ## Manual builds and recovery
 
 - To test the current code, run **Build and Release EXE** on `main` with

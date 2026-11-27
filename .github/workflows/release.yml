@@ -341,6 +341,23 @@ jobs:
     if: needs.metadata.outputs.tag_name != ''
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout release notes at the built commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.metadata.outputs.sha }}
+
+      - name: Select bundled release notes
+        id: notes
+        env:
+          VERSION: ${{ needs.metadata.outputs.tag_name }}
+        shell: bash
+        run: |
+          notes="config/release_notes/$VERSION.md"
+          if [ -s "$notes" ]; then
+            echo "path=$notes" >> "$GITHUB_OUTPUT"
+            echo "bundled=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Download release artifacts
         uses: actions/download-artifact@v4
         with:
@@ -353,7 +370,8 @@ jobs:
         with:
           tag_name: ${{ needs.metadata.outputs.tag_name }}
           target_commitish: ${{ needs.metadata.outputs.sha }}
-          generate_release_notes: true
+          body_path: ${{ steps.notes.outputs.path }}
+          generate_release_notes: ${{ steps.notes.outputs.bundled != 'true' }}
           fail_on_unmatched_files: true
           files: |
             release-assets/GhostyTools-Windows-x64.exe

@@ -28,9 +28,11 @@ jobs:
           token: ${{ secrets.GH_PAT }}
 
       - name: Fetch latest changes and tags
+        id: source
         run: |
           git fetch origin main --tags
           git checkout -B main origin/main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Get latest release tag
         id: tag
@@ -194,6 +196,33 @@ jobs:
           grep -Fxq "CURRENT_VERSION = \"$VERSION\"" src/core/update_manager.py
           grep -Fxq "VERSION = \"$VERSION\"" main.py
 
+      - name: Set up Python for release documentation
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Update README and archive release notes
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          VERSION: ${{ steps.version.outputs.new_version }}
+          LATEST: ${{ steps.tag.outputs.latest }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes"
+            -f "tag_name=$VERSION" -f "target_commitish=$SOURCE_SHA")
+          if [ "$LATEST" != "v0.0.0" ]; then
+            args+=(-f "previous_tag_name=$LATEST")
+          fi
+          gh api "${args[@]}" --jq '.body' > "$RUNNER_TEMP/release-notes.md"
+          python .github/scripts/update-release-docs.py \
+            --version "$VERSION" \
+            --repository "$GITHUB_REPOSITORY" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"
+
       - name: Create signed release commit
         if: steps.changes.outputs.changed == 'true'
         env:
@@ -205,13 +234,14 @@ jobs:
           git add config/version.json
           git add src/core/update_manager.py
           git add main.py
+          git add README.md CHANGELOG.md config/release_notes
 
           if git diff --cached --quiet; then
-            echo "Version files already match $VERSION; keeping the existing release commit."
+            echo "Release files already match $VERSION; keeping the existing release commit."
             exit 0
           fi
 
-          git commit -S -m "chore: bump version to $VERSION"
+          git commit -S -m "chore: prepare release $VERSION"
 
           git verify-commit HEAD
 
@@ -238,6 +268,8 @@ jobs:
           Automated monthly version bump to $VERSION.
 
           - Updates the bundled version and application version constants.
+          - Updates README What's New and archives release history in CHANGELOG.md.
+          - Bundles the release notes for the app and GitHub Release.
           - The version commit is SSH signed.
           - Security, CI, CodeQL, workflow validation and package builds passed for the source commit.
           - Auto-merge waits for the required PR checks and branch rules.
