@@ -1,3 +1,4 @@
+
 name: Monthly Auto Release
 
 on:
@@ -8,6 +9,11 @@ on:
 permissions:
   actions: read
   contents: write
+  pull-requests: write
+
+concurrency:
+  group: monthly-auto-release
+  cancel-in-progress: false
 
 jobs:
   monthly-release:
@@ -17,14 +23,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
         with:
+          ref: main
           fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
 
-      - name: Ensure default branch is up to date
+      - name: Fetch latest changes and tags
         run: |
-          git fetch --tags origin
+          git fetch origin main --tags
+          git checkout -B main origin/main
 
-      - name: Get latest tag
+      - name: Get latest release tag
         id: tag
+        shell: bash
         run: |
           latest=$(git tag --sort=-v:refname | head -n1)
 
@@ -32,114 +42,181 @@ jobs:
             latest="v0.0.0"
           fi
 
-          echo "latest=$latest" >> $GITHUB_OUTPUT
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "Latest release: $latest"
 
       - name: Check for changes since last release
         id: changes
+        shell: bash
+        env:
+          LATEST: ${{ steps.tag.outputs.latest }}
         run: |
-          latest=${{ steps.tag.outputs.latest }}
-
-          if [ "$latest" = "v0.0.0" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+          if [ "$LATEST" = "v0.0.0" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          count=$(git rev-list $latest..HEAD --count)
+          count=$(git rev-list "$LATEST"..origin/main --count)
 
           echo "Commits since last release: $count"
 
           if [ "$count" -gt 0 ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Verify required workflows passed
         if: steps.changes.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        shell: bash
         run: |
-          gh run list \
-            --workflow="Security & Quality Audit" \
-            --limit=1 \
-            --json conclusion \
-            --jq '.[0].conclusion' > security.txt
+          check_workflow() {
+            local workflow="$1"
+            local result
 
-          gh run list \
-            --workflow="Ghosty Tools CI" \
-            --limit=1 \
-            --json conclusion \
-            --jq '.[0].conclusion' > ci.txt
+            result=$(gh run list \
+              --workflow="$workflow" \
+              --branch main \
+              --limit 1 \
+              --json conclusion \
+              --jq '.[0].conclusion // "missing"')
 
-          gh run list \
-            --workflow="CodeQL" \
-            --limit=1 \
-            --json conclusion \
-            --jq '.[0].conclusion' > codeql.txt
+            echo "$workflow: $result"
 
-          SECURITY=$(cat security.txt)
-          CI=$(cat ci.txt)
-          CODEQL=$(cat codeql.txt)
+            if [ "$result" != "success" ]; then
+              echo "::error::$workflow has not passed."
+              exit 1
+            fi
+          }
 
-          echo "Security: $SECURITY"
-          echo "CI: $CI"
-          echo "CodeQL: $CODEQL"
-
-          [ "$SECURITY" = "success" ] || exit 1
-          [ "$CI" = "success" ] || exit 1
-          [ "$CODEQL" = "success" ] || exit 1
+          check_workflow "Security & Quality Audit"
+          check_workflow "Ghosty Tools CI"
+          check_workflow "CodeQL"
 
       - name: Calculate version bump
         if: steps.changes.outputs.changed == 'true'
         id: version
+        shell: bash
+        env:
+          LATEST: ${{ steps.tag.outputs.latest }}
         run: |
-          version=${{ steps.tag.outputs.latest }}
-          version=${version#v}
+          version="${LATEST#v}"
 
           IFS='.' read -r major minor patch <<< "$version"
+
+          if ! [[ "$major" =~ ^[0-9]+$ &&
+                  "$minor" =~ ^[0-9]+$ &&
+                  "$patch" =~ ^[0-9]+$ ]]; then
+            echo "::error::Invalid release version: $LATEST"
+            exit 1
+          fi
 
           patch=$((patch + 1))
 
           new_version="v${major}.${minor}.${patch}"
 
-          echo "new_version=$new_version" >> $GITHUB_OUTPUT
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+
+          echo "Next version: $new_version"
+
+      - name: Check for existing release PR
+        if: steps.changes.outputs.changed == 'true'
+        id: existing
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          VERSION: ${{ steps.version.outputs.new_version }}
+        run: |
+          branch="release/$VERSION"
+
+          count=$(gh pr list \
+            --base main \
+            --head "$branch" \
+            --state open \
+            --json number \
+            --jq 'length')
+
+          if [ "$count" -gt 0 ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "An open release PR already exists."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Update version files
-        if: steps.changes.outputs.changed == 'true'
+        if: steps.changes.outputs.changed == 'true' && steps.existing.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.new_version }}
         run: |
-          VERSION="${{ steps.version.outputs.new_version }}"
-
           sed -i "s/\"version\": \"v[^\"]*\"/\"version\": \"$VERSION\"/" config/version.json
 
           sed -i "s/CURRENT_VERSION = \"v[^\"]*\"/CURRENT_VERSION = \"$VERSION\"/" src/core/update_manager.py
 
           sed -i "s/VERSION = \"v[^\"]*\"/VERSION = \"$VERSION\"/" main.py
 
-      - name: Commit version bump
-        if: steps.changes.outputs.changed == 'true'
+      - name: Configure GPG signing
+        if: steps.changes.outputs.changed == 'true' && steps.existing.outputs.exists == 'false'
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
+          GPG_KEY_ID: ${{ secrets.RELEASE_GPG_KEY_ID }}
+          GIT_EMAIL: ${{ secrets.RELEASE_GIT_EMAIL }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
 
+          git config user.name "${{ github.repository_owner }}"
+          git config user.email "$GIT_EMAIL"
+          git config user.signingkey "$GPG_KEY_ID"
+          git config commit.gpgsign true
+          git config gpg.program gpg
+
+      - name: Create signed release commit
+        if: steps.changes.outputs.changed == 'true' && steps.existing.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.new_version }}
+        run: |
           git add config/version.json
           git add src/core/update_manager.py
           git add main.py
 
-          git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}" || echo "No changes to commit"
+          if git diff --cached --quiet; then
+            echo "No version changes detected."
+            exit 1
+          fi
 
-          git push
+          git commit -S -m "chore: bump version to $VERSION"
 
-      - name: Create tag
-        if: steps.changes.outputs.changed == 'true'
-        run: |
-          git tag ${{ steps.version.outputs.new_version }}
-          git push origin ${{ steps.version.outputs.new_version }}
+          git verify-commit HEAD
 
-      - name: Create GitHub Release
-        if: steps.changes.outputs.changed == 'true'
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ steps.version.outputs.new_version }}
-          generate_release_notes: true
+      - name: Push release branch
+        if: steps.changes.outputs.changed == 'true' && steps.existing.outputs.exists == 'false'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.new_version }}
+        run: |
+          git push origin HEAD:"release/$VERSION"
+
+      - name: Create pull request
+        if: steps.changes.outputs.changed == 'true' && steps.existing.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          VERSION: ${{ steps.version.outputs.new_version }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "release/$VERSION" \
+            --title "Release $VERSION" \
+            --body "## Ghosty Tools Monthly Release
+
+          Automated monthly version bump.
+
+          ### Changes
+          - Updates application version to $VERSION
+          - Updates update manager version
+          - Updates application version constant
+
+          ### Security
+          - Commit is GPG signed.
+          - Security, CI and CodeQL were checked before PR creation.
+          - All required PR checks must pass before merging.
+
+          Please review and merge when ready."
