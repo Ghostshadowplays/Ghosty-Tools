@@ -7,7 +7,10 @@ the release when there are no commits since the latest version tag.
    validation and package builds passed for the current main commit. It chooses
    the next patch version above both the latest version tag and
    `config/version.json`, updates the three version files, and opens an
-   SSH-signed release PR.
+   SSH-signed release PR. Retries reuse an existing release branch, including
+   branches left by closed PRs, and merge in the checked main commit with an
+   SSH-signed merge commit when needed. Existing open release PRs are updated
+   rather than duplicated.
 2. The workflow enables squash auto-merge on that PR. GitHub waits for required
    checks and branch rules, including any required reviews.
 3. After the PR merges, `publish-release.yml` tags the PR's merge commit and
@@ -22,6 +25,10 @@ the release when there are no commits since the latest version tag.
 
 - Enable **Allow auto-merge** and **Allow squash merging** under repository
   Settings > General > Pull Requests.
+  Direct link: https://github.com/Ghostshadowplays/Ghosty-Tools/settings.
+  The workflow checks both settings before waiting for builds or creating a PR.
+  Enabling these settings requires repository administrator access; the
+  workflow does not change repository settings.
 - Configure the required PR checks in the rules for `main`. Required human
   reviews still need approval before auto-merge can finish.
 - Add `Validate GitHub Actions`, `Build (Windows x64)`, `Build (Linux x64)`
@@ -78,6 +85,19 @@ release. A timeout lists the workflows that have not finished successfully.
   a tag pointing elsewhere is rejected.
 - To start the monthly process early, run **Monthly Auto Release** manually.
   Its change detection, checks and auto-merge rules are the same as the schedule.
+- If a run failed with `Auto merge is not allowed for this repository`, enable
+  **Allow auto-merge** and **Allow squash merging**, then start the monthly
+  workflow again. It reuses the existing open `release/<version>` PR and enables
+  auto-merge on it. The PR can also be merged in GitHub once its required checks
+  and reviews pass; the publish workflow then builds the release.
+- If a run failed pushing `release/<version>` with `non-fast-forward`, push
+  these workflow changes to `main` and start a new **Monthly Auto Release** run.
+  It fetches and reuses the existing branch, preserving its commits while adding
+  the checked main changes. If its PR was closed without merging, the workflow
+  creates a new PR. An unchanged version bump is accepted on retries. Pushes
+  remain fast-forward only; a concurrent branch update requires a new run.
+  Merge conflicts stop before pushing and must be resolved on the release
+  branch before retrying.
 
 Push these workflow changes to `main` before starting a new run. Rerunning an old
 failed run uses its original workflow definition, so it will not pick up these

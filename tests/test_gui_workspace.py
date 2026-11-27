@@ -16,6 +16,7 @@ from PyQt6.QtGui import QFontDatabase
 from PyQt6.QtTest import QTest, QSignalSpy
 from PyQt6.QtWidgets import QApplication
 
+from src.core.update_manager import UpdateManager
 from src.gui.dashboard import MonitorCard
 from src.gui.main_window import GhostyTool
 from src.utils.theme_manager import ThemeManager
@@ -146,10 +147,33 @@ class WorkspaceTests(unittest.TestCase):
         self.window.dashboard.system_details_toggle.setChecked(False)
 
     def test_bundled_whats_new_is_shown_once_per_revision(self):
-        with patch("src.gui.main_window.QDialog.exec", return_value=0) as popup:
-            self.window.check_for_whats_new()
-            self.window.check_for_whats_new()
-        popup.assert_called_once()
+        # Monthly releases can bump the app version without adding bundled notes.
+        # Supply our own notes and acknowledgement file for a future version.
+        manager: UpdateManager = self.window.update_manager
+        version = "v99.0.0"
+        with tempfile.TemporaryDirectory() as directory:
+            notes = Path(directory) / f"{version}.md"
+            notes.write_text("# What's New\nFirst revision.", encoding="utf-8")
+            with (
+                patch.object(manager, "current_version", version),
+                patch.object(manager, "version_file", str(Path(directory) / "version_info.json")),
+                patch("src.core.release_notes.get_resource_path", return_value=str(notes)),
+                patch("src.gui.main_window.ReleaseInfoWorker") as remote_notes,
+                patch("src.gui.main_window.QDialog.exec", return_value=0) as popup,
+            ):
+                self.window.check_for_whats_new()
+                self.window.check_for_whats_new()
+                popup.assert_called_once()
+                self.assertEqual(manager.get_last_seen_version(), version)
+                first_revision = manager.get_last_seen_notes_revision()
+                self.assertTrue(first_revision)
+
+                notes.write_text("# What's New\nUpdated revision.", encoding="utf-8")
+                self.window.check_for_whats_new()
+                self.window.check_for_whats_new()
+                self.assertEqual(popup.call_count, 2)
+                self.assertNotEqual(manager.get_last_seen_notes_revision(), first_revision)
+                remote_notes.assert_not_called()
 
     def test_dashboard_fits_a_smaller_workspace(self):
         self.window.switch_page(0)
