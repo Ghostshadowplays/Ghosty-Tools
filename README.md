@@ -13,7 +13,7 @@ Official Website: [ghostyware.com](https://ghostyware.com)
 
 Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows, Linux, and macOS environments. Built with a focus on **Security First**, it combines system maintenance, security auditing, and professional-grade password management into a single, sleek interface.
 
-## 🆕 What's New in v8.0.5
+## 🆕 What's New in v8.0.7
 
 - 📅 **Monthly release preparation:** Scheduled version-bump pull requests with SSH-signed commits and checks for CI, security audits, and CodeQL.
 - 🚀 **Release publishing:** Added workflows to create release tags and publish GitHub Releases after a release pull request is merged.

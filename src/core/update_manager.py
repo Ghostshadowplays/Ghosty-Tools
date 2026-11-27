@@ -13,7 +13,7 @@ from src.core.release_notes import notes_revision
 logger = logging.getLogger(__name__)
 
 # Use get_resource_path to ensure we read the bundled version.json in frozen EXEs
-CURRENT_VERSION = "v8.0.6"
+CURRENT_VERSION = "v8.0.8"
 try:
     _version_path = get_resource_path(os.path.join("config", "version.json"))
     if os.path.exists(_version_path):
