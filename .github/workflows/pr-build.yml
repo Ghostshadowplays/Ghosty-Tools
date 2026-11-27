@@ -1,0 +1,130 @@
+name: PR Build Checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Windows x64
+            os: windows-latest
+            arch: x64
+            executable: GhostyTools.exe
+            binary: GhostyTools-Windows-x64.exe
+            asset: GhostyTools-Windows-x64.exe
+          - platform: Linux x64
+            os: ubuntu-latest
+            arch: x64
+            executable: GhostyTools
+            binary: GhostyTools-Linux-x64
+            asset: GhostyTools-Linux-x64.deb
+          - platform: macOS arm64
+            os: macos-latest
+            arch: arm64
+            executable: GhostyTools
+            binary: GhostyTools-macOS-arm64
+            asset: GhostyTools-macOS-arm64
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          architecture: ${{ matrix.arch }}
+
+      - name: Install Linux packaging dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xclip xsel dpkg-dev
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade pyinstaller
+          python -m pip install -r requirements.txt
+
+      - name: Build with the release PyInstaller spec
+        env:
+          PYINSTALLER_EXECUTABLE: ${{ matrix.executable }}
+          OUTPUT_BINARY: ${{ matrix.binary }}
+        run: |
+          pyinstaller ghosty_tools.spec --clean --noconfirm
+          mv "dist/$PYINSTALLER_EXECUTABLE" "dist/$OUTPUT_BINARY"
+          test -s "dist/$OUTPUT_BINARY"
+
+      - name: Build Linux DEB package
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          version=$(jq -er '.version' config/version.json)
+          if ! [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Invalid version in config/version.json: $version"
+            exit 1
+          fi
+          VERSION_NUMBER="${version#v}"
+          dpkg --validate-version "$VERSION_NUMBER"
+
+          mkdir -p ghostytools_amd64/DEBIAN ghostytools_amd64/usr/bin
+          cp dist/GhostyTools-Linux-x64 ghostytools_amd64/usr/bin/ghostytools
+          chmod +x ghostytools_amd64/usr/bin/ghostytools
+
+          cat <<EOF > ghostytools_amd64/DEBIAN/control
+          Package: ghostytools
+          Version: ${VERSION_NUMBER}
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Ghostshadow <ghosty@ghostyware.com>
+          Description: Professional All-in-One Cross-Platform Optimization & Security Suite
+           Ghosty Tools is a high-performance, modular utility designed to secure and optimize Linux environments.
+          EOF
+
+          dpkg-deb --build ghostytools_amd64
+          mv ghostytools_amd64.deb dist/GhostyTools-Linux-x64.deb
+          test -s dist/GhostyTools-Linux-x64.deb
+
+      - name: Generate artifact checksum
+        env:
+          PACKAGE_ASSET: ${{ matrix.asset }}
+        run: |
+          cd dist
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            shasum -a 256 "$PACKAGE_ASSET" > "$PACKAGE_ASSET.sha256"
+          else
+            sha256sum "$PACKAGE_ASSET" > "$PACKAGE_ASSET.sha256"
+          fi
+
+      - name: Save build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-build-${{ runner.os }}-${{ matrix.arch }}
+          path: |
+            dist/${{ matrix.asset }}
+            dist/${{ matrix.asset }}.sha256
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true

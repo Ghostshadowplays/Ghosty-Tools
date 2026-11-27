@@ -110,6 +110,8 @@ jobs:
           check_workflow "security-audit.yml"
           check_workflow "python-app.yml"
           check_workflow "codeql.yml"
+          check_workflow "workflow-validation.yml"
+          check_workflow "pr-build.yml"
 
       - name: Calculate version bump
         if: steps.changes.outputs.changed == 'true'
@@ -257,7 +259,7 @@ jobs:
 
           - Updates the bundled version and application version constants.
           - The version commit is SSH signed.
-          - Security, CI and CodeQL passed for the source commit.
+          - Security, CI, CodeQL, workflow validation and package builds passed for the source commit.
           - Auto-merge waits for the required PR checks and branch rules.
           - After merging, all release assets are built before publishing.
           EOF

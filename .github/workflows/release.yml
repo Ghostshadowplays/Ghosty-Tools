@@ -58,9 +58,11 @@ jobs:
             echo "::error::Tag $RELEASE_TAG does not match config/version.json ($version)."
             exit 1
           fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag_name=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=$version"
+            echo "tag_name=$RELEASE_TAG"
+            echo "sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
 
   build-windows:
     name: Build Windows EXE
@@ -89,25 +91,42 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
           Move-Item dist/GhostyTools.exe dist/GhostyTools-Windows-x64.exe
 
-      - name: Recreate PFX and trust self-signed signer on this runner
+      - name: Prepare signing certificate without prompts
         shell: pwsh
+        timeout-minutes: 3
         env:
           CERT_PFX: ${{ secrets.CERT_PFX }}
           CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
         run: |
+          $ErrorActionPreference = "Stop"
           $pfxPath = Join-Path $env:RUNNER_TEMP "ghostshadow.pfx"
+          Write-Host "Decoding the signing PFX."
           [System.IO.File]::WriteAllBytes($pfxPath, [System.Convert]::FromBase64String($env:CERT_PFX))
-          $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($pfxPath, $env:CERT_PASSWORD)
-          if (-not $cert.HasPrivateKey) { throw "The PFX does not contain a private key" }
-          "SIGNER_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
+          Write-Host "Loading the signing certificate with an ephemeral private key."
+          $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
+            $pfxPath,
+            $env:CERT_PASSWORD,
+            [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::EphemeralKeySet
+          )
+          try {
+            if (-not $cert.HasPrivateKey) { throw "The PFX does not contain a private key" }
 
-          # Trust only the PFX's public self-signed certificate on this disposable runner.
-          if ($cert.Subject -eq $cert.Issuer) {
-            $publicPath = Join-Path $env:RUNNER_TEMP "ghostshadow.cer"
-            Export-Certificate -Cert $cert -FilePath $publicPath | Out-Null
-            Import-Certificate -FilePath $publicPath -CertStoreLocation Cert:\CurrentUser\Root | Out-Null
+            if ($cert.Subject -eq $cert.Issuer) {
+              $publicPath = Join-Path $env:RUNNER_TEMP "ghostshadow.cer"
+              Export-Certificate -Cert $cert -FilePath $publicPath | Out-Null
+              # CurrentUser\Root can show a hidden trust prompt. The hosted runner
+              # is elevated, so force a public-cert import into LocalMachine\Root.
+              Write-Host "Trusting the public certificate in the runner's machine root store."
+              & certutil.exe -f -addstore Root $publicPath
+              if ($LASTEXITCODE -ne 0) { throw "Certificate trust installation failed (exit $LASTEXITCODE)" }
+              Write-Host "Public certificate trust installed."
+            }
+
+            "SIGNER_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
+            Write-Host "Signing certificate preparation complete."
+          } finally {
+            $cert.Dispose()
           }
-          $cert.Dispose()
 
       - name: Locate SignTool
         shell: pwsh
@@ -120,6 +139,7 @@ jobs:
 
       - name: Sign EXE
         shell: pwsh
+        timeout-minutes: 5
         env:
           CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
         run: |
@@ -135,6 +155,7 @@ jobs:
 
       - name: Verify signature and timestamp
         shell: pwsh
+        timeout-minutes: 3
         run: |
           $sig = Get-AuthenticodeSignature dist\GhostyTools-Windows-x64.exe
           $sig | Format-List
