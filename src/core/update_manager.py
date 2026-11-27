@@ -12,7 +12,7 @@ from src.utils.helpers import get_config_dir, get_resource_path, get_logs_dir
 logger = logging.getLogger(__name__)
 
 # Use get_resource_path to ensure we read the bundled version.json in frozen EXEs
-CURRENT_VERSION = "v8.0.4"
+CURRENT_VERSION = "v8.0.5"
 try:
     _version_path = get_resource_path(os.path.join("config", "version.json"))
     if os.path.exists(_version_path):
