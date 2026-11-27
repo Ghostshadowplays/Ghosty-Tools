@@ -51,8 +51,9 @@ class UpdateEnvironmentTests(unittest.TestCase):
             command = launch.call_args.args[0]
             self.assertEqual(command[0], "powershell.exe")
             manifest = json.loads((log.parent / "update.json").read_text(encoding="utf-8"))
-            self.assertEqual(manifest["source"], str(source))
-            self.assertEqual(manifest["target"], str(target))
+            # Windows may expand an 8.3 TEMP alias when resolving the manifest paths.
+            self.assertTrue(source.samefile(manifest["source"]))
+            self.assertTrue(target.samefile(manifest["target"]))
             self.assertEqual(manifest["sha256"], hashlib.sha256(source.read_bytes()).hexdigest())
             self.assertEqual(target.read_bytes(), b"old version")
             self.assertEqual(launch.call_args.kwargs["env"]["PYINSTALLER_RESET_ENVIRONMENT"], "1")
