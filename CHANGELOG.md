@@ -4,9 +4,28 @@ Release notes are preserved here as the README moves to each new version.
 
 ## v8.0.9
 
+### Changes
+
+- chore: prepare release v8.0.9 (#63) (e815fc1)
+- Archive monthly release notes (523f747)
+- Improve appearance customization and theming (3db0716)
+
 **Full Changelog**: https://github.com/Ghostshadowplays/Ghosty-Tools/compare/v8.0.8...v8.0.9
 
 [GitHub release](https://github.com/Ghostshadowplays/Ghosty-Tools/releases/tag/v8.0.9)
+
+## v8.0.8
+
+### What's Changed
+* Update README.md by @RickyRichards in https://github.com/Ghostshadowplays/Ghosty-Tools/pull/61
+* Release v8.0.8 by @Ghostshadowplays in https://github.com/Ghostshadowplays/Ghosty-Tools/pull/62
+
+### New Contributors
+* @RickyRichards made their first contribution in https://github.com/Ghostshadowplays/Ghosty-Tools/pull/61
+
+**Full Changelog**: https://github.com/Ghostshadowplays/Ghosty-Tools/compare/v8.0.7...v8.0.8
+
+[GitHub release](https://github.com/Ghostshadowplays/Ghosty-Tools/releases/tag/v8.0.8)
 
 ## v8.0.7
 

@@ -63,6 +63,7 @@ from src.gui.dashboard import DashboardPage, DashboardCard, PageHeader, NavButto
 from src.gui.icons import tool_icon
 from src.core.release_notes import bundled_release_notes, notes_revision
 from src.core.update_handoff import launch_windows_update
+from src.gui.recovery_centre import RecoveryController
 from src.utils.theme_manager import ThemeManager
 from src.utils.helpers import is_admin, elevate_privileges, get_config_dir, ensure_private_file, get_resource_path, get_logs_dir, get_os_info
 from PyQt6.QtWidgets import QSystemTrayIcon, QMenu
@@ -216,6 +217,7 @@ class GhostyTool(QMainWindow):
 
         self.init_ui()
         self.apply_current_theme()
+        self.recovery_controller = RecoveryController(self)
         self.init_tray()
 
         QTimer.singleShot(1000, self.check_for_updates)
@@ -1273,6 +1275,10 @@ class GhostyTool(QMainWindow):
         scan_btn.clicked.connect(self.run_security_scan)
         layout.addWidget(scan_btn)
 
+        self.recovery_button = QPushButton("Recovery Centre")
+        self.recovery_button.clicked.connect(lambda: self.recovery_controller.show())
+        layout.addWidget(self.recovery_button)
+
         layout.addStretch()
         self.content_stack.addWidget(page)
 
@@ -1385,39 +1391,16 @@ class GhostyTool(QMainWindow):
         self._execute_security_action(action_key, cmd, label)
 
     def _execute_security_action(self, action_key, cmd, label):
+        if sys.platform == "win32":
+            from src.core.recovery.integration import run_operations, security_operations
+            self.recovery_controller.submit(lambda: run_operations(label, security_operations(action_key)))
+            return
         try:
-            if sys.platform == 'win32' and action_key != "enable_ufw":
-                result = subprocess.run(
-                    ["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd],
-                    capture_output=True, text=True, timeout=30,
-                    creationflags=CREATE_NO_WINDOW
-                )
-                success = result.returncode == 0
-            else:
-                result = subprocess.run(cmd.split(), capture_output=True, text=True, timeout=30)
-                success = result.returncode == 0
-
-            if success:
-                self._session_security_actions.append({
-                    "label": label,
-                    "time": datetime.now().strftime("%H:%M:%S"),
-                    "success": True
-                })
-                self.log_signal.emit(f"Action applied: {label}", "success")
-                QMessageBox.information(self, "Done",
-                                        f"Action completed successfully:\n{label}\n\n"
-                                        "Run the security scan again to verify.")
-            else:
-                err = result.stderr.strip() or result.stdout.strip()
-                self.log_signal.emit(f"Action failed: {err}", "error")
-                QMessageBox.warning(self, "Action Failed",
-                                    f"The action could not be completed:\n{err}")
-        except subprocess.TimeoutExpired:
-            self.log_signal.emit("Action timed out.", "error")
-            QMessageBox.warning(self, "Timeout", "The action timed out. Please try manually.")
-        except Exception as e:
-            self.log_signal.emit(f"Action error: {e}", "error")
-            QMessageBox.warning(self, "Error", f"An error occurred:\n{e}")
+            result = subprocess.run(cmd.split(), capture_output=True, text=True, timeout=30)
+            self.log_signal.emit(result.stdout if result.returncode == 0 else result.stderr,
+                                 "success" if result.returncode == 0 else "error")
+        except Exception as error:
+            QMessageBox.warning(self, "Security action", str(error))
 
     def setup_network_page(self):
         page = QWidget()
@@ -4021,7 +4004,7 @@ class GhostyTool(QMainWindow):
         self._gaming_enable_btn.clicked.connect(self._toggle_gaming_mode)
         gm_btn_row.addWidget(self._gaming_enable_btn)
 
-        self._gaming_revert_btn = QPushButton("Revert to Defaults")
+        self._gaming_revert_btn = QPushButton("Revert Captured Changes")
         self._gaming_revert_btn.setFixedHeight(40)
         self._gaming_revert_btn.setEnabled(_admin and self._app_settings.get("gaming_mode_active", False))
         self._gaming_revert_btn.setToolTip(
@@ -4193,7 +4176,9 @@ class GhostyTool(QMainWindow):
 
         def _run():
             success, msg = WindowsTools.toggle_gaming_mode(True)
-            self._app_settings["gaming_mode_active"] = True
+            self._gaming_last_result = (success, msg)
+            if success:
+                self._app_settings["gaming_mode_active"] = True
             self._save_json(self.settings_path, self._app_settings)
             self.log_signal.emit(msg, "success" if success else "error")
             # Queue the UI update on the main thread via QMetaObject
@@ -4204,19 +4189,19 @@ class GhostyTool(QMainWindow):
 
     @pyqtSlot()
     def _on_gaming_mode_applied(self):
-        admin = is_admin()
-        self._gaming_enable_btn.setEnabled(admin)
+        success, message = getattr(self, "_gaming_last_result", (False, "Gaming operation did not return a result"))
+        self._gaming_enable_btn.setEnabled(is_admin())
         self._gaming_enable_btn.setText("Enable Gaming Mode")
-        self._gaming_revert_btn.setEnabled(admin)  # mode is active, revert is now available
+        self._gaming_revert_btn.setEnabled(is_admin() and self._app_settings.get("gaming_mode_active", False))
         self._update_gaming_status_label()
-        QMessageBox.information(self, "Gaming Mode", "Gaming Mode applied!\nUse 'Revert to Defaults' to undo.")
+        (QMessageBox.information if success else QMessageBox.warning)(self, "Gaming Mode", message)
 
     def _revert_gaming_mode(self):
         if sys.platform != 'win32':
             return
         reply = QMessageBox.question(
             self, "Revert Gaming Mode",
-            "This will restore Balanced power plan, re-enable SysMain, Windows Update, and other defaults.\n\nContinue?",
+            "Restore the configuration captured before Gaming Mode? The recovery assessment will identify external changes and unavailable resources.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply != QMessageBox.StandardButton.Yes:
@@ -4227,7 +4212,9 @@ class GhostyTool(QMainWindow):
 
         def _run():
             success, msg = WindowsTools.toggle_gaming_mode(False)
-            self._app_settings["gaming_mode_active"] = False
+            self._gaming_last_result = (success, msg)
+            if success:
+                self._app_settings["gaming_mode_active"] = False
             self._save_json(self.settings_path, self._app_settings)
             self.log_signal.emit(msg, "success" if success else "error")
             from PyQt6.QtCore import QMetaObject, Qt as _Qt
@@ -4237,12 +4224,12 @@ class GhostyTool(QMainWindow):
 
     @pyqtSlot()
     def _on_gaming_mode_reverted(self):
-        admin = is_admin()
-        self._gaming_revert_btn.setEnabled(False)  # mode no longer active, nothing to revert
-        self._gaming_revert_btn.setText("Revert to Defaults")
-        self._gaming_enable_btn.setEnabled(admin)  # can re-enable again
+        success, message = getattr(self, "_gaming_last_result", (False, "Recovery did not return a result"))
+        self._gaming_revert_btn.setEnabled(is_admin() and self._app_settings.get("gaming_mode_active", False))
+        self._gaming_revert_btn.setText("Revert Captured Changes")
+        self._gaming_enable_btn.setEnabled(is_admin())
         self._update_gaming_status_label()
-        QMessageBox.information(self, "Gaming Mode", "System restored to defaults.")
+        (QMessageBox.information if success else QMessageBox.warning)(self, "Gaming Mode Recovery", message)
 
     def _fetch_gaming_page_specs(self):
         try:
@@ -4605,33 +4592,20 @@ class GhostyTool(QMainWindow):
             self._s_start_windows.blockSignals(was_blocked)
 
     def _apply_windows_startup(self):
-        if winreg is None:
+        if sys.platform != "win32":
             return
+        from src.core.recovery.integration import registry_operation, run_operations
         enabled = self._s_start_windows.isChecked()
-        self._app_settings["start_with_windows"] = enabled
-        self._save_json(self.settings_path, self._app_settings)
-        exe = sys.executable
-        try:
-            key = winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER,
-                r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
-                0, winreg.KEY_SET_VALUE
-            )
-            if enabled:
-                winreg.SetValueEx(key, "GhostyTools", 0, winreg.REG_SZ, f'"{exe}"')
-                self.log_signal.emit("Ghosty Tools added to Windows startup.", "success")
-                self.log_activity("Enabled Windows startup")
-            else:
-                try:
-                    winreg.DeleteValue(key, "GhostyTools")
-                    self.log_signal.emit("Ghosty Tools removed from Windows startup.", "info")
-                    self.log_activity("Disabled Windows startup")
-                except FileNotFoundError:
-                    pass
-            winreg.CloseKey(key)
+        executable = sys.executable
+        if not getattr(sys, 'frozen', False):
+            executable = f'"{sys.executable}" "{os.path.join(self.project_root, "main.py")}"'
+        else:
+            executable = f'"{executable}"'
+        operation = registry_operation("startup", executable, exists=enabled)
+        def finished(outcome):
+            self.recovery_controller._report(outcome)
             self._refresh_win_startup_status()
-        except Exception as e:
-            self.log_signal.emit(f"Failed to update startup registry: {e}", "error")
+        self.recovery_controller.submit(lambda: run_operations("Change Ghosty Tools startup", [operation]), finished)
 
     # ── Linux autostart helpers ─────────────────────────────────────────
     def _linux_autostart_path(self):
@@ -5402,282 +5376,113 @@ rm -- "$0"
             QMessageBox.critical(self, "Error", f"Failed to create restore point: {e}")
 
     def toggle_windows_theme(self):
-        try:
-            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", 0, winreg.KEY_ALL_ACCESS)
-            value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
-            new_value = 0 if value == 1 else 1
-            winreg.SetValueEx(key, "AppsUseLightTheme", 0, winreg.REG_DWORD, new_value)
-            winreg.SetValueEx(key, "SystemUsesLightTheme", 0, winreg.REG_DWORD, new_value)
-            winreg.CloseKey(key)
-            self.log_signal.emit(f"Windows theme toggled to {'Light' if new_value == 1 else 'Dark'} mode.", "success")
-        except Exception as e:
-            logger.error(f"Error toggling theme: {e}")
+        if sys.platform != "win32":
+            return
+        from src.core.recovery.integration import get_engine, registry_operation, run_operations
+        def apply():
+            handler = get_engine().handlers["registry.value.v1"]
+            state = handler.capture({"id": "apps_light_theme"})
+            value = 0 if state.get("value", 1) else 1
+            return run_operations("Change Windows light/dark preference", [
+                registry_operation("apps_light_theme", value), registry_operation("system_light_theme", value)])
+        self.recovery_controller.submit(apply)
+
+    def _run_recovery_tweaks(self, selected):
+        from src.core.recovery.integration import run_operations, tweak_operations
+        return self.recovery_controller.submit(lambda: run_operations(
+            "Apply selected Windows tweaks", tweak_operations(selected)))
 
     def confirm_changes(self):
-        selected = [name for name, cb in self.tweaks.items() if cb.isChecked()]
+        selected = [name for name, checkbox in self.tweaks.items() if checkbox.isChecked()]
         if not selected:
-            QMessageBox.warning(self, "No Selection", "Please select at least one tweak.")
+            QMessageBox.information(self, "No Selection", "Select at least one tweak.")
             return
-        
-        reply = QMessageBox.question(self, "Confirm Changes", f"Apply {len(selected)} selected tweaks?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if reply == QMessageBox.StandardButton.Yes:
-            self.log_signal.emit(f"Applying {len(selected)} selected tweaks...", "info")
-            for name in selected:
-                self.log_signal.emit(f"Applying tweak: {name}", "debug")
-                if name == "delete_temp": self._delete_temp_files()
-                elif name == "disable_telemetry": self._disable_telemetry()
-                elif name == "disable_activity": self._disable_activity_history()
-                elif name == "disable_gamedvr": self._disable_gamedvr()
-                elif name == "disable_hibernation": self._disable_hibernation()
-                elif name == "disable_homegroup": self._disable_homegroup()
-                elif name == "prefer_ipv4": self._prefer_ipv4()
-                elif name == "disable_location": self._disable_location_tracking()
-                elif name == "disable_storage_sense": self._disable_storage_sense()
-                elif name == "disable_wifi_sense": self._disable_wifi_sense()
-                elif name == "enable_end_task": self._enable_end_task()
-                elif name == "ultimate_performance": self._enable_ultimate_performance()
-                elif name == "disable_web_search": self._disable_web_search()
-                elif name == "classic_context_menu": self._enable_classic_context_menu()
-                elif name == "disable_ad_id": self._disable_advertising_id()
-                elif name == "disable_spotlight": self._disable_spotlight()
-                elif name == "disable_copilot": self._disable_copilot()
-                elif name == "disable_news": self._disable_news_and_interests()
-                elif name == "show_file_ext": self._show_file_extensions()
-                elif name == "show_hidden": self._show_hidden_files()
-                elif name == "disable_game_mode": self._disable_game_mode()
-                elif name == "disable_background_apps": self._disable_background_apps()
-                elif name == "disable_reserved_storage": self._disable_reserved_storage()
-                elif name == "disable_fast_startup": self._disable_fast_startup()
-                elif name == "disable_search_indexing": self._disable_search_indexing()
-                elif name == "disable_sysmain": self._disable_sysmain()
-                elif name == "set_services_manual": 
-                    self._set_services_to_manual(["DiagTrack", "dmwappushservice", "RemoteRegistry"])
-            self.log_signal.emit("Selected tweaks applied successfully.", "success")
-            QMessageBox.information(self, "Success", "Selected tweaks applied successfully.")
+        return self._run_recovery_tweaks(selected)
 
     def _delete_temp_files(self):
-        import shutil
-        temp_dirs = [os.environ.get('TEMP'), r'C:\Windows\Temp']
-        for d in temp_dirs:
-            if not d or not os.path.exists(d): continue
-            for item in os.listdir(d):
-                item_path = os.path.join(d, item)
-                try:
-                    if os.path.isfile(item_path) or os.path.islink(item_path): os.unlink(item_path)
-                    elif os.path.isdir(item_path): shutil.rmtree(item_path)
-                except Exception as e:
-                    logger.debug(f"Failed to delete {item_path}: {e}")
+        return self._run_recovery_tweaks(['delete_temp'])
 
     def _disable_telemetry(self):
-        try:
-            key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\Microsoft\Windows\DataCollection")
-            winreg.SetValueEx(key, "AllowTelemetry", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key)
-        except Exception as e: logger.error(f"Telemetry tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_telemetry'])
 
     def _disable_activity_history(self):
-        try:
-            key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\Microsoft\Windows\System")
-            winreg.SetValueEx(key, "EnableActivityFeed", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key)
-        except Exception as e: logger.error(f"Activity history tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_activity'])
 
     def _disable_gamedvr(self):
-        try:
-            key1 = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"System\GameConfigStore")
-            winreg.SetValueEx(key1, "GameDVR_Enabled", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key1)
-            key2 = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\Microsoft\Windows\GameDVR")
-            winreg.SetValueEx(key2, "AllowGameDVR", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key2)
-        except Exception as e: logger.error(f"GameDVR tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_gamedvr'])
 
     def _disable_hibernation(self):
-        try: subprocess.run(["powercfg", "-h", "off"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
-        except Exception as e: logger.error(f"Hibernation tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_hibernation'])
 
     def _disable_homegroup(self):
-        try:
-            key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Classes\CLSID\{B4FB3F98-C1EA-428d-A78A-D1F5659CBA93}\ShellFolder")
-            winreg.SetValueEx(key, "Attributes", 0, winreg.REG_DWORD, 0xb094010c)
-            winreg.CloseKey(key)
-        except Exception as e: logger.error(f"HomeGroup tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_homegroup'])
 
     def _prefer_ipv4(self):
-        try:
-            key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters")
-            winreg.SetValueEx(key, "DisabledComponents", 0, winreg.REG_DWORD, 0x20)
-            winreg.CloseKey(key)
-        except Exception as e: logger.error(f"IPv4 preference tweak failed: {e}")
+        return self._run_recovery_tweaks(['prefer_ipv4'])
 
     def _disable_location_tracking(self):
-        try:
-            key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors")
-            winreg.SetValueEx(key, "DisableLocation", 0, winreg.REG_DWORD, 1)
-            winreg.CloseKey(key)
-        except Exception as e: logger.error(f"Location tracking tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_location'])
 
     def _disable_storage_sense(self):
-        try:
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy")
-            winreg.SetValueEx(key, "01", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key)
-        except Exception as e: logger.error(f"Storage Sense tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_storage_sense'])
 
     def _disable_wifi_sense(self):
-        try:
-            key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\WcmSvc\wifinetworkmanager\config")
-            winreg.SetValueEx(key, "AutoConnectAllowedOEM", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key)
-        except Exception as e: logger.error(f"Wi-Fi Sense tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_wifi_sense'])
 
     def _enable_end_task(self):
-        try:
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced")
-            winreg.SetValueEx(key, "TaskbarEndTask", 0, winreg.REG_DWORD, 1)
-            winreg.CloseKey(key)
-        except Exception as e: logger.error(f"End Task tweak failed: {e}")
+        return self._run_recovery_tweaks(['enable_end_task'])
 
     def _set_services_to_manual(self, services):
-        for service in services:
-            try: subprocess.run(["sc", "config", service, "start=", "demand"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
-            except Exception as e: logger.error(f"Failed to set service {service} to manual: {e}")
+        from src.core.recovery.integration import run_operations, service_operation
+        return self.recovery_controller.submit(lambda: run_operations("Set selected services to Manual", [
+            service_operation(name, startup="Manual") for name in services]))
 
 
     def _enable_ultimate_performance(self):
-        try:
-            subprocess.run(["powercfg", "-duplicatescheme", "e9a42b02-d5df-448d-aa00-03f14749eb61"], shell=False, check=False, creationflags=CREATE_NO_WINDOW)
-            subprocess.run(["powercfg", "-setactive", "e9a42b02-d5df-448d-aa00-03f14749eb61"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
-        except Exception as e:
-            logger.error(f"Ultimate Performance plan tweak failed: {e}")
+        return self._run_recovery_tweaks(['ultimate_performance'])
 
     def _disable_web_search(self):
-        try:
-            # Disable Bing web search in Start
-            key1 = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\\Microsoft\\Windows\\CurrentVersion\\Search")
-            winreg.SetValueEx(key1, "BingSearchEnabled", 0, winreg.REG_DWORD, 0)
-            winreg.SetValueEx(key1, "CortanaConsent", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key1)
-            # Disable SearchBox suggestions via policy
-            key2 = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\\Policies\\Microsoft\\Windows\\Explorer")
-            winreg.SetValueEx(key2, "DisableSearchBoxSuggestions", 0, winreg.REG_DWORD, 1)
-            winreg.CloseKey(key2)
-        except Exception as e:
-            logger.error(f"Disable web search tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_web_search'])
 
     def _enable_classic_context_menu(self):
-        try:
-            clsid = r"Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\\InprocServer32"
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, clsid)
-            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "")
-            winreg.CloseKey(key)
-        except Exception as e:
-            logger.error(f"Classic context menu tweak failed: {e}")
+        return self._run_recovery_tweaks(['classic_context_menu'])
 
     def _disable_advertising_id(self):
-        try:
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo")
-            winreg.SetValueEx(key, "Enabled", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key)
-        except Exception as e:
-            logger.error(f"Disable Advertising ID tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_ad_id'])
 
     def _disable_spotlight(self):
-        try:
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\\Policies\\Microsoft\\Windows\\CloudContent")
-            winreg.SetValueEx(key, "DisableWindowsSpotlightFeatures", 0, winreg.REG_DWORD, 1)
-            winreg.CloseKey(key)
-        except Exception as e:
-            logger.error(f"Disable Spotlight tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_spotlight'])
 
 
     def _disable_copilot(self):
-        try:
-            if winreg is None:
-                return
-            key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot")
-            winreg.SetValueEx(key, "TurnOffWindowsCopilot", 0, winreg.REG_DWORD, 1)
-            winreg.CloseKey(key)
-            key2 = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced")
-            winreg.SetValueEx(key2, "ShowCopilotButton", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key2)
-        except Exception as e:
-            logger.error(f"Disable Copilot tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_copilot'])
 
     def _disable_news_and_interests(self):
-        try:
-            if winreg is None:
-                return
-            key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\Microsoft\Windows\Windows Feeds")
-            winreg.SetValueEx(key, "EnableFeeds", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key)
-            key2 = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Feeds")
-            winreg.SetValueEx(key2, "ShellFeedsTaskbarViewMode", 0, winreg.REG_DWORD, 2)
-            winreg.CloseKey(key2)
-        except Exception as e:
-            logger.error(f"Disable News & Interests tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_news'])
 
     def _show_file_extensions(self):
-        try:
-            if winreg is None:
-                return
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced")
-            winreg.SetValueEx(key, "HideFileExt", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key)
-        except Exception as e:
-            logger.error(f"Show file extensions tweak failed: {e}")
+        return self._run_recovery_tweaks(['show_file_ext'])
 
     def _show_hidden_files(self):
-        try:
-            if winreg is None:
-                return
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced")
-            winreg.SetValueEx(key, "Hidden", 0, winreg.REG_DWORD, 1)
-            winreg.SetValueEx(key, "ShowSuperHidden", 0, winreg.REG_DWORD, 1)
-            winreg.CloseKey(key)
-        except Exception as e:
-            logger.error(f"Show hidden files tweak failed: {e}")
+        return self._run_recovery_tweaks(['show_hidden'])
 
     def _disable_game_mode(self):
-        try:
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\GameBar")
-            winreg.SetValueEx(key, "AllowAutoGameMode", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key)
-        except Exception as e: logger.error(f"Game Mode tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_game_mode'])
 
     def _disable_background_apps(self):
-        try:
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications")
-            winreg.SetValueEx(key, "GlobalUserDisabled", 0, winreg.REG_DWORD, 1)
-            winreg.CloseKey(key)
-            key2 = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Search")
-            winreg.SetValueEx(key2, "BackgroundAppGlobalToggle", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key2)
-        except Exception as e: logger.error(f"Background Apps tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_background_apps'])
 
     def _disable_reserved_storage(self):
-        try:
-            subprocess.run(["DISM.exe", "/Online", "/Set-ReservedStorageState", "/State:Disabled"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
-        except Exception as e: logger.error(f"Reserved Storage tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_reserved_storage'])
 
     def _disable_fast_startup(self):
-        try:
-            key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Power")
-            winreg.SetValueEx(key, "HiberbootEnabled", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key)
-        except Exception as e: logger.error(f"Fast Startup tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_fast_startup'])
 
     def _disable_search_indexing(self):
-        try:
-            subprocess.run(["sc", "stop", "WSearch"], shell=False, check=False, creationflags=CREATE_NO_WINDOW)
-            subprocess.run(["sc", "config", "WSearch", "start=", "disabled"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
-        except Exception as e: logger.error(f"Search Indexing tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_search_indexing'])
 
     def _disable_sysmain(self):
-        try:
-            subprocess.run(["sc", "stop", "SysMain"], shell=False, check=False, creationflags=CREATE_NO_WINDOW)
-            subprocess.run(["sc", "config", "SysMain", "start=", "disabled"], shell=False, check=True, creationflags=CREATE_NO_WINDOW)
-        except Exception as e: logger.error(f"SysMain tweak failed: {e}")
+        return self._run_recovery_tweaks(['disable_sysmain'])
     def init_tray(self):
         self.tray_icon = QSystemTrayIcon(self)
         icon_path = os.path.join(self.project_root, "images", "ghosty icon.ico")
@@ -6143,6 +5948,10 @@ rm -- "$0"
                     2500
                 )
         else:
+            if hasattr(self, "recovery_controller") and not self.recovery_controller.close():
+                event.ignore()
+                QMessageBox.information(self, "Recovery task running", "Wait for the active recovery task to finish before closing Ghosty Tools.")
+                return
             event.accept()
 
     def changeEvent(self, event):

@@ -26,155 +26,12 @@ class WindowsTools(BasePlatformTools):
 
     @staticmethod
     def toggle_gaming_mode(enable=True):
-        """Optimize system for gaming with a comprehensive set of performance tweaks."""
         if sys.platform != "win32":
             return False, "Not on Windows."
-
-        from src.utils.helpers import run_command
-        results = []
-        errors = []
-
-        def reg_set(hive, key, name, reg_type, value):
-            try:
-                if winreg is None:
-                    return
-                k = winreg.CreateKey(hive, key)
-                winreg.SetValueEx(k, name, 0, reg_type, value)
-                winreg.CloseKey(k)
-            except Exception as e:
-                errors.append(f"Registry {key}\\{name}: {e}")
-
-        def reg_delete(hive, key, name):
-            try:
-                if winreg is None:
-                    return
-                k = winreg.OpenKey(hive, key, 0, winreg.KEY_SET_VALUE)
-                winreg.DeleteValue(k, name)
-                winreg.CloseKey(k)
-            except Exception:
-                pass  # Key may not exist — that's fine
-
-        def svc(name, startup, stop=False):
-            action = f"Set-Service -Name '{name}' -StartupType {startup} -ErrorAction SilentlyContinue"
-            if stop:
-                action += f"; Stop-Service -Name '{name}' -Force -ErrorAction SilentlyContinue"
-            r = run_command(["powershell", "-NoProfile", "-Command", action])
-            return r.returncode == 0
-
-        HKLM = winreg.HKEY_LOCAL_MACHINE if winreg else None
-        HKCU = winreg.HKEY_CURRENT_USER if winreg else None
-        DWORD = winreg.REG_DWORD if winreg else None
-
-        if enable:
-            # 1. High Performance / Ultimate Performance power plan
-            r = run_command(["powercfg", "-duplicatescheme", "e9a42b02-d5df-448d-aa00-03f14749eb61"])
-            run_command(["powercfg", "-setactive", "e9a42b02-d5df-448d-aa00-03f14749eb61"])
-            results.append("Power plan set to Ultimate Performance.")
-
-            # 2. Disable Xbox Game Bar & Game DVR
-            if HKCU and DWORD:
-                reg_set(HKCU, r"Software\Microsoft\Windows\CurrentVersion\GameDVR", "AppCaptureEnabled", DWORD, 0)
-                reg_set(HKCU, r"System\GameConfigStore", "GameDVR_Enabled", DWORD, 0)
-                reg_set(HKLM, r"SOFTWARE\Policies\Microsoft\Windows\GameDVR", "AllowGameDVR", DWORD, 0)
-            results.append("Xbox Game DVR / capture disabled.")
-
-            # 3. Enable Windows Game Mode
-            if HKCU and DWORD:
-                reg_set(HKCU, r"Software\Microsoft\GameBar", "AutoGameModeEnabled", DWORD, 1)
-                reg_set(HKCU, r"Software\Microsoft\GameBar", "ShowStartupPanel", DWORD, 0)
-                reg_set(HKCU, r"Software\Microsoft\GameBar", "UseNexusForGameBarEnabled", DWORD, 0)
-            results.append("Windows Game Mode enabled.")
-
-            # 4. Disable Nagle's algorithm (reduces network latency in games)
-            # Must use the adapter GUID, not the InterfaceIndex, for the registry path.
-            try:
-                ps_iface = (
-                    "Get-NetAdapter -Physical | Where-Object Status -eq 'Up' | "
-                    "Select-Object -ExpandProperty InterfaceGuid"
-                )
-                r2 = run_command(["powershell", "-NoProfile", "-Command", ps_iface])
-                nagle_applied = False
-                for guid in r2.stdout.strip().splitlines():
-                    guid = guid.strip().strip("{}")
-                    if guid:
-                        iface_key = (
-                            rf"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{{{guid}}}"
-                        )
-                        reg_set(HKLM, iface_key, "TcpAckFrequency", DWORD, 1)
-                        reg_set(HKLM, iface_key, "TCPNoDelay", DWORD, 1)
-                        nagle_applied = True
-                if nagle_applied:
-                    results.append("Nagle's algorithm disabled (lower network latency).")
-            except Exception as e:
-                errors.append(f"Nagle tweak: {e}")
-
-            # 5. Set GPU preference to high performance for all apps
-            if HKCU and DWORD:
-                reg_set(HKCU,
-                        r"Software\Microsoft\DirectX\UserGpuPreferences",
-                        "DirectXUserGlobalSettings",
-                        winreg.REG_SZ,
-                        "SwapEffectUpgradeEnable=1;")
-            results.append("GPU preference set to high performance.")
-
-            # 6. Disable fullscreen optimizations globally
-            if HKCU and DWORD:
-                reg_set(HKCU, r"System\GameConfigStore", "GameDVR_FSEBehaviorMode", DWORD, 2)
-                reg_set(HKCU, r"System\GameConfigStore", "GameDVR_HonorUserFSEBehaviorMode", DWORD, 1)
-                reg_set(HKCU, r"System\GameConfigStore", "GameDVR_FSEBehavior", DWORD, 2)
-            results.append("Fullscreen optimizations disabled.")
-
-            # 7. Disable SysMain (Superfetch) — reduces background I/O during gaming
-            if svc("SysMain", "Disabled", stop=True):
-                results.append("SysMain (Superfetch) disabled.")
-
-            # 8. Pause Windows Update (service + orchestrator + registry policy)
-            svc("wuauserv", "Disabled", stop=True)
-            svc("UsoSvc",   "Disabled", stop=True)
-            svc("WaaSMedicSvc", "Disabled", stop=True)
-            # Pause via registry so any auto-restart of the service still stays off
-            if HKLM and DWORD:
-                reg_set(HKLM,
-                        r"SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU",
-                        "NoAutoUpdate", DWORD, 1)
-            results.append("Windows Update services stopped and policy disabled.")
-
-            # 9. Set MMCSS (Multimedia Class Scheduler) for games
-            if HKLM and DWORD:
-                reg_set(HKLM, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games",
-                        "GPU Priority", DWORD, 8)
-                reg_set(HKLM, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games",
-                        "Priority", DWORD, 6)
-                reg_set(HKLM, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games",
-                        "Scheduling Category", winreg.REG_SZ, "High")
-            results.append("MMCSS game thread priority raised.")
-
-        else:
-            # Restore defaults
-            run_command(["powercfg", "-setactive", "381b4222-f694-41f0-9685-ff5bb260df2e"])
-            results.append("Power plan restored to Balanced.")
-
-            if HKCU and DWORD:
-                reg_delete(HKCU, r"Software\Microsoft\Windows\CurrentVersion\GameDVR", "AppCaptureEnabled")
-                reg_delete(HKCU, r"System\GameConfigStore", "GameDVR_Enabled")
-            results.append("Game DVR settings restored.")
-
-            if svc("SysMain", "Automatic"):
-                results.append("SysMain (Superfetch) re-enabled.")
-            svc("wuauserv",    "Automatic")
-            svc("UsoSvc",      "Automatic")
-            svc("WaaSMedicSvc","Manual")
-            # Clear the no-auto-update policy
-            reg_delete(HKLM, r"SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU", "NoAutoUpdate")
-            # Restart wuauserv so updates can run immediately
-            run_command(["powershell", "-NoProfile", "-Command",
-                         "Start-Service wuauserv,UsoSvc -ErrorAction SilentlyContinue"])
-            results.append("Windows Update services restored.")
-
-        summary = "\n".join(results)
-        if errors:
-            summary += "\n\nWarnings:\n" + "\n".join(errors)
-        return True, summary
+        from src.core.recovery.integration import gaming_operations, restore_profile, run_operations
+        if not enable:
+            return restore_profile("Gaming optimisation")
+        return run_operations("Enable Gaming Mode", gaming_operations(), profile="Gaming optimisation")
 
     @staticmethod
     def get_hosts_content():
@@ -190,34 +47,23 @@ class WindowsTools(BasePlatformTools):
 
     @staticmethod
     def save_hosts_content(content):
-        """Save the hosts file content."""
-        hosts_path = r"C:\Windows\System32\drivers\etc\hosts"
-        try:
-            backup_path = hosts_path + ".bak"
-            if os.path.exists(hosts_path):
-                import shutil
-                shutil.copy2(hosts_path, backup_path)
-            with open(hosts_path, "w", encoding="utf-8", newline="") as f:
-                f.write(content)
-            return True, "Hosts file saved successfully (backup created)."
-        except Exception as e:
-            logger.error(f"Error saving hosts file: {e}")
-            return False, str(e)
+        import base64
+        from src.core.recovery.integration import run_operations
+        from src.core.recovery.models import Operation
+        encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
+        return run_operations("Save Windows hosts file", [Operation("file.hosts.v1",
+            {"scope": "Windows hosts file"}, {"content_base64": encoded}, "Replace hosts file content")])
 
     @staticmethod
     def edit_hosts_file(entries, action="add"):
-        """Manage Windows hosts file entries programmatically."""
-        hosts_path = r"C:\Windows\System32\drivers\etc\hosts"
-        try:
-            if action == "add":
-                with open(hosts_path, "a", encoding="utf-8") as f:
-                    for entry in entries:
-                        f.write(f"\n127.0.0.1 {entry}")
-                return True, f"Added {len(entries)} entries to hosts file."
+        if action != "add":
             return False, "Action not implemented."
-        except Exception as e:
-            logger.error(f"Error editing hosts file: {e}")
-            return False, str(e)
+        success, current = WindowsTools.get_hosts_content()
+        if not success:
+            return False, current
+        if any(not isinstance(entry, str) or "\n" in entry or "\r" in entry for entry in entries):
+            return False, "Invalid hosts entry"
+        return WindowsTools.save_hosts_content(current + "".join(f"\n127.0.0.1 {entry}" for entry in entries))
 
     @staticmethod
     def get_winget_apps():

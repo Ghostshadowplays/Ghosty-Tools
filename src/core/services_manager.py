@@ -35,18 +35,14 @@ class ServicesManager:
 
     @staticmethod
     def manage_service(name, action):
-        """Action: start, stop, enable, disable."""
         if sys.platform == "win32":
-            cmd_map = {
-                "start": ["powershell", "-Command", f"Start-Service -Name {name}"],
-                "stop": ["powershell", "-Command", f"Stop-Service -Name {name}"],
-                "enable": ["powershell", "-Command", f"Set-Service -Name {name} -StartupType Automatic"],
-                "disable": ["powershell", "-Command", f"Set-Service -Name {name} -StartupType Disabled"]
-            }
-            if action in cmd_map:
-                proc = run_command(cmd_map[action])
-                return proc.returncode == 0, proc.stdout if proc.returncode == 0 else proc.stderr
-        elif sys.platform == "linux":
+            from src.core.recovery.integration import run_operations, service_operation
+            changes = {"start": {"running": True}, "stop": {"running": False},
+                       "enable": {"startup": "Auto", "delayed": False}, "disable": {"startup": "Disabled"}}
+            if action not in changes:
+                return False, "Unsupported service operation"
+            return run_operations(f"{action.title()} service {name}", [service_operation(name, **changes[action])])
+        if sys.platform == "linux":
             proc = run_command(["sudo", "systemctl", action, name])
             return proc.returncode == 0, proc.stdout
         return False, "Not supported."

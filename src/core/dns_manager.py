@@ -15,33 +15,28 @@ class DNSManager:
 
     @staticmethod
     def set_dns(primary, secondary=None):
-        """Set DNS servers for all active adapters (Windows only for now)."""
-        if sys.platform != "win32": return False, "Only supported on Windows."
-        
-        try:
-            # Using PowerShell to set DNS
-            cmd = f"Get-NetAdapter | Where-Object {{ $_.Status -eq 'Up' }} | Set-DnsClientServerAddress -ServerAddresses ('{primary}'"
-            if secondary:
-                cmd += f", '{secondary}'"
-            cmd += ")"
-            
-            proc = run_command(["powershell", "-Command", cmd])
-            if proc.returncode == 0:
-                return True, f"DNS set to {primary}, {secondary}"
-            return False, proc.stderr
-        except Exception as e:
-            return False, str(e)
+        if sys.platform != "win32":
+            return False, "Only supported on Windows."
+        from src.core.recovery.integration import get_engine, run_operations
+        from src.core.recovery.models import Operation
+        backend = get_engine().handlers["network.dns.v1"].backend
+        servers = [primary] + ([secondary] if secondary else [])
+        operations = [Operation("network.dns.v1", {"interface": adapter["guid"]},
+                      {"source": "static", "servers": servers}, f"Set DNS for {adapter['name']}")
+                      for adapter in backend.adapters()]
+        return run_operations("Change DNS servers", operations)
 
     @staticmethod
     def reset_dns():
-        """Reset DNS to automatic (DHCP)."""
-        if sys.platform != "win32": return False
-        try:
-            cmd = "Get-NetAdapter | Where-Object {{ $_.Status -eq 'Up' }} | Set-DnsClientServerAddress -ResetServerAddresses"
-            proc = run_command(["powershell", "-Command", cmd])
-            return proc.returncode == 0, "DNS reset to automatic."
-        except Exception as e:
-            return False, str(e)
+        if sys.platform != "win32":
+            return False, "Only supported on Windows."
+        from src.core.recovery.integration import get_engine, run_operations
+        from src.core.recovery.models import Operation
+        backend = get_engine().handlers["network.dns.v1"].backend
+        operations = [Operation("network.dns.v1", {"interface": adapter["guid"]},
+                      {"source": "dhcp", "servers": []}, f"Use automatic DNS for {adapter['name']}")
+                      for adapter in backend.adapters()]
+        return run_operations("Reset DNS to automatic", operations)
 
     @staticmethod
     def flush_dns():

@@ -78,7 +78,9 @@ also archives the original README entries. Only the latest version appears in
 the README. README content outside the marked section is retained.
 
 GitHub generates the default notes from merged PRs since the previous tag,
-using the main commit that passed the release checks. For custom highlights,
+using the main commit that passed the release checks. If there are no listed
+PR changes, commit titles from that same range supply the change list.
+An older release cannot replace a newer README version. For custom highlights,
 add or edit `config/release_notes/<version>.md` in the release PR and remove
 the `<!-- generated-release-notes -->` marker if present. Hand-written notes
 are preserved on retries; generated notes refresh when the source changes.

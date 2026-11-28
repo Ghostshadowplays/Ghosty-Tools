@@ -1,77 +1,52 @@
 import sys
 import logging
-from src.utils.helpers import run_command
 
 logger = logging.getLogger(__name__)
 
 class PerformanceMode:
     @staticmethod
     def set_high_performance_power_plan():
-        """Set Windows power plan to High Performance."""
-        if sys.platform != "win32": return False
-        try:
-            # GUID for High Performance: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
-            # GUID for Ultimate Performance: e9a42b02-d5df-448d-aa00-03f14749eb61
-            run_command(["powercfg", "/setactive", "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"])
-            return True, "Power plan set to High Performance."
-        except Exception as e:
-            return False, str(e)
+        if sys.platform != "win32":
+            return False, "Only supported on Windows."
+        from src.core.recovery.integration import run_operations
+        from src.core.recovery.models import Operation
+        return run_operations("Activate High Performance power plan", [Operation("power.active.v1",
+            {"scope": "Active power plan"}, {"scheme": "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"}, "Change active power plan")])
 
     @staticmethod
     def toggle_visual_effects(best_performance=True):
-        """Toggle Windows visual effects for performance."""
-        if sys.platform != "win32": return False
-        try:
-            # This involves registry changes in HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects
-            # and other places. It's complex to do perfectly via script without a reboot.
-            return True, "Visual effects optimization applied (Requires restart for full effect)."
-        except Exception as e:
-            return False, str(e)
+        return False, "No verified visual-effects handler is available; no settings were changed."
 
     @staticmethod
     def disable_xbox_dvr():
-        """Disable Xbox Game DVR to save resources."""
-        if sys.platform != "win32": return False
-        try:
-            from src.core.platform_tools.windows import WindowsTools
-            # We can use registry here
-            import winreg
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"System\GameConfigStore")
-            winreg.SetValueEx(key, "GameDVR_Enabled", 0, winreg.REG_DWORD, 0)
-            winreg.CloseKey(key)
-            return True, "Xbox DVR disabled."
-        except Exception as e:
-            return False, str(e)
+        if sys.platform != "win32":
+            return False, "Only supported on Windows."
+        from src.core.recovery.integration import registry_operation, run_operations
+        return run_operations("Disable Xbox Game DVR", [registry_operation("game_dvr", 0)])
 
     @staticmethod
     def set_nvidia_max_performance():
-        """Set NVIDIA GPU to Prefer Maximum Performance (Windows)."""
-        if sys.platform != "win32": return False
-        try:
-            # This is complex via registry, but we can try to use nvidia-smi if available
-            run_command(["nvidia-smi", "-pm", "1"]) # Enable persistence mode
-            return True, "NVIDIA persistence mode enabled (Step towards max performance)."
-        except:
-            return False, "nvidia-smi not found or failed."
+        return False, "NVIDIA persistence-mode changes require a validated Windows driver handler; no settings were changed."
 
     @staticmethod
     def set_cpu_min_state_100():
-        """Ensure CPU minimum state is 100% (Windows)."""
-        if sys.platform != "win32": return False
+        if sys.platform != "win32":
+            return False, "Only supported on Windows."
+        from src.core.recovery.integration import get_engine, run_operations
+        from src.core.recovery.models import Operation
         try:
-            run_command(["powercfg", "/setacvalueindex", "SCHEME_CURRENT", "SUB_PROCESSOR", "PROCTHROTTLEMIN", "100"])
-            run_command(["powercfg", "/setactive", "SCHEME_CURRENT"])
-            return True, "CPU minimum state set to 100%."
-        except Exception as e:
-            return False, str(e)
+            scheme = get_engine().handlers["power.active.v1"].backend.power_read()["scheme"]
+            return run_operations("Set AC CPU minimum state", [Operation("power.cpu_min.v1",
+                {"scheme": scheme, "setting": "cpu_min"}, {"ac": 100}, "Set AC CPU minimum state to 100 percent")])
+        except Exception as error:
+            return False, str(error)
 
     @staticmethod
     def toggle_hibernation(enable=True):
-        """Enable or disable hibernation (saves disk space if disabled)."""
-        if sys.platform != "win32": return False
-        try:
-            state = "on" if enable else "off"
-            run_command(["powercfg", "/hibernate", state])
-            return True, f"Hibernation turned {state}."
-        except Exception as e:
-            return False, str(e)
+        if sys.platform != "win32":
+            return False, "Only supported on Windows."
+        from src.core.recovery.integration import run_operations
+        from src.core.recovery.models import Operation
+        return run_operations("Change Windows hibernation", [Operation("power.hibernate.v1",
+            {"scope": "Windows hibernation"}, {"enabled": bool(enable)},
+            "Change hibernation configuration; a previous hibernation image cannot be recovered")])

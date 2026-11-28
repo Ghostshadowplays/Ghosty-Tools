@@ -218,10 +218,16 @@ jobs:
             args+=(-f "previous_tag_name=$LATEST")
           fi
           gh api "${args[@]}" --jq '.body' > "$RUNNER_TEMP/release-notes.md"
+          range="$SOURCE_SHA"
+          if [ "$LATEST" != "v0.0.0" ]; then
+            range="$LATEST..$SOURCE_SHA"
+          fi
+          git log --no-merges --format='- %s (%h)' "$range" > "$RUNNER_TEMP/release-commits.md"
           python .github/scripts/update-release-docs.py \
             --version "$VERSION" \
             --repository "$GITHUB_REPOSITORY" \
-            --notes-file "$RUNNER_TEMP/release-notes.md"
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --commits-file "$RUNNER_TEMP/release-commits.md"
 
       - name: Create signed release commit
         if: steps.changes.outputs.changed == 'true'

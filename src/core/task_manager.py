@@ -71,11 +71,17 @@ class TaskManager:
 
     @staticmethod
     def kill_process(pid):
-        """Kill a process by PID."""
+        if sys.platform != "win32":
+            try:
+                psutil.Process(pid).terminate()
+                return True, f"Process {pid} terminated."
+            except Exception as error:
+                return False, str(error)
+        from src.core.recovery.integration import run_operations
+        from src.core.recovery.models import Operation
         try:
-            proc = psutil.Process(pid)
-            proc.terminate()
-            return True, f"Process {pid} terminated."
-        except Exception as e:
-            logger.error(f"Failed to kill process {pid}: {e}")
-            return False, str(e)
+            started = psutil.Process(pid).create_time()
+            return run_operations("Terminate process", [Operation("process.stop.v1", {"pid": pid, "started": started},
+                                  {"running": False}, "Stop selected process; unsaved data cannot be recovered")])
+        except Exception as error:
+            return False, str(error)

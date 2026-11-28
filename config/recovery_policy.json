@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "critical_services": ["WinDefend", "WdNisSvc", "MpsSvc", "BFE", "RpcSs", "DcomLaunch", "EventLog", "Dhcp", "Dnscache", "NlaSvc", "nsi", "wuauserv", "UsoSvc", "WaaSMedicSvc"],
+  "blocked_service_stop": ["WinDefend", "WdNisSvc", "MpsSvc", "BFE", "RpcSs", "DcomLaunch", "EventLog", "Dhcp", "Dnscache", "NlaSvc", "nsi"],
+  "protected_processes": ["system", "idle", "registry", "secure system", "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe", "lsass.exe", "services.exe"]
+}

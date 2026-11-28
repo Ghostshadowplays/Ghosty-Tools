@@ -1,11 +1,19 @@
 import sys
 import os
+
+# The connectivity guard runs independently and never creates the GUI.
+if __name__ == "__main__" and len(sys.argv) == 3 and sys.argv[1] == "--ghosty-recovery-watchdog":
+    from src.core.recovery.watchdog import main as recovery_watchdog_main
+    raise SystemExit(recovery_watchdog_main(sys.argv[2]))
+
 import logging
 import traceback
 from datetime import datetime
 from PyQt6.QtWidgets import QApplication
 from src.gui.main_window import GhostyTool
 from src.utils.helpers import get_logs_dir, get_os_info
+from src.utils.helpers import get_config_dir
+from PyQt6.QtCore import QLockFile
 
 # Determine version
 VERSION = "v8.0.9"
@@ -66,6 +74,12 @@ def main():
     
     try:
         app = QApplication(sys.argv)
+
+        instance_lock = QLockFile(os.path.join(get_config_dir(), "ghostytools-instance.lock"))
+        if not instance_lock.tryLock(0):
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(None, "Ghosty Tools", "Ghosty Tools is already running. Open the existing window or its tray icon.")
+            return
         
         # Initialize the main window
         window = GhostyTool()
