@@ -2,6 +2,16 @@
 
 Release notes are preserved here as the README moves to each new version.
 
+## v8.0.10
+
+### Changes
+
+- Add journaled Windows recovery system (c0c8abb)
+
+**Full Changelog**: https://github.com/Ghostshadowplays/Ghosty-Tools/compare/v8.0.9...v8.0.10
+
+[GitHub release](https://github.com/Ghostshadowplays/Ghosty-Tools/releases/tag/v8.0.10)
+
 ## v8.0.9
 
 ### Changes
