@@ -14,17 +14,15 @@ Official Website: [ghostyware.com](https://ghostyware.com)
 Ghosty Tools is a high-performance, modular utility designed to secure and optimize your Windows, Linux, and macOS environments. Built with a focus on **Security First**, it combines system maintenance, security auditing, and professional-grade password management into a single, sleek interface.
 
 <!-- whats-new:start -->
-## 🆕 What's New in v8.0.9
+## 🆕 What's New in v8.0.10
 
 ### Changes
 
-- chore: prepare release v8.0.9 (#63) (e815fc1)
-- Archive monthly release notes (523f747)
-- Improve appearance customization and theming (3db0716)
+- Add journaled Windows recovery system (c0c8abb)
 
-**Full Changelog**: https://github.com/Ghostshadowplays/Ghosty-Tools/compare/v8.0.8...v8.0.9
+**Full Changelog**: https://github.com/Ghostshadowplays/Ghosty-Tools/compare/v8.0.9...v8.0.10
 
-[Release details](https://github.com/Ghostshadowplays/Ghosty-Tools/releases/tag/v8.0.9) · [Release history](CHANGELOG.md)
+[Release details](https://github.com/Ghostshadowplays/Ghosty-Tools/releases/tag/v8.0.10) · [Release history](CHANGELOG.md)
 <!-- whats-new:end -->
 
 ## ✨ Features

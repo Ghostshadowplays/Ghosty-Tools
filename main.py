@@ -16,7 +16,7 @@ from src.utils.helpers import get_config_dir
 from PyQt6.QtCore import QLockFile
 
 # Determine version
-VERSION = "v8.0.9"
+VERSION = "v8.0.10"
 
 def setup_logging():
     """Configure logging to both file and console."""
